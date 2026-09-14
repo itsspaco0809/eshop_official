@@ -1617,8 +1617,10 @@ export default function Checkout() {
         );
       }
 
-      window.location.href =
-        data.url;
+      // Stripe Checkout redirect
+      // Use assign() instead of href so browser navigation is explicit.
+      // This avoids SPA router interference and guarantees leaving the app.
+      window.location.assign(data.url);
     } catch (err: any) {
       console.error(
         '[Checkout] Order submission error:',
