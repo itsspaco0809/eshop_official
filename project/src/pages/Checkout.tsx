@@ -359,15 +359,18 @@ const sessionId =
 
             try {
               const {
-                data,
-                error,
-              } = await supabase.rpc(
-                'get_checkout_status',
-                {
-                  checkout_session_id:
-                    sessionId,
-                },
-              );
+  data,
+  error,
+} = await supabase
+  .from('orders')
+  .select(
+    'id,status'
+  )
+  .eq(
+    'stripe_session_id',
+    sessionId
+  )
+  .maybeSingle();
 
               if (error) {
                 console.error(
@@ -376,24 +379,19 @@ const sessionId =
                 );
               }
 
-              const checkoutStatus =
-                Array.isArray(data)
-                  ? data[0]
-                  : data;
-
               if (
-                checkoutStatus?.order_id
-              ) {
+  data?.id
+) {
                 if (cancelled) return;
 
                 setOrderId(
-                  checkoutStatus.order_id
-                );
+  data.id
+);
 
-                setDbOrderStatus(
-                  checkoutStatus.status ||
-                    'paid'
-                );
+setDbOrderStatus(
+  data.status ||
+  'paid'
+);
 
                 /*
                  * Only clear cart after the
