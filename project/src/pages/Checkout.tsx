@@ -1553,10 +1553,9 @@ export default function Checkout() {
        * =====================================================
        */
       if (
-        isCashPayment ||
-        baseTotalUSD === 0 ||
-        !data.url
-      ) {
+  isCashPayment ||
+  baseTotalUSD === 0
+) {
         if (
           !data.order_id
         ) {
@@ -1608,19 +1607,21 @@ export default function Checkout() {
        * success
        */
       if (
-        typeof data.url !==
-        'string' ||
-        !data.url
-      ) {
-        throw new Error(
-          'Stripe checkout URL was not returned.'
-        );
-      }
+  typeof data.checkout_url !==
+  'string' ||
+  !data.checkout_url
+) {
+  throw new Error(
+    'Stripe checkout URL was not returned.'
+  );
+}
 
       // Stripe Checkout redirect
       // Use assign() instead of href so browser navigation is explicit.
       // This avoids SPA router interference and guarantees leaving the app.
-      window.location.assign(data.url);
+      window.location.assign(
+  data.checkout_url
+);
     } catch (err: any) {
       console.error(
         '[Checkout] Order submission error:',
