@@ -1,0 +1,20 @@
+[functions.create-order]
+verify_jwt = false
+
+[functions.stripe-webhook]
+verify_jwt = false
+
+[functions.send-order-invoice]
+verify_jwt = false
+
+[functions.download-instruction]
+verify_jwt = true
+
+[functions.submit-contact]
+verify_jwt = false
+
+[functions.record-page-view]
+verify_jwt = false
+
+[functions.validate-coupon]
+verify_jwt = false
