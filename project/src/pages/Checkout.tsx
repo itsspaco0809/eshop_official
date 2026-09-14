@@ -139,7 +139,6 @@ type AppliedCoupon = {
 type CheckoutStatus =
   | 'idle'
   | 'submitting'
-  | 'confirming'
   | 'success';
 
 export default function Checkout() {
@@ -339,7 +338,6 @@ const sessionId =
 
         if (cancelled) return;
 
-        setStatus('confirming');
         setErrorMessage(null);
 
         scrollToTop();
@@ -430,9 +428,9 @@ const sessionId =
 
               setStatus('idle');
 
-              setErrorMessage(
-                'Your payment was received, but the order is still being confirmed. Please check your order history in a moment.'
-              );
+setErrorMessage(
+  'Payment received. Your order is still being processed. Please check your order history shortly.'
+);
             } catch (error) {
               console.error(
                 'Stripe order confirmation error:',
@@ -1712,49 +1710,6 @@ const sessionId =
 
   /*
    * =========================================================
-   * PAYMENT CONFIRMING
-   * =========================================================
-   */
-  if (
-    status === 'confirming'
-  ) {
-    return (
-      <div className="bg-neutral-50 dark:bg-neutral-950 min-h-screen flex flex-col justify-start items-center px-4 pb-12 pt-[calc(5rem+env(safe-area-inset-top)+2rem)] md:pt-[calc(7rem+env(safe-area-inset-top)+2rem)] transition-colors">
-        <div className="max-w-md text-center pt-8 md:pt-12">
-          <div className="w-20 h-20 rounded-full bg-neutral-900 dark:bg-white flex items-center justify-center mx-auto mb-6">
-            <Lock className="w-10 h-10 text-white dark:text-neutral-950 animate-pulse" />
-          </div>
-
-          <h1 className="text-3xl font-bold text-neutral-900 dark:text-white mb-3">
-            Confirming Payment...
-          </h1>
-
-          <div className="inline-flex items-center gap-2 bg-neutral-100 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 px-4 py-1.5 rounded-full text-xs font-mono uppercase tracking-wider mb-4">
-            <span className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse" />
-
-            <span className="text-indigo-600 dark:text-indigo-400 font-bold">
-              Payment received
-            </span>
-          </div>
-
-          <p className="text-neutral-600 dark:text-neutral-400 mb-3">
-            Your payment was successful.
-          </p>
-
-          <p className="text-neutral-500 dark:text-neutral-500 text-sm">
-            We are confirming your order. Please do not close this page.
-          </p>
-
-          <div className="mt-8 flex justify-center">
-            <div className="w-8 h-8 border-2 border-neutral-300 dark:border-neutral-700 border-t-neutral-900 dark:border-t-white rounded-full animate-spin" />
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  /*
-   * =========================================================
    * SUCCESS
    * =========================================================
    */
@@ -2428,9 +2383,7 @@ const sessionId =
                 form="checkout-form"
                 disabled={
                   status ===
-                    'submitting' ||
-                  status ===
-                    'confirming'
+                    'submitting'
                 }
                 className={`flex items-center justify-center gap-2 w-full py-4 text-white dark:text-neutral-950 font-bold text-sm uppercase tracking-wider rounded-full transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 ${
                   isCashPayment
