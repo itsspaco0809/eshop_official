@@ -265,10 +265,13 @@ export default function Checkout() {
           );
 
         const paymentStatus =
-          searchParams.get('status');
+  searchParams.get('status');
 
-        const sessionId =
-          searchParams.get('session_id');
+const stripeSuccess =
+  searchParams.get('success');
+
+const sessionId =
+  searchParams.get('session_id');
 
         const paramOrderId =
           searchParams.get('order_id');
@@ -325,11 +328,14 @@ export default function Checkout() {
          * -----------------------------------------------------
          */
         if (
-          paymentStatus !== 'success' ||
-          !sessionId
-        ) {
-          return;
-        }
+  (
+    paymentStatus !== 'success' &&
+    stripeSuccess !== 'true'
+  ) ||
+  !sessionId
+) {
+  return;
+}
 
         if (cancelled) return;
 
