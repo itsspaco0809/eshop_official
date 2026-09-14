@@ -1731,7 +1731,7 @@ setErrorMessage(
           <div className="inline-flex items-center gap-2 bg-neutral-100 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 px-4 py-1.5 rounded-full text-xs font-mono uppercase tracking-wider mb-4">
             <span className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse" />
 
-            <span className="text-indigo-600 dark:text-indigo-400 font-bold">
+            <span className="text-amber-600 dark:text-amber-400 font-bold">
               Status:{' '}
               {String(dbOrderStatus || 'paid').toUpperCase()}
             </span>
