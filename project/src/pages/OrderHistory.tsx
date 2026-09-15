@@ -216,7 +216,7 @@ export default function OrderHistory() {
       const downloadUrl = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = downloadUrl;
-      a.download = 'Instruction.pdf';
+      a.download = 'Instruction_Manual.zip';
       document.body.appendChild(a);
       a.click();
       a.remove();
