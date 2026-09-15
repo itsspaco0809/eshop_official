@@ -379,31 +379,41 @@ const sessionId =
                 );
               }
 
-              if (
-  data?.id
-) {
+              if (data?.id) {
                 if (cancelled) return;
 
-                setOrderId(
-  data.id
-);
-
-setDbOrderStatus(
-  data.status ||
-  'paid'
-);
+                setOrderId(data.id);
 
                 /*
-                 * Only clear cart after the
-                 * webhook-created order exists.
+                 * IMPORTANT:
+                 * Finding the order does NOT mean payment is complete.
+                 * create-order creates the row before Stripe webhook runs.
+                 * Wait until stripe-webhook changes status to paid.
                  */
-                clearCart();
+                if (data.status === 'paid') {
+                  setDbOrderStatus('paid');
 
-                setStatus('success');
+                  clearCart();
 
-                scrollToTop();
+                  setStatus('success');
 
-                return;
+                  scrollToTop();
+
+                  return;
+                }
+
+                /*
+                 * Order exists but webhook has not finished yet.
+                 * Keep polling instead of showing PENDING.
+                 */
+                if (Date.now() - startedAt < 60000) {
+                  pollTimer = setTimeout(
+                    pollForOrder,
+                    1000
+                  );
+
+                  return;
+                }
               }
 
               /*
