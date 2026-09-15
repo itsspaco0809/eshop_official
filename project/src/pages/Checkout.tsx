@@ -2059,28 +2059,28 @@ export default function Checkout() {
           </h1>
 
           <div className="inline-flex items-center gap-2 bg-neutral-100 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 px-4 py-1.5 rounded-full text-xs font-mono uppercase tracking-wider mb-4">
-  <span
-    className={`w-2 h-2 rounded-full ${
-      isCompleted
-        ? 'bg-emerald-500 animate-pulse'
-        : 'bg-indigo-500 animate-pulse'
-    }`}
-  />
+            <span
+              className={`w-2 h-2 rounded-full ${
+                isCompleted
+                  ? 'bg-emerald-500 animate-pulse'
+                  : 'bg-indigo-500 animate-pulse'
+              }`}
+            />
 
-  <span
-    className={`font-bold ${
-      isCompleted
-        ? 'text-emerald-600 dark:text-emerald-400'
-        : 'text-indigo-600 dark:text-indigo-400'
-    }`}
-  >
-    Status:{' '}
-    {String(
-      dbOrderStatus ||
-        'paid'
-    ).toUpperCase()}
-  </span>
-</div>
+            <span
+              className={`font-bold ${
+                isCompleted
+                  ? 'text-emerald-600 dark:text-emerald-400'
+                  : 'text-indigo-600 dark:text-indigo-400'
+              }`}
+            >
+              Status:{' '}
+              {String(
+                dbOrderStatus ||
+                  'paid'
+              ).toUpperCase()}
+            </span>
+          </div>
 
           <p className="text-neutral-600 dark:text-neutral-400 mb-2">
             {isCompleted
@@ -2430,7 +2430,7 @@ export default function Checkout() {
           {/* =================================================
               ORDER SUMMARY
               ================================================= */}
-          <div className="w-full order-2 lg:sticky lg:top-24 self-start space-y-6">
+          <div className="w-full order-2 lg:sticky lg:top-32 self-start space-y-6">
             <div className="bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200 dark:border-neutral-800 p-6 space-y-6 shadow-sm dark:shadow-none">
               <div className="flex justify-between items-center">
                 <h2 className="text-neutral-900 dark:text-white font-bold text-lg">
