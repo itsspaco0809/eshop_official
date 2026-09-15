@@ -136,6 +136,12 @@ export default function Navbar({
   const currencyMenuRef =
     useRef<HTMLDivElement>(null);
 
+  /*
+   * =========================================================
+   * INTRO ANIMATION STATE
+   * =========================================================
+   */
+
   const introAnimatedRef =
     useRef(false);
 
@@ -1136,21 +1142,24 @@ export default function Navbar({
    * =========================================================
    * INTRO SEQUENCE ANIMATION
    *
+   * MOBILE ORDER IS EXPLICIT:
+   *
+   * 1. Hamburger
+   * 2. Logo
+   * 3. Theme
+   * 4. Cart
+   *
    * IMPORTANT:
    *
-   * All mobile navbar items use the SAME GSAP animation.
+   * The mobile theme button itself has NO entrance
+   * transition. Its entrance is controlled ONLY by GSAP.
    *
-   * Hamburger
-   * Logo
-   * Theme
-   * Cart
-   *
-   * No individual mobile theme opacity/scale animation is
-   * applied here.
+   * The Sun/Moon icons also do NOT animate with
+   * opacity/scale/rotation during navbar intro.
    * =========================================================
    */
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (
       !headerRef.current ||
       !isIntroFinished
@@ -1165,55 +1174,173 @@ export default function Navbar({
         headerRef.current,
         {
           clearProps:
-            'y,opacity',
+            'transform,opacity',
         }
       );
 
-      const items =
+      const mobileItems =
         headerRef.current.querySelectorAll(
-          '.mobile-header-item, .desktop-header-item'
+          '[data-mobile-header-item]'
         );
 
-      gsap.set(items, {
-        clearProps:
-          'transform,opacity',
-      });
+      const desktopItems =
+        headerRef.current.querySelectorAll(
+          '[data-desktop-header-item]'
+        );
+
+      gsap.set(
+        [
+          ...Array.from(
+            mobileItems
+          ),
+          ...Array.from(
+            desktopItems
+          ),
+        ],
+        {
+          clearProps:
+            'transform,opacity',
+        }
+      );
 
       return;
     }
 
     const ctx =
       gsap.context(() => {
-        const mobileItems =
-          headerRef.current?.querySelectorAll(
-            '.mobile-header-item'
-          );
-
-        const desktopItems =
-          headerRef.current?.querySelectorAll(
-            '.desktop-header-item'
-          );
-
         const isMobile =
           window.innerWidth <
           MOBILE_BREAKPOINT;
 
-        const targetItems =
-          isMobile
-            ? mobileItems
-            : desktopItems;
+        /*
+         * =====================================================
+         * MOBILE
+         * =====================================================
+         */
 
-        if (
-          !targetItems ||
-          targetItems.length ===
+        if (isMobile) {
+          const mobileElements =
+            Array.from(
+              headerRef.current?.querySelectorAll(
+                '[data-mobile-header-item]'
+              ) ?? []
+            ).sort(
+              (a, b) =>
+                Number(
+                  a.getAttribute(
+                    'data-mobile-header-order'
+                  ) ?? 0
+                ) -
+                Number(
+                  b.getAttribute(
+                    'data-mobile-header-order'
+                  ) ?? 0
+                )
+            );
+
+          if (
+            mobileElements.length ===
             0
-        ) {
+          ) {
+            return;
+          }
+
+          /*
+           * Header itself is immediately visible.
+           *
+           * We do NOT animate the whole header separately.
+           * This makes the four elements feel like one clean
+           * left-to-right falling sequence.
+           */
+          gsap.set(
+            headerRef.current,
+            {
+              y: 0,
+              opacity: 1,
+            }
+          );
+
+          /*
+           * Every mobile item starts from EXACTLY the same
+           * vertical offset.
+           */
+          gsap.set(
+            mobileElements,
+            {
+              y: -38,
+              opacity: 0,
+            }
+          );
+
+          /*
+           * ONE timeline.
+           *
+           * Hamburger -> Logo -> Theme -> Cart
+           *
+           * each item begins 0.12s after the previous item.
+           */
+          const mobileTimeline =
+            gsap.timeline({
+              onComplete: () => {
+                introAnimatedRef.current =
+                  true;
+
+                gsap.set(
+                  mobileElements,
+                  {
+                    clearProps:
+                      'transform,opacity',
+                  }
+                );
+
+                gsap.set(
+                  headerRef.current,
+                  {
+                    clearProps:
+                      'transform,opacity',
+                  }
+                );
+              },
+            });
+
+          mobileTimeline.to(
+            mobileElements,
+            {
+              y: 0,
+              opacity: 1,
+              duration: 0.48,
+              stagger: {
+                each: 0.12,
+                from: 'start',
+              },
+              ease: 'power3.out',
+              overwrite: 'auto',
+            }
+          );
+
           return;
         }
 
         /*
-         * Header itself moves first.
+         * =====================================================
+         * DESKTOP
+         * =====================================================
          */
+
+        const desktopElements =
+          Array.from(
+            headerRef.current?.querySelectorAll(
+              '[data-desktop-header-item]'
+            ) ?? []
+          );
+
+        if (
+          desktopElements.length ===
+          0
+        ) {
+          return;
+        }
+
         gsap.set(
           headerRef.current,
           {
@@ -1222,19 +1349,15 @@ export default function Navbar({
           }
         );
 
-        /*
-         * Every navbar item starts from exactly the same
-         * position and opacity.
-         */
         gsap.set(
-          targetItems,
+          desktopElements,
           {
             y: -30,
             opacity: 0,
           }
         );
 
-        const tl =
+        const desktopTimeline =
           gsap.timeline({
             onComplete: () => {
               introAnimatedRef.current =
@@ -1243,20 +1366,17 @@ export default function Navbar({
               gsap.set(
                 [
                   headerRef.current,
-                  targetItems,
+                  ...desktopElements,
                 ],
                 {
                   clearProps:
-                    'transform,opacity,y',
+                    'transform,opacity',
                 }
               );
             },
           });
 
-        /*
-         * Header enters.
-         */
-        tl.to(
+        desktopTimeline.to(
           headerRef.current,
           {
             y: 0,
@@ -1266,29 +1386,22 @@ export default function Navbar({
           }
         );
 
-        /*
-         * All mobile / desktop navbar items share this exact
-         * GSAP animation.
-         */
-        tl.to(
-          targetItems,
+        desktopTimeline.to(
+          desktopElements,
           {
             y: 0,
             opacity: 1,
             duration: 0.4,
-            stagger: isMobile
-              ? 0.05
-              : 0.04,
+            stagger: 0.04,
             ease: 'power2.out',
-            clearProps:
-              'transform,opacity',
           },
           '-=0.2'
         );
       }, headerRef);
 
-    return () =>
+    return () => {
       ctx.revert();
+    };
   }, [
     isIntroFinished,
   ]);
@@ -1825,16 +1938,6 @@ export default function Navbar({
    * =========================================================
    * LOCAL LOGO
    * =========================================================
-   *
-   * File:
-   *
-   * public/LCP_logo_trans.png
-   *
-   * Served from:
-   *
-   * /LCP_logo_trans.png
-   *
-   * This removes the GitHub raw-image request.
    */
 
   const logoUrl =
@@ -2019,9 +2122,12 @@ export default function Navbar({
 
             {/* =================================================
                 MOBILE HAMBURGER
+                ORDER 1
                 ================================================= */}
 
             <button
+              data-mobile-header-item
+              data-mobile-header-order="1"
               onClick={() => {
                 if (
                   mobileOpenRef.current
@@ -2032,7 +2138,6 @@ export default function Navbar({
                 }
               }}
               className="
-                mobile-header-item
                 min-[1536px]:hidden
                 p-2
                 text-neutral-900
@@ -2045,6 +2150,7 @@ export default function Navbar({
                 justify-center
                 focus:outline-none
                 z-50
+                shrink-0
               "
               aria-label="Toggle menu"
               aria-expanded={
@@ -2089,6 +2195,7 @@ export default function Navbar({
 
             {/* =================================================
                 LOGO
+                ORDER 2
                 ================================================= */}
 
             <div
@@ -2110,9 +2217,10 @@ export default function Navbar({
                 onClick={() =>
                   handleNavClick('/')
                 }
+                data-mobile-header-item
+                data-mobile-header-order="2"
+                data-desktop-header-item
                 className="
-                  mobile-header-item
-                  desktop-header-item
                   group
                   relative
                   flex
@@ -2122,11 +2230,13 @@ export default function Navbar({
                   min-[1536px]:h-20
                   w-32
                   min-[1536px]:w-48
-                  transition-transform
-                  duration-300
-                  ease-out
+
+                  min-[1536px]:transition-transform
+                  min-[1536px]:duration-300
+                  min-[1536px]:ease-out
                   min-[1536px]:hover:scale-110
                   min-[1536px]:active:scale-95
+
                   touch-manipulation
                   z-50
                   select-none
@@ -2244,8 +2354,8 @@ export default function Navbar({
                           link.to
                         )
                       }
+                      data-desktop-header-item
                       className={`
-                        desktop-header-item
                         relative
                         text-sm
                         font-semibold
@@ -2315,10 +2425,10 @@ export default function Navbar({
                 className="
                   hidden
                   min-[1536px]:block
-                  desktop-header-item
                   relative
                   shrink-0
                 "
+                data-desktop-header-item
                 ref={
                   currencyMenuRef
                 }
@@ -2539,10 +2649,10 @@ export default function Navbar({
                       : 'dark'
                   );
                 }}
+                data-desktop-header-item
                 className="
                   hidden
                   min-[1536px]:flex
-                  desktop-header-item
                   relative
                   items-center
                   justify-between
@@ -2631,10 +2741,10 @@ export default function Navbar({
                 className="
                   hidden
                   min-[1536px]:block
-                  desktop-header-item
                   relative
                   shrink-0
                 "
+                data-desktop-header-item
                 ref={
                   userMenuRef
                 }
@@ -2872,17 +2982,15 @@ export default function Navbar({
               {/* =================================================
                   MOBILE THEME TOGGLE
                   
-                  IMPORTANT FIX:
+                  ORDER 3
                   
-                  NO:
-                    transition-all
-                    opacity-0
-                    opacity-100
-                    scale-90
-                    scale-100
+                  IMPORTANT:
+                  This element has NO transition-all.
+                  No scale animation.
+                  No opacity animation.
+                  No rotation animation.
                   
-                  The navbar intro GSAP now owns the animation
-                  exactly like Hamburger / Logo / Cart.
+                  GSAP owns the navbar entrance.
                   ================================================= */}
 
               <button
@@ -2890,8 +2998,9 @@ export default function Navbar({
                 onClick={
                   handleMobileThemeToggle
                 }
+                data-mobile-header-item
+                data-mobile-header-order="3"
                 className="
-                  mobile-header-item
                   min-[1536px]:hidden
                   relative
                   p-2
@@ -2917,52 +3026,39 @@ export default function Navbar({
                     : 'dark'
                 } mode`}
               >
-                <Sun
-                  className={`
-                    w-6
-                    h-6
-                    absolute
-                    transition-all
-                    duration-300
-                    ease-out
-
-                    ${
-                      theme === 'light'
-                        ? 'opacity-100 rotate-0 scale-100 text-amber-500'
-                        : 'opacity-0 -rotate-90 scale-75 text-neutral-400'
-                    }
-                  `}
-                />
-
-                <Moon
-                  className={`
-                    w-6
-                    h-6
-                    transition-all
-                    duration-300
-                    ease-out
-
-                    ${
-                      theme === 'dark'
-                        ? 'opacity-100 rotate-0 scale-100 text-indigo-400'
-                        : 'opacity-0 rotate-90 scale-75 text-neutral-400'
-                    }
-                  `}
-                />
+                {theme === 'dark' ? (
+                  <Moon
+                    className="
+                      w-6
+                      h-6
+                      text-indigo-400
+                    "
+                  />
+                ) : (
+                  <Sun
+                    className="
+                      w-6
+                      h-6
+                      text-amber-500
+                    "
+                  />
+                )}
               </button>
 
 
               {/* =================================================
                   CART
+                  ORDER 4
                   ================================================= */}
 
               <button
                 onClick={
                   openCart
                 }
+                data-mobile-header-item
+                data-mobile-header-order="4"
+                data-desktop-header-item
                 className="
-                  mobile-header-item
-                  desktop-header-item
                   relative
                   p-2
                   text-neutral-900
