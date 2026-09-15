@@ -1,3 +1,4 @@
+```tsx
 import {
   useState,
   useEffect,
@@ -50,7 +51,6 @@ const COUNTRY_CONFIG: Record<
     taxRate: 0,
     Flag: HK,
   },
-
   'United States': {
     currency: 'USD',
     rate: 1.0,
@@ -58,7 +58,6 @@ const COUNTRY_CONFIG: Record<
     taxRate: 0.08,
     Flag: US,
   },
-
   Canada: {
     currency: 'CAD',
     rate: 1.35,
@@ -66,7 +65,6 @@ const COUNTRY_CONFIG: Record<
     taxRate: 0.08,
     Flag: CA,
   },
-
   'United Kingdom': {
     currency: 'GBP',
     rate: 0.78,
@@ -74,7 +72,6 @@ const COUNTRY_CONFIG: Record<
     taxRate: 0.08,
     Flag: GB,
   },
-
   Australia: {
     currency: 'AUD',
     rate: 1.52,
@@ -82,7 +79,6 @@ const COUNTRY_CONFIG: Record<
     taxRate: 0.08,
     Flag: AU,
   },
-
   Germany: {
     currency: 'EUR',
     rate: 0.92,
@@ -90,7 +86,6 @@ const COUNTRY_CONFIG: Record<
     taxRate: 0.08,
     Flag: EU,
   },
-
   France: {
     currency: 'EUR',
     rate: 0.92,
@@ -98,7 +93,6 @@ const COUNTRY_CONFIG: Record<
     taxRate: 0.08,
     Flag: EU,
   },
-
   Japan: {
     currency: 'JPY',
     rate: 155.0,
@@ -167,6 +161,7 @@ export default function Checkout() {
    *
    * This ref acts as a synchronous lock.
    */
+
   const submitLockRef = useRef(false);
 
   const [form, setForm] = useState({
@@ -182,9 +177,7 @@ export default function Checkout() {
     notes: '',
   });
 
-  const [couponInput, setCouponInput] =
-    useState('');
-
+  const [couponInput, setCouponInput] = useState('');
   const [appliedCoupon, setAppliedCoupon] =
     useState<AppliedCoupon | null>(null);
 
@@ -231,16 +224,16 @@ export default function Checkout() {
    * This means the FIRST render after Stripe returns is already
    * the confirmation/loading screen.
    */
+
   const [isConfirmingStripeReturn, setIsConfirmingStripeReturn] =
     useState(() => {
       if (typeof window === 'undefined') {
         return false;
       }
 
-      const searchParams =
-        new URLSearchParams(
-          window.location.search
-        );
+      const searchParams = new URLSearchParams(
+        window.location.search
+      );
 
       const paymentStatus =
         searchParams.get('status');
@@ -268,6 +261,7 @@ export default function Checkout() {
    * Only an authenticated admin with the correct
    * app_metadata role can trigger CASH.
    */
+
   const isCashPayment =
     isAdmin &&
     form.notes
@@ -280,6 +274,7 @@ export default function Checkout() {
    * SCROLL TO TOP
    * =========================================================
    */
+
   const scrollToTop = () => {
     window.scrollTo({
       top: 0,
@@ -303,6 +298,7 @@ export default function Checkout() {
    * STRIPE WEBHOOK CONFIRMATION
    * =========================================================
    */
+
   useEffect(() => {
     let cancelled = false;
 
@@ -310,350 +306,326 @@ export default function Checkout() {
       | ReturnType<typeof setTimeout>
       | null = null;
 
-    const confirmStripeOrder =
-      async () => {
-        const searchParams =
-          new URLSearchParams(
-            window.location.search
-          );
+    const confirmStripeOrder = async () => {
+      const searchParams = new URLSearchParams(
+        window.location.search
+      );
 
-        const paymentStatus =
-          searchParams.get('status');
+      const paymentStatus =
+        searchParams.get('status');
 
-        const stripeSuccess =
-          searchParams.get('success');
+      const stripeSuccess =
+        searchParams.get('success');
 
-        const sessionId =
-          searchParams.get('session_id');
+      const sessionId =
+        searchParams.get('session_id');
 
-        const paramOrderId =
-          searchParams.get('order_id');
+      const paramOrderId =
+        searchParams.get('order_id');
 
-        /*
-         * -----------------------------------------------------
-         * CASH / LEGACY DIRECT ORDER
-         * -----------------------------------------------------
-         */
-        if (paramOrderId) {
-          if (cancelled) {
-            return;
-          }
+      /*
+       * -----------------------------------------------------
+       * CASH / LEGACY DIRECT ORDER
+       * -----------------------------------------------------
+       */
 
-          setOrderId(paramOrderId);
-
-          setStatus('success');
-
-          /*
-           * Fetch the actual database status so the success
-           * page can correctly show PAID or DONE.
-           */
-          const {
-            data,
-            error,
-          } = await supabase
-            .from('orders')
-            .select('status')
-            .eq('id', paramOrderId)
-            .maybeSingle();
-
-          if (cancelled) {
-            return;
-          }
-
-          if (
-            !error &&
-            data?.status
-          ) {
-            setDbOrderStatus(
-              data.status
-            );
-          } else {
-            setDbOrderStatus('paid');
-          }
-
-          clearCart();
-
-          scrollToTop();
-
-          window.history.replaceState(
-            {},
-            document.title,
-            window.location.pathname
-          );
-
+      if (paramOrderId) {
+        if (cancelled) {
           return;
         }
 
-        /*
-         * -----------------------------------------------------
-         * STRIPE CANCEL
-         * -----------------------------------------------------
-         */
-        if (
-          paymentStatus === 'cancel'
-        ) {
-          if (cancelled) {
-            return;
-          }
-
-          /*
-           * Make sure the Stripe loader is removed when the
-           * customer returns from a cancelled Stripe session.
-           */
-          setIsConfirmingStripeReturn(
-            false
-          );
-
-          setStatus('idle');
-
-          setErrorMessage(
-            'Payment was cancelled. No order was created.'
-          );
-
-          window.history.replaceState(
-            {},
-            document.title,
-            window.location.pathname
-          );
-
-          return;
-        }
+        setOrderId(paramOrderId);
+        setStatus('success');
 
         /*
-         * -----------------------------------------------------
-         * NOTHING TO CONFIRM
-         * -----------------------------------------------------
+         * Fetch the actual database status so the success
+         * page can correctly show PAID or DONE.
          */
-        if (
-          (
-            paymentStatus !== 'success' &&
-            stripeSuccess !== 'true'
-          ) ||
-          !sessionId
-        ) {
-          if (!cancelled) {
-            setIsConfirmingStripeReturn(
-              false
-            );
-          }
 
-          return;
-        }
+        const {
+          data,
+          error,
+        } = await supabase
+          .from('orders')
+          .select('status')
+          .eq('id', paramOrderId)
+          .maybeSingle();
 
         if (cancelled) {
           return;
         }
 
-        /*
-         * -----------------------------------------------------
-         * STRIPE RETURN
-         * -----------------------------------------------------
-         *
-         * The initial useState() has already made the FIRST
-         * render the loading screen.
-         *
-         * This remains here as a safety net for any client-side
-         * navigation that reaches this component with Stripe
-         * parameters.
-         */
-        setIsConfirmingStripeReturn(
-          true
-        );
+        if (
+          !error &&
+          data?.status
+        ) {
+          setDbOrderStatus(
+            data.status
+          );
+        } else {
+          setDbOrderStatus('paid');
+        }
 
-        setErrorMessage(null);
-
+        clearCart();
         scrollToTop();
 
-        /*
-         * Remove URL query parameters immediately.
-         *
-         * replaceState() does not reload the page.
-         */
         window.history.replaceState(
           {},
           document.title,
           window.location.pathname
         );
 
-        const startedAt =
-          Date.now();
+        return;
+      }
 
-        const pollForOrder =
-          async () => {
+      /*
+       * -----------------------------------------------------
+       * STRIPE CANCEL
+       * -----------------------------------------------------
+       */
+
+      if (
+        paymentStatus === 'cancel'
+      ) {
+        if (cancelled) {
+          return;
+        }
+
+        setIsConfirmingStripeReturn(false);
+
+        setStatus('idle');
+
+        setErrorMessage(
+          'Payment was cancelled. No order was created.'
+        );
+
+        window.history.replaceState(
+          {},
+          document.title,
+          window.location.pathname
+        );
+
+        return;
+      }
+
+      /*
+       * -----------------------------------------------------
+       * NOTHING TO CONFIRM
+       * -----------------------------------------------------
+       */
+
+      if (
+        (
+          paymentStatus !== 'success' &&
+          stripeSuccess !== 'true'
+        ) ||
+        !sessionId
+      ) {
+        if (!cancelled) {
+          setIsConfirmingStripeReturn(false);
+        }
+
+        return;
+      }
+
+      if (cancelled) {
+        return;
+      }
+
+      /*
+       * -----------------------------------------------------
+       * STRIPE RETURN
+       * -----------------------------------------------------
+       *
+       * The initial useState() has already made the FIRST
+       * render the loading screen.
+       *
+       * This remains here as a safety net for any client-side
+       * navigation that reaches this component with Stripe
+       * parameters.
+       */
+
+      setIsConfirmingStripeReturn(true);
+      setErrorMessage(null);
+
+      scrollToTop();
+
+      /*
+       * Remove URL query parameters immediately.
+       *
+       * replaceState() does not reload the page.
+       */
+
+      window.history.replaceState(
+        {},
+        document.title,
+        window.location.pathname
+      );
+
+      const startedAt = Date.now();
+
+      const pollForOrder = async () => {
+        if (cancelled) {
+          return;
+        }
+
+        try {
+          const {
+            data,
+            error,
+          } = await supabase
+            .from('orders')
+            .select('id,status')
+            .eq(
+              'stripe_session_id',
+              sessionId
+            )
+            .maybeSingle();
+
+          if (error) {
+            console.error(
+              'Stripe order confirmation query failed:',
+              error
+            );
+          }
+
+          if (data?.id) {
             if (cancelled) {
               return;
             }
 
-            try {
-              const {
-                data,
-                error,
-              } = await supabase
-                .from('orders')
-                .select(
-                  'id,status'
-                )
-                .eq(
-                  'stripe_session_id',
-                  sessionId
-                )
-                .maybeSingle();
+            setOrderId(data.id);
 
-              if (error) {
-                console.error(
-                  'Stripe order confirmation query failed:',
-                  error
-                );
-              }
+            /*
+             * IMPORTANT:
+             *
+             * Finding the order does NOT mean payment is
+             * complete.
+             *
+             * create-order creates the order row first.
+             *
+             * Stripe webhook then changes:
+             *
+             * pending → paid
+             *
+             * OR
+             *
+             * pending → done
+             *
+             * Therefore we keep the confirmation screen
+             * visible while the status is still pending.
+             */
 
-              if (data?.id) {
-                if (cancelled) {
-                  return;
-                }
+            if (
+              data.status === 'paid' ||
+              data.status === 'done'
+            ) {
+              setDbOrderStatus(
+                data.status
+              );
 
-                setOrderId(
-                  data.id
-                );
-
-                /*
-                 * IMPORTANT:
-                 *
-                 * Finding the order does NOT mean payment is
-                 * complete.
-                 *
-                 * create-order creates the order row first.
-                 *
-                 * Stripe webhook then changes:
-                 *
-                 * pending → paid
-                 *
-                 * OR
-                 *
-                 * pending → done
-                 *
-                 * Therefore we keep the confirmation screen
-                 * visible while the status is still pending.
-                 */
-                if (
-                  data.status === 'paid' ||
-                  data.status === 'done'
-                ) {
-                  setDbOrderStatus(
-                    data.status
-                  );
-
-                  clearCart();
-
-                  /*
-                   * IMPORTANT:
-                   *
-                   * Only hide the Stripe confirmation screen
-                   * AFTER the final DB status is confirmed.
-                   */
-                  setIsConfirmingStripeReturn(
-                    false
-                  );
-
-                  setStatus(
-                    'success'
-                  );
-
-                  scrollToTop();
-
-                  return;
-                }
-
-                /*
-                 * Order exists but webhook has not finished yet.
-                 *
-                 * Keep polling.
-                 */
-                if (
-                  Date.now() -
-                    startedAt <
-                  60000
-                ) {
-                  pollTimer =
-                    setTimeout(
-                      pollForOrder,
-                      1000
-                    );
-
-                  return;
-                }
-              }
+              clearCart();
 
               /*
-               * Continue polling for up to 60 seconds.
+               * IMPORTANT:
+               *
+               * Only hide the Stripe confirmation screen
+               * AFTER the final DB status is confirmed.
                */
-              if (
-                Date.now() -
-                  startedAt <
-                60000
-              ) {
-                pollTimer =
-                  setTimeout(
-                    pollForOrder,
-                    1500
-                  );
 
-                return;
-              }
+              setIsConfirmingStripeReturn(false);
 
-              if (cancelled) {
-                return;
-              }
+              setStatus('success');
 
-              /*
-               * Confirmation timed out.
-               */
-              setIsConfirmingStripeReturn(
-                false
-              );
+              scrollToTop();
 
-              setStatus('idle');
-
-              setErrorMessage(
-                'Payment received. Your order is still being processed. Please check your order history shortly.'
-              );
-            } catch (error) {
-              console.error(
-                'Stripe order confirmation error:',
-                error
-              );
-
-              if (
-                Date.now() -
-                  startedAt <
-                60000
-              ) {
-                pollTimer =
-                  setTimeout(
-                    pollForOrder,
-                    1500
-                  );
-
-                return;
-              }
-
-              if (cancelled) {
-                return;
-              }
-
-              setIsConfirmingStripeReturn(
-                false
-              );
-
-              setStatus('idle');
-
-              setErrorMessage(
-                'We could not confirm your order yet. Please check your order history shortly.'
-              );
+              return;
             }
-          };
 
-        pollForOrder();
+            /*
+             * Order exists but webhook has not finished yet.
+             *
+             * Keep polling.
+             */
+
+            if (
+              Date.now() - startedAt <
+              60000
+            ) {
+              pollTimer = setTimeout(
+                pollForOrder,
+                1000
+              );
+
+              return;
+            }
+          }
+
+          /*
+           * Continue polling for up to 60 seconds.
+           */
+
+          if (
+            Date.now() - startedAt <
+            60000
+          ) {
+            pollTimer = setTimeout(
+              pollForOrder,
+              1500
+            );
+
+            return;
+          }
+
+          if (cancelled) {
+            return;
+          }
+
+          /*
+           * Confirmation timed out.
+           */
+
+          setIsConfirmingStripeReturn(false);
+
+          setStatus('idle');
+
+          setErrorMessage(
+            'Payment received. Your order is still being processed. Please check your order history shortly.'
+          );
+        } catch (error) {
+          console.error(
+            'Stripe order confirmation error:',
+            error
+          );
+
+          if (
+            Date.now() - startedAt <
+            60000
+          ) {
+            pollTimer = setTimeout(
+              pollForOrder,
+              1500
+            );
+
+            return;
+          }
+
+          if (cancelled) {
+            return;
+          }
+
+          setIsConfirmingStripeReturn(false);
+
+          setStatus('idle');
+
+          setErrorMessage(
+            'We could not confirm your order yet. Please check your order history shortly.'
+          );
+        }
       };
+
+      pollForOrder();
+    };
 
     confirmStripeOrder();
 
@@ -661,9 +633,7 @@ export default function Checkout() {
       cancelled = true;
 
       if (pollTimer) {
-        clearTimeout(
-          pollTimer
-        );
+        clearTimeout(pollTimer);
       }
     };
   }, [clearCart]);
@@ -673,11 +643,10 @@ export default function Checkout() {
    * CURRENCY → COUNTRY SYNC
    * =========================================================
    */
+
   useEffect(() => {
     const matchingCountry =
-      CURRENCY_TO_COUNTRY[
-        globalCurrency
-      ];
+      CURRENCY_TO_COUNTRY[globalCurrency];
 
     if (
       matchingCountry &&
@@ -712,11 +681,11 @@ export default function Checkout() {
    * PRICE HELPERS
    * =========================================================
    */
+
   const calculateLocalAmount = (
     usdAmount: number
   ) => {
-    const raw =
-      usdAmount * rate;
+    const raw = usdAmount * rate;
 
     return selectedCurrency === 'HKD'
       ? Math.ceil(raw)
@@ -727,9 +696,7 @@ export default function Checkout() {
     usdAmount: number
   ) => {
     const localAmount =
-      calculateLocalAmount(
-        usdAmount
-      );
+      calculateLocalAmount(usdAmount);
 
     const isHKD =
       selectedCurrency === 'HKD';
@@ -740,7 +707,6 @@ export default function Checkout() {
         {
           minimumFractionDigits:
             isHKD ? 0 : 2,
-
           maximumFractionDigits:
             isHKD ? 0 : 2,
         }
@@ -754,6 +720,7 @@ export default function Checkout() {
    * COUNTRY
    * =========================================================
    */
+
   const handleCountryChange = (
     country: string
   ) => {
@@ -769,9 +736,7 @@ export default function Checkout() {
       newCurrency &&
       newCurrency !== globalCurrency
     ) {
-      setGlobalCurrency(
-        newCurrency
-      );
+      setGlobalCurrency(newCurrency);
 
       setAppliedCoupon(null);
       setCouponError(null);
@@ -783,22 +748,19 @@ export default function Checkout() {
    * NOTES
    * =========================================================
    */
+
   const handleNotesChange = (
     e: ChangeEvent<HTMLTextAreaElement>
   ) => {
-    const text =
-      e.target.value;
+    const text = e.target.value;
 
-    const words =
-      text.trim()
-        ? text.trim().split(/\s+/)
-            .length
-        : 0;
+    const words = text.trim()
+      ? text.trim().split(/\s+/).length
+      : 0;
 
     if (
       words <= 200 ||
-      text.length <
-        form.notes.length
+      text.length < form.notes.length
     ) {
       setForm((prev) => ({
         ...prev,
@@ -812,12 +774,11 @@ export default function Checkout() {
    * PRODUCT HELPERS
    * =========================================================
    */
+
   const getProductPriceUSD = (
     price?: number
   ) => {
-    if (
-      typeof price !== 'number'
-    ) {
+    if (typeof price !== 'number') {
       return 0;
     }
 
@@ -835,6 +796,7 @@ export default function Checkout() {
    * An item is considered an Instructions product when
    * section, category, OR name contains "instruction".
    */
+
   const isInstructionItem = (
     item?: (typeof items)[0]
   ) => {
@@ -908,6 +870,7 @@ export default function Checkout() {
    * SUBTOTAL
    * =========================================================
    */
+
   const normalizedSubtotalUSD =
     items.reduce(
       (acc, item) => {
@@ -931,6 +894,7 @@ export default function Checkout() {
    * COUPON
    * =========================================================
    */
+
   const handleApplyCoupon = async (
     e: FormEvent
   ) => {
@@ -953,20 +917,22 @@ export default function Checkout() {
       const {
         data,
         error,
-      } =
-        await supabase.functions.invoke(
-          'validate-coupon',
-          {
-            body: {
-              code,
-            },
-          }
-        );
+      } = await supabase.functions.invoke(
+        'validate-coupon',
+        {
+          body: {
+            code,
+          },
+        }
+      );
 
       const coupon =
         data?.coupon ?? null;
 
-      if (error || !coupon) {
+      if (
+        error ||
+        !coupon
+      ) {
         setCouponError(
           'Invalid coupon code.'
         );
@@ -993,8 +959,7 @@ export default function Checkout() {
 
       if (
         couponCurrency !== 'ALL' &&
-        couponCurrency !==
-          selectedCurrency
+        couponCurrency !== selectedCurrency
       ) {
         setCouponError(
           `This coupon is only valid for purchases in ${couponCurrency}.`
@@ -1057,6 +1022,7 @@ export default function Checkout() {
    * SUCCESS SCROLL
    * =========================================================
    */
+
   useEffect(() => {
     if (status === 'success') {
       scrollToTop();
@@ -1068,6 +1034,7 @@ export default function Checkout() {
    * ORDER STATUS LISTENER
    * =========================================================
    */
+
   useEffect(() => {
     if (!orderId) {
       return;
@@ -1130,6 +1097,7 @@ export default function Checkout() {
    * DISCOUNT
    * =========================================================
    */
+
   let discountAmountUSD = 0;
 
   if (appliedCoupon) {
@@ -1138,8 +1106,10 @@ export default function Checkout() {
       'percentage'
     ) {
       discountAmountUSD =
-        (normalizedSubtotalUSD *
-          appliedCoupon.discountValue) /
+        (
+          normalizedSubtotalUSD *
+          appliedCoupon.discountValue
+        ) /
         100;
     } else {
       discountAmountUSD =
@@ -1163,6 +1133,7 @@ export default function Checkout() {
    * PHYSICAL ITEMS
    * =========================================================
    */
+
   const basePhysicalSubtotalUSD =
     items.reduce(
       (acc, item) => {
@@ -1214,6 +1185,7 @@ export default function Checkout() {
    * Kits + Instructions + Custom Parts
    * → paid
    */
+
   const isInstructionOnly =
     items.length > 0 &&
     items.every(
@@ -1227,6 +1199,7 @@ export default function Checkout() {
    * SHIPPING / TAX
    * =========================================================
    */
+
   const freeShippingThresholdUSD =
     99;
 
@@ -1237,8 +1210,7 @@ export default function Checkout() {
   const baseShippingUSD =
     isHongKong ||
     !hasPhysicalItems ||
-    basePhysicalSubtotalUSD ===
-      0 ||
+    basePhysicalSubtotalUSD === 0 ||
     basePhysicalSubtotalUSD >=
       freeShippingThresholdUSD
       ? 0
@@ -1276,14 +1248,14 @@ export default function Checkout() {
    * The Supabase session is checked immediately before
    * creating the order.
    */
+
   const getCheckoutSession =
     async () => {
       try {
         const {
           data,
           error,
-        } =
-          await supabase.auth.getSession();
+        } = await supabase.auth.getSession();
 
         if (error) {
           console.warn(
@@ -1313,14 +1285,13 @@ export default function Checkout() {
    * Used only when Supabase tells us that the existing
    * refresh token/session is invalid.
    */
+
   const clearBrokenAuthSession =
     async () => {
       try {
-        await supabase.auth.signOut(
-          {
-            scope: 'local',
-          }
-        );
+        await supabase.auth.signOut({
+          scope: 'local',
+        });
       } catch (error) {
         console.warn(
           '[Checkout] Failed to clear broken auth session:',
@@ -1334,6 +1305,7 @@ export default function Checkout() {
    * EDGE FUNCTION ERROR PARSER
    * =========================================================
    */
+
   const parseFunctionError =
     async (
       funcError: any
@@ -1352,10 +1324,11 @@ export default function Checkout() {
       /*
        * Read Retry-After header if the backend provides it.
        */
+
       try {
         if (
-          funcError?.context?.headers
-            ?.get
+          funcError?.context
+            ?.headers?.get
         ) {
           retryAfter =
             funcError.context.headers.get(
@@ -1367,22 +1340,21 @@ export default function Checkout() {
       /*
        * Try reading JSON error body.
        */
+
       try {
         if (
           funcError?.context &&
           typeof funcError
             .context
-            .json ===
-            'function'
+            .json === 'function'
         ) {
           const body =
-            await funcError.context.json();
+            await funcError
+              .context
+              .json();
 
-          if (
-            body?.error
-          ) {
-            message =
-              body.error;
+          if (body?.error) {
+            message = body.error;
           } else if (
             body?.message
           ) {
@@ -1397,14 +1369,11 @@ export default function Checkout() {
        * RATE LIMIT
        * -----------------------------------------------------
        */
-      if (
-        statusCode === 429
-      ) {
+
+      if (statusCode === 429) {
         if (retryAfter) {
           const seconds =
-            Number(
-              retryAfter
-            );
+            Number(retryAfter);
 
           if (
             Number.isFinite(
@@ -1436,6 +1405,7 @@ export default function Checkout() {
        * INVALID REFRESH TOKEN
        * -----------------------------------------------------
        */
+
       const lowerMessage =
         String(
           message || ''
@@ -1464,6 +1434,7 @@ export default function Checkout() {
    * SUBMIT ORDER
    * =========================================================
    */
+
   const handleSubmit = async (
     e: FormEvent
   ) => {
@@ -1474,6 +1445,7 @@ export default function Checkout() {
      * HARD DOUBLE-SUBMIT LOCK
      * -------------------------------------------------------
      */
+
     if (submitLockRef.current) {
       return;
     }
@@ -1488,9 +1460,11 @@ export default function Checkout() {
      * VALIDATE CART
      * -------------------------------------------------------
      */
+
     const invalidItems =
       items.filter(
-        (item) => !item?.product
+        (item) =>
+          !item?.product
       );
 
     if (
@@ -1528,6 +1502,7 @@ export default function Checkout() {
      * stripe-webhook using the actual order_items/products
      * on the server.
      */
+
     const targetStatus =
       isInstructionOnly
         ? 'done'
@@ -1551,6 +1526,7 @@ export default function Checkout() {
        * STEP 1 — VERIFY CURRENT SESSION
        * =====================================================
        */
+
       let activeSession =
         await getCheckoutSession();
 
@@ -1562,6 +1538,7 @@ export default function Checkout() {
        * - normal Stripe → clear stale local auth and
        *   continue as guest
        */
+
       if (
         user &&
         !activeSession
@@ -1581,6 +1558,7 @@ export default function Checkout() {
         /*
          * Guest checkout is allowed for normal Stripe orders.
          */
+
         activeSession = null;
       }
 
@@ -1589,6 +1567,7 @@ export default function Checkout() {
        * STEP 2 — CREATE ORDER / STRIPE SESSION
        * =====================================================
        */
+
       const requestBody = {
         /*
          * IMPORTANT:
@@ -1596,6 +1575,7 @@ export default function Checkout() {
          * Use the CURRENT Supabase session user ID,
          * not a stale React user ID.
          */
+
         user_id:
           activeSession?.user?.id ??
           null,
@@ -1634,6 +1614,7 @@ export default function Checkout() {
          * Stripe:
          * pending until webhook confirmation
          */
+
         status:
           targetStatus,
 
@@ -1660,48 +1641,48 @@ export default function Checkout() {
             localTotalAmount * 100
           ),
 
-        items:
-          items.map(
-            (item) => {
-              const prod =
-                item.product as any;
+        items: items.map(
+          (item) => {
+            const prod =
+              item.product as any;
 
-              const colorName =
-                item.selectedColor ||
-                prod?.selectedColor ||
-                null;
+            const colorName =
+              item.selectedColor ||
+              prod?.selectedColor ||
+              null;
 
-              return {
-                product_id:
-                  prod?.id,
+            return {
+              product_id:
+                prod?.id,
 
-                product_name:
-                  prod?.name,
+              product_name:
+                prod?.name,
 
-                selected_color:
-                  colorName,
+              selected_color:
+                colorName,
 
-                quantity:
-                  item.quantity,
+              quantity:
+                item.quantity,
 
-                /*
-                 * Kept for compatibility.
-                 *
-                 * create-order should continue using
-                 * the database product price as the
-                 * authoritative price.
-                 */
-                price:
-                  Math.round(
-                    calculateLocalAmount(
-                      getProductPriceUSD(
-                        prod?.price
-                      )
-                    ) * 100
-                  ),
-              };
-            }
-          ),
+              /*
+               * Kept for compatibility.
+               *
+               * create-order should continue using
+               * the database product price as the
+               * authoritative price.
+               */
+
+              price:
+                Math.round(
+                  calculateLocalAmount(
+                    getProductPriceUSD(
+                      prod?.price
+                    )
+                  ) * 100
+                ),
+            };
+          }
+        ),
       };
 
       let data: any = null;
@@ -1712,11 +1693,13 @@ export default function Checkout() {
        * FIRST ATTEMPT
        * -------------------------------------------------------
        */
+
       const firstAttempt =
         await supabase.functions.invoke(
           'create-order',
           {
-            body: requestBody,
+            body:
+              requestBody,
           }
         );
 
@@ -1738,9 +1721,8 @@ export default function Checkout() {
        * 2. Do NOT repeat for admin CASH.
        * 3. Retry ONE time as guest for normal Stripe.
        */
-      if (
-        funcError
-      ) {
+
+      if (funcError) {
         const parsed =
           await parseFunctionError(
             funcError
@@ -1764,6 +1746,7 @@ export default function Checkout() {
           /*
            * Retry exactly ONCE.
            */
+
           const retryBody = {
             ...requestBody,
             user_id: null,
@@ -1773,7 +1756,8 @@ export default function Checkout() {
             await supabase.functions.invoke(
               'create-order',
               {
-                body: retryBody,
+                body:
+                  retryBody,
               }
             );
 
@@ -1790,6 +1774,7 @@ export default function Checkout() {
        * FUNCTION ERROR
        * -------------------------------------------------------
        */
+
       if (funcError) {
         const parsed =
           await parseFunctionError(
@@ -1817,6 +1802,7 @@ export default function Checkout() {
        * BACKEND RESPONSE VALIDATION
        * -------------------------------------------------------
        */
+
       if (
         !data?.success
       ) {
@@ -1832,6 +1818,7 @@ export default function Checkout() {
        * CASH / FREE ORDER
        * =====================================================
        */
+
       if (
         isCashPayment ||
         baseTotalUSD === 0
@@ -1856,6 +1843,7 @@ export default function Checkout() {
          * Instructions only → done
          * Physical/Cash order → paid
          */
+
         setDbOrderStatus(
           data.status ||
             targetStatus ||
@@ -1869,6 +1857,7 @@ export default function Checkout() {
         /*
          * Clear cart ONLY after successful order creation.
          */
+
         clearCart();
 
         return;
@@ -1895,6 +1884,7 @@ export default function Checkout() {
        *       ↓
        * success
        */
+
       if (
         typeof data.checkout_url !==
           'string' ||
@@ -1911,6 +1901,7 @@ export default function Checkout() {
        * Use assign() instead of href so browser navigation
        * is explicit and SPA router interference is avoided.
        */
+
       window.location.assign(
         data.checkout_url
       );
@@ -1925,6 +1916,7 @@ export default function Checkout() {
       /*
        * Never leave the lock active after an error.
        */
+
       submitLockRef.current =
         false;
 
@@ -1941,6 +1933,7 @@ export default function Checkout() {
        * AUTH ERROR
        * -------------------------------------------------------
        */
+
       if (
         lowerMessage.includes(
           'invalid refresh token'
@@ -1966,6 +1959,7 @@ export default function Checkout() {
        * RATE LIMIT
        * -------------------------------------------------------
        */
+
       if (
         lowerMessage.includes(
           'too many'
@@ -1989,6 +1983,7 @@ export default function Checkout() {
        * NORMAL ERROR
        * -------------------------------------------------------
        */
+
       setErrorMessage(
         rawMessage ||
           'Failed to process order.'
@@ -2019,6 +2014,7 @@ export default function Checkout() {
    *      ↓
    * Success
    */
+
   if (
     isConfirmingStripeReturn &&
     status !== 'success'
@@ -2041,6 +2037,7 @@ export default function Checkout() {
    * SUCCESS
    * =========================================================
    */
+
   if (
     status === 'success'
   ) {
@@ -2059,28 +2056,28 @@ export default function Checkout() {
           </h1>
 
           <div className="inline-flex items-center gap-2 bg-neutral-100 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 px-4 py-1.5 rounded-full text-xs font-mono uppercase tracking-wider mb-4">
-  <span
-    className={`w-2 h-2 rounded-full ${
-      isCompleted
-        ? 'bg-emerald-500 animate-pulse'
-        : 'bg-indigo-500 animate-pulse'
-    }`}
-  />
+            <span
+              className={`w-2 h-2 rounded-full ${
+                isCompleted
+                  ? 'bg-emerald-500 animate-pulse'
+                  : 'bg-indigo-500 animate-pulse'
+              }`}
+            />
 
-  <span
-    className={`font-bold ${
-      isCompleted
-        ? 'text-emerald-600 dark:text-emerald-400'
-        : 'text-indigo-600 dark:text-indigo-400'
-    }`}
-  >
-    Status:{' '}
-    {String(
-      dbOrderStatus ||
-        'paid'
-    ).toUpperCase()}
-  </span>
-</div>
+            <span
+              className={`font-bold ${
+                isCompleted
+                  ? 'text-emerald-600 dark:text-emerald-400'
+                  : 'text-indigo-600 dark:text-indigo-400'
+              }`}
+            >
+              Status:{' '}
+              {String(
+                dbOrderStatus ||
+                  'paid'
+              ).toUpperCase()}
+            </span>
+          </div>
 
           <p className="text-neutral-600 dark:text-neutral-400 mb-2">
             {isCompleted
@@ -2115,6 +2112,7 @@ export default function Checkout() {
    * EMPTY CART
    * =========================================================
    */
+
   if (
     items.length === 0
   ) {
@@ -2149,6 +2147,7 @@ export default function Checkout() {
    * CHECKOUT UI
    * =========================================================
    */
+
   return (
     <div className="bg-neutral-50 dark:bg-neutral-950 min-h-screen transition-colors pt-20 md:pt-24">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -2160,6 +2159,7 @@ export default function Checkout() {
           className="flex items-center gap-2 text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors mb-6 text-sm"
         >
           <ArrowLeft className="w-4 h-4" />
+
           Continue Shopping
         </button>
 
@@ -2184,6 +2184,7 @@ export default function Checkout() {
         >
           <div className="w-full space-y-6 order-1">
             {/* CONTACT */}
+
             <div className="bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200 dark:border-neutral-800 p-6 shadow-sm dark:shadow-none">
               <h2 className="text-neutral-900 dark:text-white font-bold text-lg mb-4">
                 Contact Information
@@ -2198,8 +2199,7 @@ export default function Checkout() {
                   onChange={(e) =>
                     setForm({
                       ...form,
-                      email:
-                        e.target.value,
+                      email: e.target.value,
                     })
                   }
                   style={{
@@ -2218,8 +2218,7 @@ export default function Checkout() {
                   onChange={(e) =>
                     setForm({
                       ...form,
-                      phone:
-                        e.target.value,
+                      phone: e.target.value,
                     })
                   }
                   style={{
@@ -2255,6 +2254,7 @@ export default function Checkout() {
             </div>
 
             {/* SHIPPING */}
+
             <div className="bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200 dark:border-neutral-800 p-6 shadow-sm dark:shadow-none">
               <h2 className="text-neutral-900 dark:text-white font-bold text-lg mb-4">
                 Shipping Address
@@ -2292,8 +2292,7 @@ export default function Checkout() {
                     onChange={(e) =>
                       setForm({
                         ...form,
-                        city:
-                          e.target.value,
+                        city: e.target.value,
                       })
                     }
                     style={{
@@ -2328,9 +2327,7 @@ export default function Checkout() {
                 </div>
 
                 <select
-                  value={
-                    form.country
-                  }
+                  value={form.country}
                   onChange={(e) =>
                     handleCountryChange(
                       e.target.value
@@ -2363,6 +2360,7 @@ export default function Checkout() {
             </div>
 
             {/* NOTES */}
+
             <div className="bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200 dark:border-neutral-800 p-6 shadow-sm dark:shadow-none">
               <div className="flex justify-between items-center mb-4">
                 <h2 className="text-neutral-900 dark:text-white font-bold text-lg">
@@ -2370,7 +2368,8 @@ export default function Checkout() {
                 </h2>
 
                 <span className="text-xs text-neutral-500 font-mono">
-                  {wordCount} / 200 words
+                  {wordCount} / 200
+                  words
                 </span>
               </div>
 
@@ -2392,6 +2391,7 @@ export default function Checkout() {
             </div>
 
             {/* PAYMENT */}
+
             <div className="bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200 dark:border-neutral-800 p-6 shadow-sm dark:shadow-none">
               <div className="flex items-center gap-2 mb-4">
                 {isCashPayment ? (
@@ -2412,7 +2412,10 @@ export default function Checkout() {
                   <Banknote className="w-5 h-5 text-emerald-600 dark:text-emerald-400 flex-shrink-0" />
 
                   <p className="text-emerald-700 dark:text-emerald-300 text-sm font-medium">
-                    Store Cash Payment detected. Stripe checkout will be bypassed.
+                    Store Cash Payment
+                    detected. Stripe
+                    checkout will be
+                    bypassed.
                   </p>
                 </div>
               ) : (
@@ -2420,7 +2423,8 @@ export default function Checkout() {
                   <Lock className="w-5 h-5 text-neutral-500" />
 
                   <p className="text-neutral-600 dark:text-neutral-400 text-sm">
-                    Secure checkout powered by Stripe.
+                    Secure checkout
+                    powered by Stripe.
                   </p>
                 </div>
               )}
@@ -2430,7 +2434,20 @@ export default function Checkout() {
           {/* =================================================
               ORDER SUMMARY
               ================================================= */}
-          <div className="w-full order-2 lg:sticky lg:top-24 self-start space-y-6">
+
+          <div
+            className="
+              w-full
+              order-2
+              lg:sticky
+              lg:top-32
+              lg:pt-8
+              xl:top-36
+              xl:pt-10
+              self-start
+              space-y-6
+            "
+          >
             <div className="bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200 dark:border-neutral-800 p-6 space-y-6 shadow-sm dark:shadow-none">
               <div className="flex justify-between items-center">
                 <h2 className="text-neutral-900 dark:text-white font-bold text-lg">
@@ -2441,14 +2458,13 @@ export default function Checkout() {
                   <SelectedCountryFlag className="w-4 h-3 object-cover rounded-sm" />
 
                   <span>
-                    {
-                      globalCurrency
-                    }
+                    {globalCurrency}
                   </span>
                 </div>
               </div>
 
               {/* ITEMS */}
+
               <div className="space-y-3 max-h-64 overflow-y-auto">
                 {items.map(
                   (
@@ -2463,7 +2479,10 @@ export default function Checkout() {
                           key={idx}
                           className="p-3 bg-red-500/10 border border-red-500/30 rounded-xl text-red-600 dark:text-red-400 text-xs"
                         >
-                          Failed to fetch product details
+                          Failed to
+                          fetch
+                          product
+                          details
                         </div>
                       );
                     }
@@ -2484,9 +2503,7 @@ export default function Checkout() {
                       (
                         prod.colors as any[]
                       )?.find(
-                        (
-                          color
-                        ) =>
+                        (color) =>
                           color.name
                             ?.toLowerCase() ===
                           displayColorName?.toLowerCase()
@@ -2517,9 +2534,7 @@ export default function Checkout() {
 
                         <div className="flex-1 min-w-0">
                           <p className="text-neutral-900 dark:text-white text-sm font-semibold truncate">
-                            {
-                              prod.name
-                            }
+                            {prod.name}
                           </p>
 
                           <p className="text-neutral-500 text-xs truncate">
@@ -2549,6 +2564,7 @@ export default function Checkout() {
               </div>
 
               {/* COUPON */}
+
               <div className="pt-4 border-t border-neutral-200 dark:border-neutral-800 space-y-2">
                 <label className="block text-xs text-neutral-500 dark:text-neutral-400 font-medium">
                   Coupon Code
@@ -2597,8 +2613,7 @@ export default function Checkout() {
                       }
                       onChange={(e) =>
                         setCouponInput(
-                          e.target
-                            .value
+                          e.target.value
                         )
                       }
                       style={{
@@ -2636,6 +2651,7 @@ export default function Checkout() {
               </div>
 
               {/* TOTALS */}
+
               <div className="space-y-2 pt-4 border-t border-neutral-200 dark:border-neutral-800">
                 <div className="flex justify-between text-sm">
                   <span className="text-neutral-600 dark:text-neutral-400">
@@ -2721,12 +2737,13 @@ export default function Checkout() {
               </div>
 
               {/* SUBMIT */}
+
               <button
                 type="submit"
                 form="checkout-form"
                 disabled={
                   status ===
-                    'submitting'
+                  'submitting'
                 }
                 className={`flex items-center justify-center gap-2 w-full py-4 text-white dark:text-neutral-950 font-bold text-sm uppercase tracking-wider rounded-full transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 ${
                   isCashPayment
@@ -2761,5 +2778,7 @@ export default function Checkout() {
  * INPUT STYLE
  * ===========================================================
  */
+
 const inputClass =
   'w-full px-4 py-3 bg-white dark:bg-neutral-900 border border-neutral-300 dark:border-neutral-800 rounded-xl text-neutral-900 dark:text-white placeholder:text-neutral-400 dark:placeholder:text-neutral-500 text-[16px] focus:outline-none focus:border-neutral-500 dark:focus:border-neutral-600 transition-colors';
+```
