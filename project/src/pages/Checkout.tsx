@@ -1,3 +1,4 @@
+```tsx
 import {
   useState,
   useEffect,
@@ -207,11 +208,58 @@ export default function Checkout() {
     useState<string>('pending');
 
   /*
-   * Prevent checkout UI flashing after Stripe redirects back.
-   * We wait until the Stripe session has been confirmed.
+   * =========================================================
+   * STRIPE RETURN INITIAL STATE
+   * =========================================================
+   *
+   * IMPORTANT:
+   *
+   * This MUST NOT simply start as false.
+   *
+   * Stripe redirects back to:
+   *
+   * /checkout?success=true&session_id=...
+   *
+   * React can render the component once BEFORE useEffect()
+   * executes.
+   *
+   * If this state starts as false, the normal checkout UI
+   * can briefly appear before useEffect() changes it to true.
+   *
+   * We therefore inspect the URL during the INITIAL STATE
+   * calculation.
+   *
+   * This means the FIRST render after Stripe returns is already
+   * the confirmation/loading screen.
    */
   const [isConfirmingStripeReturn, setIsConfirmingStripeReturn] =
-    useState(false);
+    useState(() => {
+      if (typeof window === 'undefined') {
+        return false;
+      }
+
+      const searchParams =
+        new URLSearchParams(
+          window.location.search
+        );
+
+      const paymentStatus =
+        searchParams.get('status');
+
+      const stripeSuccess =
+        searchParams.get('success');
+
+      const sessionId =
+        searchParams.get('session_id');
+
+      return (
+        !!sessionId &&
+        (
+          paymentStatus === 'success' ||
+          stripeSuccess === 'true'
+        )
+      );
+    });
 
   /*
    * =========================================================
@@ -271,13 +319,13 @@ export default function Checkout() {
           );
 
         const paymentStatus =
-  searchParams.get('status');
+          searchParams.get('status');
 
-const stripeSuccess =
-  searchParams.get('success');
+        const stripeSuccess =
+          searchParams.get('success');
 
-const sessionId =
-  searchParams.get('session_id');
+        const sessionId =
+          searchParams.get('session_id');
 
         const paramOrderId =
           searchParams.get('order_id');
@@ -288,12 +336,44 @@ const sessionId =
          * -----------------------------------------------------
          */
         if (paramOrderId) {
-          if (cancelled) return;
+          if (cancelled) {
+            return;
+          }
 
           setOrderId(paramOrderId);
+
           setStatus('success');
 
+          /*
+           * Fetch the actual database status so the success
+           * page can correctly show PAID or DONE.
+           */
+          const {
+            data,
+            error,
+          } = await supabase
+            .from('orders')
+            .select('status')
+            .eq('id', paramOrderId)
+            .maybeSingle();
+
+          if (cancelled) {
+            return;
+          }
+
+          if (
+            !error &&
+            data?.status
+          ) {
+            setDbOrderStatus(
+              data.status
+            );
+          } else {
+            setDbOrderStatus('paid');
+          }
+
           clearCart();
+
           scrollToTop();
 
           window.history.replaceState(
@@ -310,8 +390,20 @@ const sessionId =
          * STRIPE CANCEL
          * -----------------------------------------------------
          */
-        if (paymentStatus === 'cancel') {
-          if (cancelled) return;
+        if (
+          paymentStatus === 'cancel'
+        ) {
+          if (cancelled) {
+            return;
+          }
+
+          /*
+           * Make sure the Stripe loader is removed when the
+           * customer returns from a cancelled Stripe session.
+           */
+          setIsConfirmingStripeReturn(
+            false
+          );
 
           setStatus('idle');
 
@@ -334,22 +426,40 @@ const sessionId =
          * -----------------------------------------------------
          */
         if (
-  (
-    paymentStatus !== 'success' &&
-    stripeSuccess !== 'true'
-  ) ||
-  !sessionId
-) {
-  return;
-}
+          (
+            paymentStatus !== 'success' &&
+            stripeSuccess !== 'true'
+          ) ||
+          !sessionId
+        ) {
+          if (!cancelled) {
+            setIsConfirmingStripeReturn(
+              false
+            );
+          }
 
-        if (cancelled) return;
+          return;
+        }
+
+        if (cancelled) {
+          return;
+        }
 
         /*
-         * Stripe has returned successfully.
-         * Hide normal checkout UI until webhook confirmation finishes.
+         * -----------------------------------------------------
+         * STRIPE RETURN
+         * -----------------------------------------------------
+         *
+         * The initial useState() has already made the FIRST
+         * render the loading screen.
+         *
+         * This remains here as a safety net for any client-side
+         * navigation that reaches this component with Stripe
+         * parameters.
          */
-        setIsConfirmingStripeReturn(true);
+        setIsConfirmingStripeReturn(
+          true
+        );
 
         setErrorMessage(null);
 
@@ -357,6 +467,8 @@ const sessionId =
 
         /*
          * Remove URL query parameters immediately.
+         *
+         * replaceState() does not reload the page.
          */
         window.history.replaceState(
           {},
@@ -364,26 +476,29 @@ const sessionId =
           window.location.pathname
         );
 
-        const startedAt = Date.now();
+        const startedAt =
+          Date.now();
 
         const pollForOrder =
           async () => {
-            if (cancelled) return;
+            if (cancelled) {
+              return;
+            }
 
             try {
               const {
-  data,
-  error,
-} = await supabase
-  .from('orders')
-  .select(
-    'id,status'
-  )
-  .eq(
-    'stripe_session_id',
-    sessionId
-  )
-  .maybeSingle();
+                data,
+                error,
+              } = await supabase
+                .from('orders')
+                .select(
+                  'id,status'
+                )
+                .eq(
+                  'stripe_session_id',
+                  sessionId
+                )
+                .maybeSingle();
 
               if (error) {
                 console.error(
@@ -393,22 +508,56 @@ const sessionId =
               }
 
               if (data?.id) {
-                if (cancelled) return;
+                if (cancelled) {
+                  return;
+                }
 
-                setOrderId(data.id);
+                setOrderId(
+                  data.id
+                );
 
                 /*
                  * IMPORTANT:
-                 * Finding the order does NOT mean payment is complete.
-                 * create-order creates the row before Stripe webhook runs.
-                 * Wait until stripe-webhook changes status to paid.
+                 *
+                 * Finding the order does NOT mean payment is
+                 * complete.
+                 *
+                 * create-order creates the order row first.
+                 *
+                 * Stripe webhook then changes:
+                 *
+                 * pending → paid
+                 *
+                 * OR
+                 *
+                 * pending → done
+                 *
+                 * Therefore we keep the confirmation screen
+                 * visible while the status is still pending.
                  */
-                if (data.status === 'paid') {
-                  setDbOrderStatus('paid');
+                if (
+                  data.status === 'paid' ||
+                  data.status === 'done'
+                ) {
+                  setDbOrderStatus(
+                    data.status
+                  );
 
                   clearCart();
 
-                  setStatus('success');
+                  /*
+                   * IMPORTANT:
+                   *
+                   * Only hide the Stripe confirmation screen
+                   * AFTER the final DB status is confirmed.
+                   */
+                  setIsConfirmingStripeReturn(
+                    false
+                  );
+
+                  setStatus(
+                    'success'
+                  );
 
                   scrollToTop();
 
@@ -417,13 +566,19 @@ const sessionId =
 
                 /*
                  * Order exists but webhook has not finished yet.
-                 * Keep polling instead of showing PENDING.
+                 *
+                 * Keep polling.
                  */
-                if (Date.now() - startedAt < 60000) {
-                  pollTimer = setTimeout(
-                    pollForOrder,
-                    1000
-                  );
+                if (
+                  Date.now() -
+                    startedAt <
+                  60000
+                ) {
+                  pollTimer =
+                    setTimeout(
+                      pollForOrder,
+                      1000
+                    );
 
                   return;
                 }
@@ -433,7 +588,8 @@ const sessionId =
                * Continue polling for up to 60 seconds.
                */
               if (
-                Date.now() - startedAt <
+                Date.now() -
+                  startedAt <
                 60000
               ) {
                 pollTimer =
@@ -445,13 +601,22 @@ const sessionId =
                 return;
               }
 
-              if (cancelled) return;
+              if (cancelled) {
+                return;
+              }
+
+              /*
+               * Confirmation timed out.
+               */
+              setIsConfirmingStripeReturn(
+                false
+              );
 
               setStatus('idle');
 
-setErrorMessage(
-  'Payment received. Your order is still being processed. Please check your order history shortly.'
-);
+              setErrorMessage(
+                'Payment received. Your order is still being processed. Please check your order history shortly.'
+              );
             } catch (error) {
               console.error(
                 'Stripe order confirmation error:',
@@ -459,7 +624,8 @@ setErrorMessage(
               );
 
               if (
-                Date.now() - startedAt <
+                Date.now() -
+                  startedAt <
                 60000
               ) {
                 pollTimer =
@@ -471,7 +637,13 @@ setErrorMessage(
                 return;
               }
 
-              if (cancelled) return;
+              if (cancelled) {
+                return;
+              }
+
+              setIsConfirmingStripeReturn(
+                false
+              );
 
               setStatus('idle');
 
@@ -490,7 +662,9 @@ setErrorMessage(
       cancelled = true;
 
       if (pollTimer) {
-        clearTimeout(pollTimer);
+        clearTimeout(
+          pollTimer
+        );
       }
     };
   }, [clearCart]);
@@ -651,6 +825,17 @@ setErrorMessage(
     return price / 100;
   };
 
+  /*
+   * =========================================================
+   * INSTRUCTIONS PRODUCT DETECTION
+   * =========================================================
+   *
+   * Keep this aligned with the server-side create-order
+   * and stripe-webhook logic.
+   *
+   * An item is considered an Instructions product when
+   * section, category, OR name contains "instruction".
+   */
   const isInstructionItem = (
     item?: (typeof items)[0]
   ) => {
@@ -658,11 +843,24 @@ setErrorMessage(
       return false;
     }
 
+    const product =
+      item.product as any;
+
+    const rawSection =
+      product.section;
+
     const rawCategory =
-      item.product.category;
+      product.category;
 
     const rawName =
-      item.product.name;
+      product.name;
+
+    const sectionStr =
+      Array.isArray(rawSection)
+        ? rawSection.join(' ')
+        : String(
+            rawSection || ''
+          );
 
     const categoryStr =
       Array.isArray(rawCategory)
@@ -678,18 +876,30 @@ setErrorMessage(
             rawName || ''
           );
 
+    const section =
+      sectionStr
+        .trim()
+        .toLowerCase();
+
     const category =
-      categoryStr.toLowerCase();
+      categoryStr
+        .trim()
+        .toLowerCase();
 
     const name =
-      nameStr.toLowerCase();
+      nameStr
+        .trim()
+        .toLowerCase();
 
     return (
+      section.includes(
+        'instruction'
+      ) ||
       category.includes(
         'instruction'
       ) ||
       name.includes(
-        '[instruction]'
+        'instruction'
       )
     );
   };
@@ -982,6 +1192,29 @@ setErrorMessage(
         !isInstructionItem(item)
     );
 
+  /*
+   * IMPORTANT:
+   *
+   * Only an order where EVERY item is an Instructions
+   * product is considered Instructions Only.
+   *
+   * Therefore:
+   *
+   * Instructions
+   * → done
+   *
+   * Kits
+   * → paid
+   *
+   * Custom Parts
+   * → paid
+   *
+   * Kits + Instructions
+   * → paid
+   *
+   * Kits + Instructions + Custom Parts
+   * → paid
+   */
   const isInstructionOnly =
     items.length > 0 &&
     items.every(
@@ -1280,10 +1513,26 @@ setErrorMessage(
      * -------------------------------------------------------
      * DETERMINE ORDER STATUS
      * -------------------------------------------------------
+     *
+     * IMPORTANT:
+     *
+     * Instructions ONLY
+     * → done
+     *
+     * Cash order with physical products
+     * → paid
+     *
+     * Normal Stripe order
+     * → pending
+     *
+     * The final Stripe status is still determined by the
+     * stripe-webhook using the actual order_items/products
+     * on the server.
      */
     const targetStatus =
-      isCashPayment ||
       isInstructionOnly
+        ? 'done'
+        : isCashPayment
         ? 'paid'
         : 'pending';
 
@@ -1376,6 +1625,16 @@ setErrorMessage(
         currency:
           globalCurrency,
 
+        /*
+         * Instructions only:
+         * done
+         *
+         * Cash physical order:
+         * paid
+         *
+         * Stripe:
+         * pending until webhook confirmation
+         */
         status:
           targetStatus,
 
@@ -1479,9 +1738,6 @@ setErrorMessage(
        * 1. Clear broken local session.
        * 2. Do NOT repeat for admin CASH.
        * 3. Retry ONE time as guest for normal Stripe.
-       *
-       * This prevents an old Safari auth token from blocking
-       * a perfectly valid guest checkout.
        */
       if (
         funcError
@@ -1578,9 +1834,9 @@ setErrorMessage(
        * =====================================================
        */
       if (
-  isCashPayment ||
-  baseTotalUSD === 0
-) {
+        isCashPayment ||
+        baseTotalUSD === 0
+      ) {
         if (
           !data.order_id
         ) {
@@ -1593,8 +1849,17 @@ setErrorMessage(
           data.order_id
         );
 
+        /*
+         * IMPORTANT:
+         *
+         * Use the backend status as authoritative.
+         *
+         * Instructions only → done
+         * Physical/Cash order → paid
+         */
         setDbOrderStatus(
           data.status ||
+            targetStatus ||
             'paid'
         );
 
@@ -1627,26 +1892,29 @@ setErrorMessage(
        *       ↓
        * orders row
        *       ↓
-       * get_checkout_status
+       * Checkout polling / order status
        *       ↓
        * success
        */
       if (
-  typeof data.checkout_url !==
-  'string' ||
-  !data.checkout_url
-) {
-  throw new Error(
-    'Stripe checkout URL was not returned.'
-  );
-}
+        typeof data.checkout_url !==
+          'string' ||
+        !data.checkout_url
+      ) {
+        throw new Error(
+          'Stripe checkout URL was not returned.'
+        );
+      }
 
-      // Stripe Checkout redirect
-      // Use assign() instead of href so browser navigation is explicit.
-      // This avoids SPA router interference and guarantees leaving the app.
+      /*
+       * Stripe Checkout redirect
+       *
+       * Use assign() instead of href so browser navigation
+       * is explicit and SPA router interference is avoided.
+       */
       window.location.assign(
-  data.checkout_url
-);
+        data.checkout_url
+      );
     } catch (err: any) {
       console.error(
         '[Checkout] Order submission error:',
@@ -1733,12 +2001,34 @@ setErrorMessage(
    * =========================================================
    * STRIPE RETURN LOADING
    * =========================================================
+   *
+   * Because isConfirmingStripeReturn is initialized from
+   * window.location.search, this screen is rendered on the
+   * FIRST render after Stripe redirects back.
+   *
+   * This prevents:
+   *
+   * Checkout UI
+   *      ↓
+   * flash
+   *      ↓
+   * Confirming payment...
+   *
+   * Instead:
+   *
+   * Confirming payment...
+   *      ↓
+   * Success
    */
-  if (isConfirmingStripeReturn && status !== 'success') {
+  if (
+    isConfirmingStripeReturn &&
+    status !== 'success'
+  ) {
     return (
-      <div className="bg-neutral-50 dark:bg-neutral-950 min-h-screen flex items-center justify-center px-4">
+      <div className="bg-neutral-50 dark:bg-neutral-950 min-h-screen w-full flex items-center justify-center px-4 transition-none">
         <div className="text-center">
           <div className="w-12 h-12 rounded-full border-4 border-neutral-300 dark:border-neutral-700 border-t-neutral-900 dark:border-t-white animate-spin mx-auto mb-5" />
+
           <p className="text-neutral-600 dark:text-neutral-400 text-sm">
             Confirming payment...
           </p>
@@ -1774,7 +2064,10 @@ setErrorMessage(
 
             <span className="text-indigo-600 dark:text-indigo-400 font-bold">
               Status:{' '}
-              {String(dbOrderStatus || 'paid').toUpperCase()}
+              {String(
+                dbOrderStatus ||
+                  'paid'
+              ).toUpperCase()}
             </span>
           </div>
 
@@ -2459,3 +2752,4 @@ setErrorMessage(
  */
 const inputClass =
   'w-full px-4 py-3 bg-white dark:bg-neutral-900 border border-neutral-300 dark:border-neutral-800 rounded-xl text-neutral-900 dark:text-white placeholder:text-neutral-400 dark:placeholder:text-neutral-500 text-[16px] focus:outline-none focus:border-neutral-500 dark:focus:border-neutral-600 transition-colors';
+```
