@@ -207,6 +207,13 @@ export default function Checkout() {
     useState<string>('pending');
 
   /*
+   * Prevent checkout UI flashing after Stripe redirects back.
+   * We wait until the Stripe session has been confirmed.
+   */
+  const [isConfirmingStripeReturn, setIsConfirmingStripeReturn] =
+    useState(false);
+
+  /*
    * =========================================================
    * ADMIN CASH PAYMENT
    * =========================================================
@@ -337,6 +344,12 @@ const sessionId =
 }
 
         if (cancelled) return;
+
+        /*
+         * Stripe has returned successfully.
+         * Hide normal checkout UI until webhook confirmation finishes.
+         */
+        setIsConfirmingStripeReturn(true);
 
         setErrorMessage(null);
 
@@ -1718,6 +1731,24 @@ setErrorMessage(
 
   /*
    * =========================================================
+   * STRIPE RETURN LOADING
+   * =========================================================
+   */
+  if (isConfirmingStripeReturn && status !== 'success') {
+    return (
+      <div className="bg-neutral-50 dark:bg-neutral-950 min-h-screen flex items-center justify-center px-4">
+        <div className="text-center">
+          <div className="w-12 h-12 rounded-full border-4 border-neutral-300 dark:border-neutral-700 border-t-neutral-900 dark:border-t-white animate-spin mx-auto mb-5" />
+          <p className="text-neutral-600 dark:text-neutral-400 text-sm">
+            Confirming payment...
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  /*
+   * =========================================================
    * SUCCESS
    * =========================================================
    */
@@ -1741,7 +1772,7 @@ setErrorMessage(
           <div className="inline-flex items-center gap-2 bg-neutral-100 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 px-4 py-1.5 rounded-full text-xs font-mono uppercase tracking-wider mb-4">
             <span className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse" />
 
-            <span className="text-amber-600 dark:text-amber-400 font-bold">
+            <span className="text-indigo-600 dark:text-indigo-400 font-bold">
               Status:{' '}
               {String(dbOrderStatus || 'paid').toUpperCase()}
             </span>
