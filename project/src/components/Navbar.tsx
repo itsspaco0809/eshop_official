@@ -1142,20 +1142,25 @@ export default function Navbar({
    * =========================================================
    * INTRO SEQUENCE ANIMATION
    *
-   * MOBILE ORDER IS EXPLICIT:
+   * MOBILE:
    *
-   * 1. Hamburger
-   * 2. Logo
-   * 3. Theme
-   * 4. Cart
+   * 1. HAMBURGER
+   * 2. LOGO
+   * 3. THEME
+   * 4. CART
    *
    * IMPORTANT:
    *
-   * The mobile theme button itself has NO entrance
-   * transition. Its entrance is controlled ONLY by GSAP.
+   * The LOGO uses a dedicated animation wrapper.
+   * The positioning wrapper stays completely static.
    *
-   * The Sun/Moon icons also do NOT animate with
-   * opacity/scale/rotation during navbar intro.
+   * This prevents:
+   *
+   * absolute
+   * left-1/2
+   * -translate-x-1/2
+   *
+   * from fighting with GSAP's Y transform.
    * =========================================================
    */
 
@@ -1166,6 +1171,10 @@ export default function Navbar({
     ) {
       return;
     }
+
+    /*
+     * If intro already completed, do not replay it.
+     */
 
     if (
       introAnimatedRef.current
@@ -1178,25 +1187,13 @@ export default function Navbar({
         }
       );
 
-      const mobileItems =
+      const allIntroItems =
         headerRef.current.querySelectorAll(
-          '[data-mobile-header-item]'
-        );
-
-      const desktopItems =
-        headerRef.current.querySelectorAll(
-          '[data-desktop-header-item]'
+          '[data-mobile-header-item], [data-desktop-header-item]'
         );
 
       gsap.set(
-        [
-          ...Array.from(
-            mobileItems
-          ),
-          ...Array.from(
-            desktopItems
-          ),
-        ],
+        allIntroItems,
         {
           clearProps:
             'transform,opacity',
@@ -1208,22 +1205,26 @@ export default function Navbar({
 
     const ctx =
       gsap.context(() => {
+        if (!headerRef.current) {
+          return;
+        }
+
         const isMobile =
           window.innerWidth <
           MOBILE_BREAKPOINT;
 
         /*
          * =====================================================
-         * MOBILE
+         * MOBILE INTRO
          * =====================================================
          */
 
         if (isMobile) {
           const mobileElements =
             Array.from(
-              headerRef.current?.querySelectorAll(
+              headerRef.current.querySelectorAll(
                 '[data-mobile-header-item]'
-              ) ?? []
+              )
             ).sort(
               (a, b) =>
                 Number(
@@ -1239,51 +1240,56 @@ export default function Navbar({
             );
 
           if (
-            mobileElements.length ===
-            0
+            mobileElements.length !==
+            4
           ) {
             return;
           }
 
           /*
-           * Header itself is immediately visible.
-           *
-           * We do NOT animate the whole header separately.
-           * This makes the four elements feel like one clean
-           * left-to-right falling sequence.
+           * Header stays completely still.
            */
+
           gsap.set(
             headerRef.current,
             {
               y: 0,
+              yPercent: 0,
               opacity: 1,
             }
           );
 
           /*
-           * Every mobile item starts from EXACTLY the same
-           * vertical offset.
+           * ALL FOUR elements start from exactly
+           * the same vertical position.
            */
+
           gsap.set(
             mobileElements,
             {
-              y: -38,
+              y: -42,
               opacity: 0,
             }
           );
 
           /*
-           * ONE timeline.
+           * Exact sequence:
            *
-           * Hamburger -> Logo -> Theme -> Cart
-           *
-           * each item begins 0.12s after the previous item.
+           * 0.00s Hamburger
+           * 0.12s Logo
+           * 0.24s Theme
+           * 0.36s Cart
            */
+
           const mobileTimeline =
             gsap.timeline({
               onComplete: () => {
                 introAnimatedRef.current =
                   true;
+
+                /*
+                 * Remove only the GSAP intro transforms.
+                 */
 
                 gsap.set(
                   mobileElements,
@@ -1308,7 +1314,7 @@ export default function Navbar({
             {
               y: 0,
               opacity: 1,
-              duration: 0.48,
+              duration: 0.46,
               stagger: {
                 each: 0.12,
                 from: 'start',
@@ -1323,15 +1329,15 @@ export default function Navbar({
 
         /*
          * =====================================================
-         * DESKTOP
+         * DESKTOP INTRO
          * =====================================================
          */
 
         const desktopElements =
           Array.from(
-            headerRef.current?.querySelectorAll(
+            headerRef.current.querySelectorAll(
               '[data-desktop-header-item]'
-            ) ?? []
+            )
           );
 
         if (
@@ -1345,6 +1351,7 @@ export default function Navbar({
           headerRef.current,
           {
             y: -50,
+            yPercent: 0,
             opacity: 0,
           }
         );
@@ -1409,6 +1416,11 @@ export default function Navbar({
   /*
    * =========================================================
    * MOBILE HEADER HIDE / SHOW
+   *
+   * IMPORTANT:
+   *
+   * NEVER interfere with the intro animation.
+   * Hide/show starts ONLY after intro is finished.
    * =========================================================
    */
 
@@ -1416,6 +1428,17 @@ export default function Navbar({
     if (
       !headerRef.current ||
       !isIntroFinished
+    ) {
+      return;
+    }
+
+    /*
+     * Do not touch the header while the intro
+     * sequence is still running.
+     */
+
+    if (
+      !introAnimatedRef.current
     ) {
       return;
     }
@@ -2162,7 +2185,7 @@ export default function Navbar({
                   w-6
                   h-6
                   absolute
-                  transition-all
+                  transition-[opacity,transform]
                   duration-300
                   ease-out
 
@@ -2179,7 +2202,7 @@ export default function Navbar({
                   w-6
                   h-6
                   absolute
-                  transition-all
+                  transition-[opacity,transform]
                   duration-300
                   ease-out
 
@@ -2194,8 +2217,16 @@ export default function Navbar({
 
 
             {/* =================================================
-                LOGO
-                ORDER 2
+                LOGO POSITIONING WRAPPER
+                =================================================
+                
+                IMPORTANT:
+                
+                This wrapper NEVER receives the GSAP
+                entrance animation.
+                
+                It is responsible ONLY for positioning
+                the logo in the center.
                 ================================================= */}
 
             <div
@@ -2212,108 +2243,128 @@ export default function Navbar({
                 shrink-0
               "
             >
-              <Link
-                to="/"
-                onClick={() =>
-                  handleNavClick('/')
-                }
+
+              {/* =================================================
+                  LOGO ANIMATION WRAPPER
+                  
+                  THIS is what GSAP moves.
+                  
+                  No translate-x.
+                  No transition-transform.
+                  No positioning transform.
+                  ================================================= */}
+
+              <div
                 data-mobile-header-item
                 data-mobile-header-order="2"
                 data-desktop-header-item
                 className="
-                  group
-                  relative
                   flex
                   items-center
                   justify-center
-                  h-14
-                  min-[1536px]:h-20
-                  w-32
-                  min-[1536px]:w-48
-
-                  min-[1536px]:transition-transform
-                  min-[1536px]:duration-300
-                  min-[1536px]:ease-out
-                  min-[1536px]:hover:scale-110
-                  min-[1536px]:active:scale-95
-
-                  touch-manipulation
-                  z-50
-                  select-none
                   shrink-0
                 "
-                aria-label="Home"
               >
-                <img
-                  src={logoUrl}
-                  alt="LCP logo"
-                  className={`
-                    absolute
-                    inset-0
-                    w-full
-                    h-full
-                    object-contain
-                    pointer-events-none
-                    transition-opacity
-                    duration-300
-                    ease-in-out
+                <Link
+                  to="/"
+                  onClick={() =>
+                    handleNavClick('/')
+                  }
+                  className="
+                    group
+                    relative
+                    flex
+                    items-center
+                    justify-center
+                    h-14
+                    min-[1536px]:h-20
+                    w-32
+                    min-[1536px]:w-48
 
-                    ${
-                      theme === 'dark'
-                        ? 'brightness-0 invert'
-                        : 'brightness-0'
-                    }
+                    min-[1536px]:transition-transform
+                    min-[1536px]:duration-300
+                    min-[1536px]:ease-out
+                    min-[1536px]:hover:scale-110
+                    min-[1536px]:active:scale-95
 
-                    ${
-                      isMonochromePage
-                        ? 'opacity-100'
-                        : 'opacity-0'
-                    }
-                  `}
-                />
+                    touch-manipulation
+                    z-50
+                    select-none
+                    shrink-0
+                  "
+                  aria-label="Home"
+                >
+                  <img
+                    src={logoUrl}
+                    alt="LCP logo"
+                    className={`
+                      absolute
+                      inset-0
+                      w-full
+                      h-full
+                      object-contain
+                      pointer-events-none
+                      transition-opacity
+                      duration-300
+                      ease-in-out
 
-                <div
-                  className={`
-                    absolute
-                    inset-0
-                    w-full
-                    h-full
-                    pointer-events-none
-                    transition-opacity
-                    duration-300
-                    ease-in-out
-                    bg-gradient-to-r
-                    from-emerald-400
-                    via-lime-300
-                    to-yellow-400
-                    animate-nav-gradient
+                      ${
+                        theme === 'dark'
+                          ? 'brightness-0 invert'
+                          : 'brightness-0'
+                      }
 
-                    ${
-                      !isMonochromePage
-                        ? 'opacity-100'
-                        : 'opacity-0'
-                    }
-                  `}
-                  style={{
-                    maskImage:
-                      `url(${logoUrl})`,
-                    WebkitMaskImage:
-                      `url(${logoUrl})`,
-                    maskSize:
-                      'contain',
-                    WebkitMaskSize:
-                      'contain',
-                    maskRepeat:
-                      'no-repeat',
-                    WebkitMaskRepeat:
-                      'no-repeat',
-                    maskPosition:
-                      'center',
-                    WebkitMaskPosition:
-                      'center',
-                  }}
-                />
-              </Link>
+                      ${
+                        isMonochromePage
+                          ? 'opacity-100'
+                          : 'opacity-0'
+                      }
+                    `}
+                  />
+
+                  <div
+                    className={`
+                      absolute
+                      inset-0
+                      w-full
+                      h-full
+                      pointer-events-none
+                      transition-opacity
+                      duration-300
+                      ease-in-out
+                      bg-gradient-to-r
+                      from-emerald-400
+                      via-lime-300
+                      to-yellow-400
+                      animate-nav-gradient
+
+                      ${
+                        !isMonochromePage
+                          ? 'opacity-100'
+                          : 'opacity-0'
+                      }
+                    `}
+                    style={{
+                      maskImage:
+                        `url(${logoUrl})`,
+                      WebkitMaskImage:
+                        `url(${logoUrl})`,
+                      maskSize:
+                        'contain',
+                      WebkitMaskSize:
+                        'contain',
+                      maskRepeat:
+                        'no-repeat',
+                      WebkitMaskRepeat:
+                        'no-repeat',
+                      maskPosition:
+                        'center',
+                      WebkitMaskPosition:
+                        'center',
+                    }}
+                  />
+                </Link>
+              </div>
             </div>
 
 
@@ -2981,16 +3032,7 @@ export default function Navbar({
 
               {/* =================================================
                   MOBILE THEME TOGGLE
-                  
                   ORDER 3
-                  
-                  IMPORTANT:
-                  This element has NO transition-all.
-                  No scale animation.
-                  No opacity animation.
-                  No rotation animation.
-                  
-                  GSAP owns the navbar entrance.
                   ================================================= */}
 
               <button
