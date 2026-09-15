@@ -40,9 +40,7 @@ const COUNTRY_CONFIG: Record<
     rate: number;
     symbol: string;
     taxRate: number;
-    Flag: React.ComponentType<{
-      className?: string;
-    }>;
+    Flag: React.ComponentType<{ className?: string }>;
   }
 > = {
   'Hong Kong': {
@@ -110,10 +108,7 @@ const COUNTRY_CONFIG: Record<
   },
 };
 
-const COUNTRY_TO_CURRENCY: Record<
-  string,
-  string
-> = {
+const COUNTRY_TO_CURRENCY: Record<string, string> = {
   'Hong Kong': 'HKD',
   'United States': 'USD',
   Canada: 'CAD',
@@ -124,10 +119,7 @@ const COUNTRY_TO_CURRENCY: Record<
   Japan: 'JPY',
 };
 
-const CURRENCY_TO_COUNTRY: Record<
-  string,
-  string
-> = {
+const CURRENCY_TO_COUNTRY: Record<string, string> = {
   HKD: 'Hong Kong',
   USD: 'United States',
   CAD: 'Canada',
@@ -139,9 +131,7 @@ const CURRENCY_TO_COUNTRY: Record<
 
 type AppliedCoupon = {
   code: string;
-  discountType:
-    | 'percentage'
-    | 'fixed';
+  discountType: 'percentage' | 'fixed';
   discountValue: number;
   currency: string;
 };
@@ -152,13 +142,9 @@ type CheckoutStatus =
   | 'success';
 
 export default function Checkout() {
-  const {
-    items = [],
-    clearCart,
-  } = useCart();
+  const { items = [], clearCart } = useCart();
 
-  const { navigate } =
-    useRouter();
+  const { navigate } = useRouter();
 
   const {
     user,
@@ -167,83 +153,55 @@ export default function Checkout() {
 
   const {
     currency: globalCurrency,
-    setCurrency:
-      setGlobalCurrency,
+    setCurrency: setGlobalCurrency,
   } = useCurrency();
 
   /*
    * =========================================================
    * SUBMIT LOCK
    * =========================================================
-   */
-  const submitLockRef =
-    useRef(false);
-
-  /*
-   * =========================================================
-   * STRIPE RETURN CONFIRMATION LOCK
-   * =========================================================
    *
-   * Prevent the Stripe confirmation effect from being
-   * started more than once during the same page lifecycle.
+   * React state alone is not enough to prevent two very fast
+   * taps/clicks from entering handleSubmit before React has
+   * re-rendered.
+   *
+   * This ref acts as a synchronous lock.
    */
-  const stripeConfirmationStartedRef =
-    useRef(false);
+  const submitLockRef = useRef(false);
 
-  /*
-   * =========================================================
-   * ORDER SUMMARY SCROLL STATE
-   * =========================================================
-   */
-
-  const [form, setForm] =
-    useState({
-      email: '',
-      phone: '',
-      full_name: '',
-      shipping_address: '',
-      city: '',
-      postal_code: '',
-      country:
-        CURRENCY_TO_COUNTRY[
-          globalCurrency
-        ] ||
-        'United States',
-      notes: '',
-    });
+  const [form, setForm] = useState({
+    email: '',
+    phone: '',
+    full_name: '',
+    shipping_address: '',
+    city: '',
+    postal_code: '',
+    country:
+      CURRENCY_TO_COUNTRY[globalCurrency] ||
+      'United States',
+    notes: '',
+  });
 
   const [couponInput, setCouponInput] =
     useState('');
 
   const [appliedCoupon, setAppliedCoupon] =
-    useState<AppliedCoupon | null>(
-      null
-    );
+    useState<AppliedCoupon | null>(null);
 
   const [couponError, setCouponError] =
-    useState<string | null>(
-      null
-    );
+    useState<string | null>(null);
 
-  const [
-    isValidatingCoupon,
-    setIsValidatingCoupon,
-  ] = useState(false);
+  const [isValidatingCoupon, setIsValidatingCoupon] =
+    useState(false);
 
   const [status, setStatus] =
-    useState<CheckoutStatus>(
-      'idle'
-    );
+    useState<CheckoutStatus>('idle');
 
   const [orderId, setOrderId] =
-    useState<string | null>(
-      null
-    );
+    useState<string | null>(null);
 
   const [errorMessage, setErrorMessage] =
-    useState<string | null>(
-      null
-    );
+    useState<string | null>(null);
 
   const [dbOrderStatus, setDbOrderStatus] =
     useState<string>('pending');
@@ -253,58 +211,62 @@ export default function Checkout() {
    * STRIPE RETURN INITIAL STATE
    * =========================================================
    *
-   * If Stripe redirected back with a session_id,
-   * immediately enter confirmation mode.
+   * IMPORTANT:
    *
-   * This prevents the normal checkout form from flashing
-   * before the Stripe order confirmation begins.
+   * This MUST NOT simply start as false.
+   *
+   * Stripe redirects back to:
+   *
+   * /checkout?success=true&session_id=...
+   *
+   * React can render the component once BEFORE useEffect()
+   * executes.
+   *
+   * If this state starts as false, the normal checkout UI
+   * can briefly appear before useEffect() changes it to true.
+   *
+   * We therefore inspect the URL during the INITIAL STATE
+   * calculation.
+   *
+   * This means the FIRST render after Stripe returns is already
+   * the confirmation/loading screen.
    */
-  const [
-    isConfirmingStripeReturn,
-    setIsConfirmingStripeReturn,
-  ] = useState(() => {
-    if (
-      typeof window ===
-      'undefined'
-    ) {
-      return false;
-    }
+  const [isConfirmingStripeReturn, setIsConfirmingStripeReturn] =
+    useState(() => {
+      if (typeof window === 'undefined') {
+        return false;
+      }
 
-    const searchParams =
-      new URLSearchParams(
-        window.location.search
+      const searchParams =
+        new URLSearchParams(
+          window.location.search
+        );
+
+      const paymentStatus =
+        searchParams.get('status');
+
+      const stripeSuccess =
+        searchParams.get('success');
+
+      const sessionId =
+        searchParams.get('session_id');
+
+      return (
+        !!sessionId &&
+        (
+          paymentStatus === 'success' ||
+          stripeSuccess === 'true'
+        )
       );
-
-    const paymentStatus =
-      searchParams.get(
-        'status'
-      );
-
-    const stripeSuccess =
-      searchParams.get(
-        'success'
-      );
-
-    const sessionId =
-      searchParams.get(
-        'session_id'
-      );
-
-    return (
-      !!sessionId &&
-      (
-        paymentStatus ===
-          'success' ||
-        stripeSuccess ===
-          'true'
-      )
-    );
-  });
+    });
 
   /*
    * =========================================================
    * ADMIN CASH PAYMENT
    * =========================================================
+   *
+   * Only an authenticated admin with the correct
+   * app_metadata role can trigger CASH.
    */
   const isCashPayment =
     isAdmin &&
@@ -325,19 +287,14 @@ export default function Checkout() {
       behavior: 'instant',
     });
 
-    document.documentElement.scrollTop =
-      0;
-
+    document.documentElement.scrollTop = 0;
     document.body.scrollTop = 0;
 
     const mainContainer =
-      document.querySelector(
-        'main'
-      );
+      document.querySelector('main');
 
     if (mainContainer) {
-      mainContainer.scrollTop =
-        0;
+      mainContainer.scrollTop = 0;
     }
   };
 
@@ -345,26 +302,12 @@ export default function Checkout() {
    * =========================================================
    * STRIPE WEBHOOK CONFIRMATION
    * =========================================================
-   *
-   * IMPORTANT:
-   *
-   * The frontend does NOT assume payment is paid merely
-   * because Stripe returned the customer to the website.
-   *
-   * It waits for the orders table to contain:
-   *
-   *   paid
-   *   done
-   *
-   * This keeps the displayed status tied to the database.
    */
   useEffect(() => {
     let cancelled = false;
 
     let pollTimer:
-      | ReturnType<
-          typeof setTimeout
-        >
+      | ReturnType<typeof setTimeout>
       | null = null;
 
     const confirmStripeOrder =
@@ -375,24 +318,16 @@ export default function Checkout() {
           );
 
         const paymentStatus =
-          searchParams.get(
-            'status'
-          );
+          searchParams.get('status');
 
         const stripeSuccess =
-          searchParams.get(
-            'success'
-          );
+          searchParams.get('success');
 
         const sessionId =
-          searchParams.get(
-            'session_id'
-          );
+          searchParams.get('session_id');
 
         const paramOrderId =
-          searchParams.get(
-            'order_id'
-          );
+          searchParams.get('order_id');
 
         /*
          * -----------------------------------------------------
@@ -404,26 +339,21 @@ export default function Checkout() {
             return;
           }
 
-          setOrderId(
-            paramOrderId
-          );
+          setOrderId(paramOrderId);
 
-          setStatus(
-            'success'
-          );
+          setStatus('success');
 
+          /*
+           * Fetch the actual database status so the success
+           * page can correctly show PAID or DONE.
+           */
           const {
             data,
             error,
           } = await supabase
             .from('orders')
-            .select(
-              'status'
-            )
-            .eq(
-              'id',
-              paramOrderId
-            )
+            .select('status')
+            .eq('id', paramOrderId)
             .maybeSingle();
 
           if (cancelled) {
@@ -438,9 +368,7 @@ export default function Checkout() {
               data.status
             );
           } else {
-            setDbOrderStatus(
-              'paid'
-            );
+            setDbOrderStatus('paid');
           }
 
           clearCart();
@@ -462,20 +390,21 @@ export default function Checkout() {
          * -----------------------------------------------------
          */
         if (
-          paymentStatus ===
-          'cancel'
+          paymentStatus === 'cancel'
         ) {
           if (cancelled) {
             return;
           }
 
+          /*
+           * Make sure the Stripe loader is removed when the
+           * customer returns from a cancelled Stripe session.
+           */
           setIsConfirmingStripeReturn(
             false
           );
 
-          setStatus(
-            'idle'
-          );
+          setStatus('idle');
 
           setErrorMessage(
             'Payment was cancelled. No order was created.'
@@ -497,10 +426,8 @@ export default function Checkout() {
          */
         if (
           (
-            paymentStatus !==
-              'success' &&
-            stripeSuccess !==
-              'true'
+            paymentStatus !== 'success' &&
+            stripeSuccess !== 'true'
           ) ||
           !sessionId
         ) {
@@ -513,20 +440,6 @@ export default function Checkout() {
           return;
         }
 
-        /*
-         * -----------------------------------------------------
-         * PREVENT DUPLICATE CONFIRMATION
-         * -----------------------------------------------------
-         */
-        if (
-          stripeConfirmationStartedRef.current
-        ) {
-          return;
-        }
-
-        stripeConfirmationStartedRef.current =
-          true;
-
         if (cancelled) {
           return;
         }
@@ -535,6 +448,13 @@ export default function Checkout() {
          * -----------------------------------------------------
          * STRIPE RETURN
          * -----------------------------------------------------
+         *
+         * The initial useState() has already made the FIRST
+         * render the loading screen.
+         *
+         * This remains here as a safety net for any client-side
+         * navigation that reaches this component with Stripe
+         * parameters.
          */
         setIsConfirmingStripeReturn(
           true
@@ -545,10 +465,9 @@ export default function Checkout() {
         scrollToTop();
 
         /*
-         * Remove Stripe query parameters immediately.
+         * Remove URL query parameters immediately.
          *
-         * This prevents refresh from triggering the same
-         * confirmation process again.
+         * replaceState() does not reload the page.
          */
         window.history.replaceState(
           {},
@@ -559,23 +478,6 @@ export default function Checkout() {
         const startedAt =
           Date.now();
 
-        /*
-         * -----------------------------------------------------
-         * POLL ORDER
-         * -----------------------------------------------------
-         *
-         * First request immediately.
-         *
-         * Then:
-         * 350ms
-         * 500ms
-         * 750ms
-         * 1000ms
-         * ...
-         *
-         * This gives the webhook a chance to finish without
-         * hammering Supabase.
-         */
         const pollForOrder =
           async () => {
             if (cancelled) {
@@ -597,44 +499,57 @@ export default function Checkout() {
                 )
                 .maybeSingle();
 
-              if (cancelled) {
-                return;
-              }
-
               if (error) {
                 console.error(
-                  '[Checkout] Stripe order confirmation query failed:',
+                  'Stripe order confirmation query failed:',
                   error
                 );
               }
 
-              /*
-               * -------------------------------------------------
-               * ORDER FOUND
-               * -------------------------------------------------
-               */
               if (data?.id) {
+                if (cancelled) {
+                  return;
+                }
+
                 setOrderId(
                   data.id
                 );
 
+                /*
+                 * IMPORTANT:
+                 *
+                 * Finding the order does NOT mean payment is
+                 * complete.
+                 *
+                 * create-order creates the order row first.
+                 *
+                 * Stripe webhook then changes:
+                 *
+                 * pending → paid
+                 *
+                 * OR
+                 *
+                 * pending → done
+                 *
+                 * Therefore we keep the confirmation screen
+                 * visible while the status is still pending.
+                 */
                 if (
-                  data.status ===
-                    'paid' ||
-                  data.status ===
-                    'done'
+                  data.status === 'paid' ||
+                  data.status === 'done'
                 ) {
-                  /*
-                   * This is the important point:
-                   *
-                   * The database has confirmed the payment.
-                   */
                   setDbOrderStatus(
                     data.status
                   );
 
                   clearCart();
 
+                  /*
+                   * IMPORTANT:
+                   *
+                   * Only hide the Stripe confirmation screen
+                   * AFTER the final DB status is confirmed.
+                   */
                   setIsConfirmingStripeReturn(
                     false
                   );
@@ -649,118 +564,94 @@ export default function Checkout() {
                 }
 
                 /*
-                 * Order exists but webhook has not yet
-                 * changed its status.
+                 * Order exists but webhook has not finished yet.
                  *
-                 * Keep waiting.
+                 * Keep polling.
                  */
+                if (
+                  Date.now() -
+                    startedAt <
+                  60000
+                ) {
+                  pollTimer =
+                    setTimeout(
+                      pollForOrder,
+                      1000
+                    );
+
+                  return;
+                }
               }
 
               /*
-               * -------------------------------------------------
-               * TIMEOUT
-               * -------------------------------------------------
+               * Continue polling for up to 60 seconds.
                */
               if (
                 Date.now() -
-                  startedAt >=
+                  startedAt <
                 60000
               ) {
-                if (
-                  cancelled
-                ) {
-                  return;
-                }
-
-                setIsConfirmingStripeReturn(
-                  false
-                );
-
-                setStatus(
-                  'idle'
-                );
-
-                setErrorMessage(
-                  'Payment received. Your order is still being processed. Please check your order history shortly.'
-                );
+                pollTimer =
+                  setTimeout(
+                    pollForOrder,
+                    1500
+                  );
 
                 return;
               }
-
-              /*
-               * -------------------------------------------------
-               * NEXT POLL
-               * -------------------------------------------------
-               */
-              const elapsed =
-                Date.now() -
-                startedAt;
-
-              let nextDelay =
-                1000;
-
-              if (
-                elapsed < 2000
-              ) {
-                nextDelay = 350;
-              } else if (
-                elapsed < 5000
-              ) {
-                nextDelay = 500;
-              } else if (
-                elapsed < 10000
-              ) {
-                nextDelay = 750;
-              } else {
-                nextDelay = 1000;
-              }
-
-              pollTimer =
-                setTimeout(
-                  pollForOrder,
-                  nextDelay
-                );
-            } catch (error) {
-              console.error(
-                '[Checkout] Stripe order confirmation error:',
-                error
-              );
 
               if (cancelled) {
                 return;
               }
 
+              /*
+               * Confirmation timed out.
+               */
+              setIsConfirmingStripeReturn(
+                false
+              );
+
+              setStatus('idle');
+
+              setErrorMessage(
+                'Payment received. Your order is still being processed. Please check your order history shortly.'
+              );
+            } catch (error) {
+              console.error(
+                'Stripe order confirmation error:',
+                error
+              );
+
               if (
                 Date.now() -
-                  startedAt >=
+                  startedAt <
                 60000
               ) {
-                setIsConfirmingStripeReturn(
-                  false
-                );
-
-                setStatus(
-                  'idle'
-                );
-
-                setErrorMessage(
-                  'We could not confirm your order yet. Please check your order history shortly.'
-                );
+                pollTimer =
+                  setTimeout(
+                    pollForOrder,
+                    1500
+                  );
 
                 return;
               }
 
-              pollTimer =
-                setTimeout(
-                  pollForOrder,
-                  1000
-                );
+              if (cancelled) {
+                return;
+              }
+
+              setIsConfirmingStripeReturn(
+                false
+              );
+
+              setStatus('idle');
+
+              setErrorMessage(
+                'We could not confirm your order yet. Please check your order history shortly.'
+              );
             }
           };
 
-        /*
-         * Start immediately.
-         */
         pollForOrder();
       };
 
@@ -778,64 +669,39 @@ export default function Checkout() {
   }, [clearCart]);
 
   /*
- * =========================================================
- * CURRENCY → COUNTRY SYNC
- * =========================================================
- *
- * Only change the country when the CURRENT country does
- * not actually use the selected global currency.
- *
- * This is important because both Germany and France use EUR.
- * We must NOT force France back to Germany just because
- * CURRENCY_TO_COUNTRY['EUR'] points to Germany.
- */
-useEffect(() => {
-  const matchingCountry =
-    CURRENCY_TO_COUNTRY[
-      globalCurrency
-    ];
+   * =========================================================
+   * CURRENCY → COUNTRY SYNC
+   * =========================================================
+   */
+  useEffect(() => {
+    const matchingCountry =
+      CURRENCY_TO_COUNTRY[
+        globalCurrency
+      ];
 
-  const currentCountryCurrency =
-    COUNTRY_TO_CURRENCY[
-      form.country
-    ];
+    if (
+      matchingCountry &&
+      form.country !== matchingCountry
+    ) {
+      setForm((prev) => ({
+        ...prev,
+        country: matchingCountry,
+      }));
 
-  if (
-    matchingCountry &&
-    currentCountryCurrency !==
-      globalCurrency
-  ) {
-    setForm((prev) => ({
-      ...prev,
-      country:
-        matchingCountry,
-    }));
-
-    setAppliedCoupon(
-      null
-    );
-
-    setCouponError(null);
-  }
-}, [
-  globalCurrency,
-  form.country,
-]);
+      setAppliedCoupon(null);
+      setCouponError(null);
+    }
+  }, [globalCurrency]);
 
   const selectedCountryConfig =
-    COUNTRY_CONFIG[
-      form.country
-    ] ||
-    COUNTRY_CONFIG[
-      'United States'
-    ];
+    COUNTRY_CONFIG[form.country] ||
+    COUNTRY_CONFIG['United States'];
 
   const {
     taxRate,
     symbol,
     rate,
-    currency:
-      selectedCurrency,
+    currency: selectedCurrency,
   } = selectedCountryConfig;
 
   const SelectedCountryFlag =
@@ -852,12 +718,9 @@ useEffect(() => {
     const raw =
       usdAmount * rate;
 
-    return selectedCurrency ===
-      'HKD'
+    return selectedCurrency === 'HKD'
       ? Math.ceil(raw)
-      : Number(
-          raw.toFixed(2)
-        );
+      : Number(raw.toFixed(2));
   };
 
   const renderFormattedPrice = (
@@ -869,8 +732,7 @@ useEffect(() => {
       );
 
     const isHKD =
-      selectedCurrency ===
-      'HKD';
+      selectedCurrency === 'HKD';
 
     const formattedNumber =
       localAmount.toLocaleString(
@@ -901,23 +763,17 @@ useEffect(() => {
     }));
 
     const newCurrency =
-      COUNTRY_TO_CURRENCY[
-        country
-      ];
+      COUNTRY_TO_CURRENCY[country];
 
     if (
       newCurrency &&
-      newCurrency !==
-        globalCurrency
+      newCurrency !== globalCurrency
     ) {
       setGlobalCurrency(
         newCurrency
       );
 
-      setAppliedCoupon(
-        null
-      );
-
+      setAppliedCoupon(null);
       setCouponError(null);
     }
   };
@@ -935,9 +791,7 @@ useEffect(() => {
 
     const words =
       text.trim()
-        ? text
-            .trim()
-            .split(/\s+/)
+        ? text.trim().split(/\s+/)
             .length
         : 0;
 
@@ -962,8 +816,7 @@ useEffect(() => {
     price?: number
   ) => {
     if (
-      typeof price !==
-      'number'
+      typeof price !== 'number'
     ) {
       return 0;
     }
@@ -975,6 +828,12 @@ useEffect(() => {
    * =========================================================
    * INSTRUCTIONS PRODUCT DETECTION
    * =========================================================
+   *
+   * Keep this aligned with the server-side create-order
+   * and stripe-webhook logic.
+   *
+   * An item is considered an Instructions product when
+   * section, category, OR name contains "instruction".
    */
   const isInstructionItem = (
     item?: (typeof items)[0]
@@ -996,27 +855,21 @@ useEffect(() => {
       product.name;
 
     const sectionStr =
-      Array.isArray(
-        rawSection
-      )
+      Array.isArray(rawSection)
         ? rawSection.join(' ')
         : String(
             rawSection || ''
           );
 
     const categoryStr =
-      Array.isArray(
-        rawCategory
-      )
+      Array.isArray(rawCategory)
         ? rawCategory.join(' ')
         : String(
             rawCategory || ''
           );
 
     const nameStr =
-      Array.isArray(
-        rawName
-      )
+      Array.isArray(rawName)
         ? rawName.join(' ')
         : String(
             rawName || ''
@@ -1079,9 +932,9 @@ useEffect(() => {
    * =========================================================
    */
   const handleApplyCoupon = async (
-    e?: FormEvent | React.MouseEvent
+    e: FormEvent
   ) => {
-    e?.preventDefault();
+    e.preventDefault();
 
     setCouponError(null);
 
@@ -1094,9 +947,7 @@ useEffect(() => {
       return;
     }
 
-    setIsValidatingCoupon(
-      true
-    );
+    setIsValidatingCoupon(true);
 
     try {
       const {
@@ -1113,13 +964,9 @@ useEffect(() => {
         );
 
       const coupon =
-        data?.coupon ??
-        null;
+        data?.coupon ?? null;
 
-      if (
-        error ||
-        !coupon
-      ) {
+      if (error || !coupon) {
         setCouponError(
           'Invalid coupon code.'
         );
@@ -1145,8 +992,7 @@ useEffect(() => {
         'USD';
 
       if (
-        couponCurrency !==
-          'ALL' &&
+        couponCurrency !== 'ALL' &&
         couponCurrency !==
           selectedCurrency
       ) {
@@ -1197,17 +1043,12 @@ useEffect(() => {
         'Failed to validate coupon.'
       );
     } finally {
-      setIsValidatingCoupon(
-        false
-      );
+      setIsValidatingCoupon(false);
     }
   };
 
   const removeCoupon = () => {
-    setAppliedCoupon(
-      null
-    );
-
+    setAppliedCoupon(null);
     setCouponError(null);
   };
 
@@ -1217,10 +1058,7 @@ useEffect(() => {
    * =========================================================
    */
   useEffect(() => {
-    if (
-      status ===
-      'success'
-    ) {
+    if (status === 'success') {
       scrollToTop();
     }
   }, [status]);
@@ -1241,18 +1079,11 @@ useEffect(() => {
           data,
         } = await supabase
           .from('orders')
-          .select(
-            'status'
-          )
-          .eq(
-            'id',
-            orderId
-          )
+          .select('status')
+          .eq('id', orderId)
           .maybeSingle();
 
-        if (
-          data?.status
-        ) {
+        if (data?.status) {
           setDbOrderStatus(
             data.status
           );
@@ -1299,8 +1130,7 @@ useEffect(() => {
    * DISCOUNT
    * =========================================================
    */
-  let discountAmountUSD =
-    0;
+  let discountAmountUSD = 0;
 
   if (appliedCoupon) {
     if (
@@ -1338,9 +1168,7 @@ useEffect(() => {
       (acc, item) => {
         if (
           item?.product &&
-          !isInstructionItem(
-            item
-          )
+          !isInstructionItem(item)
         ) {
           return (
             acc +
@@ -1360,24 +1188,38 @@ useEffect(() => {
     items.some(
       (item) =>
         item?.product &&
-        !isInstructionItem(
-          item
-        )
+        !isInstructionItem(item)
     );
 
   /*
-   * =========================================================
-   * INSTRUCTIONS ONLY
-   * =========================================================
+   * IMPORTANT:
+   *
+   * Only an order where EVERY item is an Instructions
+   * product is considered Instructions Only.
+   *
+   * Therefore:
+   *
+   * Instructions
+   * → done
+   *
+   * Kits
+   * → paid
+   *
+   * Custom Parts
+   * → paid
+   *
+   * Kits + Instructions
+   * → paid
+   *
+   * Kits + Instructions + Custom Parts
+   * → paid
    */
   const isInstructionOnly =
     items.length > 0 &&
     items.every(
       (item) =>
         item?.product &&
-        isInstructionItem(
-          item
-        )
+        isInstructionItem(item)
     );
 
   /*
@@ -1403,8 +1245,7 @@ useEffect(() => {
       : 7.99;
 
   const baseTaxUSD =
-    discountedSubtotalUSD ===
-      0
+    discountedSubtotalUSD === 0
       ? 0
       : discountedSubtotalUSD *
         taxRate;
@@ -1426,6 +1267,14 @@ useEffect(() => {
    * =========================================================
    * READ CURRENT AUTH SESSION
    * =========================================================
+   *
+   * This is the important part for your current
+   * "Invalid Refresh Token" problem.
+   *
+   * We do NOT blindly trust the React `user` state.
+   *
+   * The Supabase session is checked immediately before
+   * creating the order.
    */
   const getCheckoutSession =
     async () => {
@@ -1460,6 +1309,9 @@ useEffect(() => {
    * =========================================================
    * LOCAL SESSION CLEANUP
    * =========================================================
+   *
+   * Used only when Supabase tells us that the existing
+   * refresh token/session is invalid.
    */
   const clearBrokenAuthSession =
     async () => {
@@ -1497,10 +1349,13 @@ useEffect(() => {
         | string
         | null = null;
 
+      /*
+       * Read Retry-After header if the backend provides it.
+       */
       try {
         if (
-          funcError?.context
-            ?.headers?.get
+          funcError?.context?.headers
+            ?.get
         ) {
           retryAfter =
             funcError.context.headers.get(
@@ -1509,6 +1364,9 @@ useEffect(() => {
         }
       } catch (_) {}
 
+      /*
+       * Try reading JSON error body.
+       */
       try {
         if (
           funcError?.context &&
@@ -1534,9 +1392,13 @@ useEffect(() => {
         }
       } catch (_) {}
 
+      /*
+       * -----------------------------------------------------
+       * RATE LIMIT
+       * -----------------------------------------------------
+       */
       if (
-        statusCode ===
-        429
+        statusCode === 429
       ) {
         if (retryAfter) {
           const seconds =
@@ -1569,6 +1431,11 @@ useEffect(() => {
         }
       }
 
+      /*
+       * -----------------------------------------------------
+       * INVALID REFRESH TOKEN
+       * -----------------------------------------------------
+       */
       const lowerMessage =
         String(
           message || ''
@@ -1602,30 +1469,32 @@ useEffect(() => {
   ) => {
     e.preventDefault();
 
-    if (
-      submitLockRef.current
-    ) {
+    /*
+     * -------------------------------------------------------
+     * HARD DOUBLE-SUBMIT LOCK
+     * -------------------------------------------------------
+     */
+    if (submitLockRef.current) {
       return;
     }
 
-    submitLockRef.current =
-      true;
+    submitLockRef.current = true;
 
-    setStatus(
-      'submitting'
-    );
-
+    setStatus('submitting');
     setErrorMessage(null);
 
+    /*
+     * -------------------------------------------------------
+     * VALIDATE CART
+     * -------------------------------------------------------
+     */
     const invalidItems =
       items.filter(
-        (item) =>
-          !item?.product
+        (item) => !item?.product
       );
 
     if (
-      invalidItems.length >
-      0
+      invalidItems.length > 0
     ) {
       submitLockRef.current =
         false;
@@ -1639,6 +1508,26 @@ useEffect(() => {
       return;
     }
 
+    /*
+     * -------------------------------------------------------
+     * DETERMINE ORDER STATUS
+     * -------------------------------------------------------
+     *
+     * IMPORTANT:
+     *
+     * Instructions ONLY
+     * → done
+     *
+     * Cash order with physical products
+     * → paid
+     *
+     * Normal Stripe order
+     * → pending
+     *
+     * The final Stripe status is still determined by the
+     * stripe-webhook using the actual order_items/products
+     * on the server.
+     */
     const targetStatus =
       isInstructionOnly
         ? 'done'
@@ -1657,9 +1546,22 @@ useEffect(() => {
       );
 
     try {
+      /*
+       * =====================================================
+       * STEP 1 — VERIFY CURRENT SESSION
+       * =====================================================
+       */
       let activeSession =
         await getCheckoutSession();
 
+      /*
+       * If React says a user is logged in but Supabase
+       * currently has no valid session:
+       *
+       * - CASH/admin → stop and ask admin to sign in
+       * - normal Stripe → clear stale local auth and
+       *   continue as guest
+       */
       if (
         user &&
         !activeSession
@@ -1676,14 +1578,26 @@ useEffect(() => {
           );
         }
 
-        activeSession =
-          null;
+        /*
+         * Guest checkout is allowed for normal Stripe orders.
+         */
+        activeSession = null;
       }
 
+      /*
+       * =====================================================
+       * STEP 2 — CREATE ORDER / STRIPE SESSION
+       * =====================================================
+       */
       const requestBody = {
+        /*
+         * IMPORTANT:
+         *
+         * Use the CURRENT Supabase session user ID,
+         * not a stale React user ID.
+         */
         user_id:
-          activeSession?.user
-            ?.id ??
+          activeSession?.user?.id ??
           null,
 
         email:
@@ -1710,6 +1624,16 @@ useEffect(() => {
         currency:
           globalCurrency,
 
+        /*
+         * Instructions only:
+         * done
+         *
+         * Cash physical order:
+         * paid
+         *
+         * Stripe:
+         * pending until webhook confirmation
+         */
         status:
           targetStatus,
 
@@ -1728,14 +1652,12 @@ useEffect(() => {
 
         discount_amount:
           Math.round(
-            localDiscountAmount *
-              100
+            localDiscountAmount * 100
           ),
 
         total_amount:
           Math.round(
-            localTotalAmount *
-              100
+            localTotalAmount * 100
           ),
 
         items:
@@ -1762,6 +1684,13 @@ useEffect(() => {
                 quantity:
                   item.quantity,
 
+                /*
+                 * Kept for compatibility.
+                 *
+                 * create-order should continue using
+                 * the database product price as the
+                 * authoritative price.
+                 */
                 price:
                   Math.round(
                     calculateLocalAmount(
@@ -1775,23 +1704,19 @@ useEffect(() => {
           ),
       };
 
-      let data: any =
-        null;
-
-      let funcError: any =
-        null;
+      let data: any = null;
+      let funcError: any = null;
 
       /*
-       * -----------------------------------------------------
-       * CREATE ORDER
-       * -----------------------------------------------------
+       * -------------------------------------------------------
+       * FIRST ATTEMPT
+       * -------------------------------------------------------
        */
       const firstAttempt =
         await supabase.functions.invoke(
           'create-order',
           {
-            body:
-              requestBody,
+            body: requestBody,
           }
         );
 
@@ -1802,9 +1727,16 @@ useEffect(() => {
         firstAttempt.error;
 
       /*
-       * -----------------------------------------------------
-       * INVALID REFRESH TOKEN RETRY
-       * -----------------------------------------------------
+       * -------------------------------------------------------
+       * INVALID REFRESH TOKEN RECOVERY
+       * -------------------------------------------------------
+       *
+       * If Supabase tried to use an old refresh token and
+       * the function call failed because of it:
+       *
+       * 1. Clear broken local session.
+       * 2. Do NOT repeat for admin CASH.
+       * 3. Retry ONE time as guest for normal Stripe.
        */
       if (
         funcError
@@ -1823,26 +1755,25 @@ useEffect(() => {
 
           await clearBrokenAuthSession();
 
-          if (
-            isCashPayment
-          ) {
+          if (isCashPayment) {
             throw new Error(
               'Your admin session has expired. Please sign in again before creating a cash order.'
             );
           }
 
-          const retryBody =
-            {
-              ...requestBody,
-              user_id: null,
-            };
+          /*
+           * Retry exactly ONCE.
+           */
+          const retryBody = {
+            ...requestBody,
+            user_id: null,
+          };
 
           const retry =
             await supabase.functions.invoke(
               'create-order',
               {
-                body:
-                  retryBody,
+                body: retryBody,
               }
             );
 
@@ -1855,13 +1786,11 @@ useEffect(() => {
       }
 
       /*
-       * -----------------------------------------------------
-       * EDGE FUNCTION ERROR
-       * -----------------------------------------------------
+       * -------------------------------------------------------
+       * FUNCTION ERROR
+       * -------------------------------------------------------
        */
-      if (
-        funcError
-      ) {
+      if (funcError) {
         const parsed =
           await parseFunctionError(
             funcError
@@ -1884,9 +1813,9 @@ useEffect(() => {
       }
 
       /*
-       * -----------------------------------------------------
-       * ORDER CREATION ERROR
-       * -----------------------------------------------------
+       * -------------------------------------------------------
+       * BACKEND RESPONSE VALIDATION
+       * -------------------------------------------------------
        */
       if (
         !data?.success
@@ -1919,6 +1848,14 @@ useEffect(() => {
           data.order_id
         );
 
+        /*
+         * IMPORTANT:
+         *
+         * Use the backend status as authoritative.
+         *
+         * Instructions only → done
+         * Physical/Cash order → paid
+         */
         setDbOrderStatus(
           data.status ||
             targetStatus ||
@@ -1927,14 +1864,12 @@ useEffect(() => {
 
         scrollToTop();
 
-        setStatus(
-          'success'
-        );
+        setStatus('success');
 
+        /*
+         * Clear cart ONLY after successful order creation.
+         */
         clearCart();
-
-        submitLockRef.current =
-          false;
 
         return;
       }
@@ -1943,6 +1878,22 @@ useEffect(() => {
        * =====================================================
        * STRIPE
        * =====================================================
+       *
+       * create-order returns the Stripe Checkout URL.
+       *
+       * We DO NOT clear the cart here.
+       *
+       * Cart is cleared only after:
+       *
+       * Stripe payment
+       *       ↓
+       * stripe-webhook
+       *       ↓
+       * orders row
+       *       ↓
+       * Checkout polling / order status
+       *       ↓
+       * success
        */
       if (
         typeof data.checkout_url !==
@@ -1955,9 +1906,10 @@ useEffect(() => {
       }
 
       /*
-       * Keep the submit lock active while navigating to
-       * Stripe. This prevents duplicate order creation
-       * from double-clicking the button.
+       * Stripe Checkout redirect
+       *
+       * Use assign() instead of href so browser navigation
+       * is explicit and SPA router interference is avoided.
        */
       window.location.assign(
         data.checkout_url
@@ -1970,6 +1922,9 @@ useEffect(() => {
 
       setStatus('idle');
 
+      /*
+       * Never leave the lock active after an error.
+       */
       submitLockRef.current =
         false;
 
@@ -1981,6 +1936,11 @@ useEffect(() => {
       const lowerMessage =
         rawMessage.toLowerCase();
 
+      /*
+       * -------------------------------------------------------
+       * AUTH ERROR
+       * -------------------------------------------------------
+       */
       if (
         lowerMessage.includes(
           'invalid refresh token'
@@ -2001,6 +1961,11 @@ useEffect(() => {
         return;
       }
 
+      /*
+       * -------------------------------------------------------
+       * RATE LIMIT
+       * -------------------------------------------------------
+       */
       if (
         lowerMessage.includes(
           'too many'
@@ -2019,6 +1984,11 @@ useEffect(() => {
         return;
       }
 
+      /*
+       * -------------------------------------------------------
+       * NORMAL ERROR
+       * -------------------------------------------------------
+       */
       setErrorMessage(
         rawMessage ||
           'Failed to process order.'
@@ -2031,11 +2001,23 @@ useEffect(() => {
    * STRIPE RETURN LOADING
    * =========================================================
    *
-   * This is intentionally rendered BEFORE the normal
-   * checkout form.
+   * Because isConfirmingStripeReturn is initialized from
+   * window.location.search, this screen is rendered on the
+   * FIRST render after Stripe redirects back.
    *
-   * Therefore there is no checkout-form flash while waiting
-   * for the webhook.
+   * This prevents:
+   *
+   * Checkout UI
+   *      ↓
+   * flash
+   *      ↓
+   * Confirming payment...
+   *
+   * Instead:
+   *
+   * Confirming payment...
+   *      ↓
+   * Success
    */
   if (
     isConfirmingStripeReturn &&
@@ -2046,12 +2028,8 @@ useEffect(() => {
         <div className="text-center">
           <div className="w-12 h-12 rounded-full border-4 border-neutral-300 dark:border-neutral-700 border-t-neutral-900 dark:border-t-white animate-spin mx-auto mb-5" />
 
-          <p className="text-neutral-900 dark:text-white text-sm font-medium">
+          <p className="text-neutral-600 dark:text-neutral-400 text-sm">
             Confirming payment...
-          </p>
-
-          <p className="text-neutral-500 dark:text-neutral-500 text-xs mt-2">
-            Please wait while we confirm your order.
           </p>
         </div>
       </div>
@@ -2064,12 +2042,10 @@ useEffect(() => {
    * =========================================================
    */
   if (
-    status ===
-    'success'
+    status === 'success'
   ) {
     const isCompleted =
-      dbOrderStatus ===
-      'done';
+      dbOrderStatus === 'done';
 
     return (
       <div className="bg-neutral-50 dark:bg-neutral-950 min-h-screen flex flex-col justify-start items-center px-4 pb-12 pt-[calc(5rem+env(safe-area-inset-top)+2rem)] md:pt-[calc(7rem+env(safe-area-inset-top)+2rem)] transition-colors">
@@ -2083,28 +2059,28 @@ useEffect(() => {
           </h1>
 
           <div className="inline-flex items-center gap-2 bg-neutral-100 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 px-4 py-1.5 rounded-full text-xs font-mono uppercase tracking-wider mb-4">
-            <span
-              className={`w-2 h-2 rounded-full ${
-                isCompleted
-                  ? 'bg-emerald-500 animate-pulse'
-                  : 'bg-indigo-500 animate-pulse'
-              }`}
-            />
+  <span
+    className={`w-2 h-2 rounded-full ${
+      isCompleted
+        ? 'bg-emerald-500 animate-pulse'
+        : 'bg-indigo-500 animate-pulse'
+    }`}
+  />
 
-            <span
-              className={`font-bold ${
-                isCompleted
-                  ? 'text-emerald-600 dark:text-emerald-400'
-                  : 'text-indigo-600 dark:text-indigo-400'
-              }`}
-            >
-              Status:{' '}
-              {String(
-                dbOrderStatus ||
-                  'paid'
-              ).toUpperCase()}
-            </span>
-          </div>
+  <span
+    className={`font-bold ${
+      isCompleted
+        ? 'text-emerald-600 dark:text-emerald-400'
+        : 'text-indigo-600 dark:text-indigo-400'
+    }`}
+  >
+    Status:{' '}
+    {String(
+      dbOrderStatus ||
+        'paid'
+    ).toUpperCase()}
+  </span>
+</div>
 
           <p className="text-neutral-600 dark:text-neutral-400 mb-2">
             {isCompleted
@@ -2117,10 +2093,7 @@ useEffect(() => {
               Order reference:{' '}
               <span className="text-neutral-800 dark:text-neutral-300 font-mono">
                 {orderId
-                  .slice(
-                    0,
-                    8
-                  )
+                  .slice(0, 8)
                   .toUpperCase()}
               </span>
             </p>
@@ -2143,8 +2116,7 @@ useEffect(() => {
    * =========================================================
    */
   if (
-    items.length ===
-    0
+    items.length === 0
   ) {
     return (
       <div className="bg-neutral-50 dark:bg-neutral-950 min-h-screen flex items-center justify-center px-4 transition-colors">
@@ -2183,9 +2155,7 @@ useEffect(() => {
         <button
           type="button"
           onClick={() =>
-            navigate(
-              '/store'
-            )
+            navigate('/store')
           }
           className="flex items-center gap-2 text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors mb-6 text-sm"
         >
@@ -2209,9 +2179,7 @@ useEffect(() => {
 
         <form
           id="checkout-form"
-          onSubmit={
-            handleSubmit
-          }
+          onSubmit={handleSubmit}
           className="flex flex-col lg:grid lg:grid-cols-2 gap-8 items-start"
         >
           <div className="w-full space-y-6 order-1">
@@ -2226,20 +2194,16 @@ useEffect(() => {
                   required
                   type="email"
                   placeholder="Email address"
-                  value={
-                    form.email
-                  }
+                  value={form.email}
                   onChange={(e) =>
                     setForm({
                       ...form,
                       email:
-                        e.target
-                          .value,
+                        e.target.value,
                     })
                   }
                   style={{
-                    fontSize:
-                      '16px',
+                    fontSize: '16px',
                   }}
                   className={
                     inputClass
@@ -2250,20 +2214,16 @@ useEffect(() => {
                   required
                   type="tel"
                   placeholder="Phone number"
-                  value={
-                    form.phone
-                  }
+                  value={form.phone}
                   onChange={(e) =>
                     setForm({
                       ...form,
                       phone:
-                        e.target
-                          .value,
+                        e.target.value,
                     })
                   }
                   style={{
-                    fontSize:
-                      '16px',
+                    fontSize: '16px',
                   }}
                   className={
                     inputClass
@@ -2281,13 +2241,11 @@ useEffect(() => {
                     setForm({
                       ...form,
                       full_name:
-                        e.target
-                          .value,
+                        e.target.value,
                     })
                   }
                   style={{
-                    fontSize:
-                      '16px',
+                    fontSize: '16px',
                   }}
                   className={
                     inputClass
@@ -2314,13 +2272,11 @@ useEffect(() => {
                     setForm({
                       ...form,
                       shipping_address:
-                        e.target
-                          .value,
+                        e.target.value,
                     })
                   }
                   style={{
-                    fontSize:
-                      '16px',
+                    fontSize: '16px',
                   }}
                   className={
                     inputClass
@@ -2332,20 +2288,16 @@ useEffect(() => {
                     required
                     type="text"
                     placeholder="City"
-                    value={
-                      form.city
-                    }
+                    value={form.city}
                     onChange={(e) =>
                       setForm({
                         ...form,
                         city:
-                          e.target
-                            .value,
+                          e.target.value,
                       })
                     }
                     style={{
-                      fontSize:
-                        '16px',
+                      fontSize: '16px',
                     }}
                     className={
                       inputClass
@@ -2363,13 +2315,11 @@ useEffect(() => {
                       setForm({
                         ...form,
                         postal_code:
-                          e.target
-                            .value,
+                          e.target.value,
                       })
                     }
                     style={{
-                      fontSize:
-                        '16px',
+                      fontSize: '16px',
                     }}
                     className={
                       inputClass
@@ -2383,13 +2333,11 @@ useEffect(() => {
                   }
                   onChange={(e) =>
                     handleCountryChange(
-                      e.target
-                        .value
+                      e.target.value
                     )
                   }
                   style={{
-                    fontSize:
-                      '16px',
+                    fontSize: '16px',
                   }}
                   className={
                     inputClass +
@@ -2399,20 +2347,14 @@ useEffect(() => {
                   {Object.keys(
                     COUNTRY_CONFIG
                   ).map(
-                    (
-                      country
-                    ) => (
+                    (country) => (
                       <option
-                        key={
-                          country
-                        }
+                        key={country}
                         value={
                           country
                         }
                       >
-                        {
-                          country
-                        }
+                        {country}
                       </option>
                     )
                   )}
@@ -2428,24 +2370,19 @@ useEffect(() => {
                 </h2>
 
                 <span className="text-xs text-neutral-500 font-mono">
-                  {wordCount} / 200
-                  {' '}
-                  words
+                  {wordCount} / 200 words
                 </span>
               </div>
 
               <textarea
                 rows={3}
                 placeholder="Delivery instructions, gift notes, wheel setup, etc."
-                value={
-                  form.notes
-                }
+                value={form.notes}
                 onChange={
                   handleNotesChange
                 }
                 style={{
-                  fontSize:
-                    '16px',
+                  fontSize: '16px',
                 }}
                 className={
                   inputClass +
@@ -2493,31 +2430,8 @@ useEffect(() => {
           {/* =================================================
               ORDER SUMMARY
               ================================================= */}
-          <div
-  className="
-    w-full
-    order-2
-    lg:sticky
-    lg:top-28
-    self-start
-  "
->
-            <div
-  className="
-    bg-white
-    dark:bg-neutral-900
-    rounded-2xl
-    border
-    border-neutral-200
-    dark:border-neutral-800
-    p-6
-    space-y-6
-    shadow-sm
-    dark:shadow-none
-    lg:max-h-[calc(100vh-8rem)]
-    lg:overflow-y-auto
-  "
->
+          <div className="w-full order-2 lg:sticky lg:top-24 self-start space-y-6">
+            <div className="bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200 dark:border-neutral-800 p-6 space-y-6 shadow-sm dark:shadow-none">
               <div className="flex justify-between items-center">
                 <h2 className="text-neutral-900 dark:text-white font-bold text-lg">
                   Order Summary
@@ -2546,9 +2460,7 @@ useEffect(() => {
                     ) {
                       return (
                         <div
-                          key={
-                            idx
-                          }
+                          key={idx}
                           className="p-3 bg-red-500/10 border border-red-500/30 rounded-xl text-red-600 dark:text-red-400 text-xs"
                         >
                           Failed to fetch product details
@@ -2777,17 +2689,14 @@ useEffect(() => {
                 <div className="flex justify-between text-sm">
                   <span className="text-neutral-600 dark:text-neutral-400">
                     Tax{' '}
-                    {taxRate >
-                    0
+                    {taxRate > 0
                       ? `(${taxRate * 100}%)`
                       : ''}
                   </span>
 
                   <span className="text-neutral-900 dark:text-white">
-                    {taxRate ===
-                      0 ||
-                    baseTaxUSD ===
-                      0
+                    {taxRate === 0 ||
+                    baseTaxUSD === 0
                       ? 'Free'
                       : renderFormattedPrice(
                           baseTaxUSD
@@ -2817,7 +2726,7 @@ useEffect(() => {
                 form="checkout-form"
                 disabled={
                   status ===
-                  'submitting'
+                    'submitting'
                 }
                 className={`flex items-center justify-center gap-2 w-full py-4 text-white dark:text-neutral-950 font-bold text-sm uppercase tracking-wider rounded-full transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 ${
                   isCashPayment
