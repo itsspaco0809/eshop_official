@@ -1,4 +1,3 @@
-```tsx
 import {
   useState,
   useEffect,
@@ -3574,4 +3573,3 @@ export default function Navbar({
     </>
   );
 }
-```
