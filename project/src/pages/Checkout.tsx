@@ -2430,7 +2430,7 @@ export default function Checkout() {
           {/* =================================================
               ORDER SUMMARY
               ================================================= */}
-          <div className="w-full order-2 lg:sticky lg:top-32 self-start space-y-6">
+          <div className="w-full order-2 lg:sticky lg:top-24 lg:pt-20 self-start space-y-6">
             <div className="bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200 dark:border-neutral-800 p-6 space-y-6 shadow-sm dark:shadow-none">
               <div className="flex justify-between items-center">
                 <h2 className="text-neutral-900 dark:text-white font-bold text-lg">
