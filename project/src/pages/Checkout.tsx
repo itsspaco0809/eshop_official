@@ -1,4 +1,3 @@
-```tsx
 import {
   useState,
   useEffect,
@@ -2752,4 +2751,3 @@ export default function Checkout() {
  */
 const inputClass =
   'w-full px-4 py-3 bg-white dark:bg-neutral-900 border border-neutral-300 dark:border-neutral-800 rounded-xl text-neutral-900 dark:text-white placeholder:text-neutral-400 dark:placeholder:text-neutral-500 text-[16px] focus:outline-none focus:border-neutral-500 dark:focus:border-neutral-600 transition-colors';
-```
