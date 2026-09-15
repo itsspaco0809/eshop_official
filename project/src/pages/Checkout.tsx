@@ -160,14 +160,54 @@ export default function Checkout() {
    * =========================================================
    * SUBMIT LOCK
    * =========================================================
-   *
-   * React state alone is not enough to prevent two very fast
-   * taps/clicks from entering handleSubmit before React has
-   * re-rendered.
-   *
-   * This ref acts as a synchronous lock.
    */
   const submitLockRef = useRef(false);
+
+  /*
+   * =========================================================
+   * ORDER SUMMARY SCROLL STATE
+   * =========================================================
+   *
+   * IMPORTANT:
+   *
+   * The Order Summary needs:
+   *
+   * BEFORE SCROLL
+   * → align exactly with Contact Information
+   *
+   * AFTER SCROLL
+   * → keep the existing sticky top spacing
+   *
+   * Therefore lg:pt-20 is only applied after the page has
+   * started scrolling.
+   */
+  const [hasScrolled, setHasScrolled] =
+    useState(false);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setHasScrolled(
+        window.scrollY > 8
+      );
+    };
+
+    handleScroll();
+
+    window.addEventListener(
+      'scroll',
+      handleScroll,
+      {
+        passive: true,
+      }
+    );
+
+    return () => {
+      window.removeEventListener(
+        'scroll',
+        handleScroll
+      );
+    };
+  }, []);
 
   const [form, setForm] = useState({
     email: '',
@@ -210,26 +250,6 @@ export default function Checkout() {
    * =========================================================
    * STRIPE RETURN INITIAL STATE
    * =========================================================
-   *
-   * IMPORTANT:
-   *
-   * This MUST NOT simply start as false.
-   *
-   * Stripe redirects back to:
-   *
-   * /checkout?success=true&session_id=...
-   *
-   * React can render the component once BEFORE useEffect()
-   * executes.
-   *
-   * If this state starts as false, the normal checkout UI
-   * can briefly appear before useEffect() changes it to true.
-   *
-   * We therefore inspect the URL during the INITIAL STATE
-   * calculation.
-   *
-   * This means the FIRST render after Stripe returns is already
-   * the confirmation/loading screen.
    */
   const [isConfirmingStripeReturn, setIsConfirmingStripeReturn] =
     useState(() => {
@@ -264,9 +284,6 @@ export default function Checkout() {
    * =========================================================
    * ADMIN CASH PAYMENT
    * =========================================================
-   *
-   * Only an authenticated admin with the correct
-   * app_metadata role can trigger CASH.
    */
   const isCashPayment =
     isAdmin &&
@@ -343,10 +360,6 @@ export default function Checkout() {
 
           setStatus('success');
 
-          /*
-           * Fetch the actual database status so the success
-           * page can correctly show PAID or DONE.
-           */
           const {
             data,
             error,
@@ -396,10 +409,6 @@ export default function Checkout() {
             return;
           }
 
-          /*
-           * Make sure the Stripe loader is removed when the
-           * customer returns from a cancelled Stripe session.
-           */
           setIsConfirmingStripeReturn(
             false
           );
@@ -448,13 +457,6 @@ export default function Checkout() {
          * -----------------------------------------------------
          * STRIPE RETURN
          * -----------------------------------------------------
-         *
-         * The initial useState() has already made the FIRST
-         * render the loading screen.
-         *
-         * This remains here as a safety net for any client-side
-         * navigation that reaches this component with Stripe
-         * parameters.
          */
         setIsConfirmingStripeReturn(
           true
@@ -464,11 +466,6 @@ export default function Checkout() {
 
         scrollToTop();
 
-        /*
-         * Remove URL query parameters immediately.
-         *
-         * replaceState() does not reload the page.
-         */
         window.history.replaceState(
           {},
           document.title,
@@ -515,25 +512,6 @@ export default function Checkout() {
                   data.id
                 );
 
-                /*
-                 * IMPORTANT:
-                 *
-                 * Finding the order does NOT mean payment is
-                 * complete.
-                 *
-                 * create-order creates the order row first.
-                 *
-                 * Stripe webhook then changes:
-                 *
-                 * pending → paid
-                 *
-                 * OR
-                 *
-                 * pending → done
-                 *
-                 * Therefore we keep the confirmation screen
-                 * visible while the status is still pending.
-                 */
                 if (
                   data.status === 'paid' ||
                   data.status === 'done'
@@ -544,12 +522,6 @@ export default function Checkout() {
 
                   clearCart();
 
-                  /*
-                   * IMPORTANT:
-                   *
-                   * Only hide the Stripe confirmation screen
-                   * AFTER the final DB status is confirmed.
-                   */
                   setIsConfirmingStripeReturn(
                     false
                   );
@@ -563,11 +535,6 @@ export default function Checkout() {
                   return;
                 }
 
-                /*
-                 * Order exists but webhook has not finished yet.
-                 *
-                 * Keep polling.
-                 */
                 if (
                   Date.now() -
                     startedAt <
@@ -583,9 +550,6 @@ export default function Checkout() {
                 }
               }
 
-              /*
-               * Continue polling for up to 60 seconds.
-               */
               if (
                 Date.now() -
                   startedAt <
@@ -604,9 +568,6 @@ export default function Checkout() {
                 return;
               }
 
-              /*
-               * Confirmation timed out.
-               */
               setIsConfirmingStripeReturn(
                 false
               );
@@ -828,12 +789,6 @@ export default function Checkout() {
    * =========================================================
    * INSTRUCTIONS PRODUCT DETECTION
    * =========================================================
-   *
-   * Keep this aligned with the server-side create-order
-   * and stripe-webhook logic.
-   *
-   * An item is considered an Instructions product when
-   * section, category, OR name contains "instruction".
    */
   const isInstructionItem = (
     item?: (typeof items)[0]
@@ -1192,27 +1147,9 @@ export default function Checkout() {
     );
 
   /*
-   * IMPORTANT:
-   *
-   * Only an order where EVERY item is an Instructions
-   * product is considered Instructions Only.
-   *
-   * Therefore:
-   *
-   * Instructions
-   * → done
-   *
-   * Kits
-   * → paid
-   *
-   * Custom Parts
-   * → paid
-   *
-   * Kits + Instructions
-   * → paid
-   *
-   * Kits + Instructions + Custom Parts
-   * → paid
+   * =========================================================
+   * INSTRUCTIONS ONLY
+   * =========================================================
    */
   const isInstructionOnly =
     items.length > 0 &&
@@ -1267,14 +1204,6 @@ export default function Checkout() {
    * =========================================================
    * READ CURRENT AUTH SESSION
    * =========================================================
-   *
-   * This is the important part for your current
-   * "Invalid Refresh Token" problem.
-   *
-   * We do NOT blindly trust the React `user` state.
-   *
-   * The Supabase session is checked immediately before
-   * creating the order.
    */
   const getCheckoutSession =
     async () => {
@@ -1309,9 +1238,6 @@ export default function Checkout() {
    * =========================================================
    * LOCAL SESSION CLEANUP
    * =========================================================
-   *
-   * Used only when Supabase tells us that the existing
-   * refresh token/session is invalid.
    */
   const clearBrokenAuthSession =
     async () => {
@@ -1349,9 +1275,6 @@ export default function Checkout() {
         | string
         | null = null;
 
-      /*
-       * Read Retry-After header if the backend provides it.
-       */
       try {
         if (
           funcError?.context?.headers
@@ -1364,9 +1287,6 @@ export default function Checkout() {
         }
       } catch (_) {}
 
-      /*
-       * Try reading JSON error body.
-       */
       try {
         if (
           funcError?.context &&
@@ -1392,11 +1312,6 @@ export default function Checkout() {
         }
       } catch (_) {}
 
-      /*
-       * -----------------------------------------------------
-       * RATE LIMIT
-       * -----------------------------------------------------
-       */
       if (
         statusCode === 429
       ) {
@@ -1431,11 +1346,6 @@ export default function Checkout() {
         }
       }
 
-      /*
-       * -----------------------------------------------------
-       * INVALID REFRESH TOKEN
-       * -----------------------------------------------------
-       */
       const lowerMessage =
         String(
           message || ''
@@ -1469,11 +1379,6 @@ export default function Checkout() {
   ) => {
     e.preventDefault();
 
-    /*
-     * -------------------------------------------------------
-     * HARD DOUBLE-SUBMIT LOCK
-     * -------------------------------------------------------
-     */
     if (submitLockRef.current) {
       return;
     }
@@ -1483,11 +1388,6 @@ export default function Checkout() {
     setStatus('submitting');
     setErrorMessage(null);
 
-    /*
-     * -------------------------------------------------------
-     * VALIDATE CART
-     * -------------------------------------------------------
-     */
     const invalidItems =
       items.filter(
         (item) => !item?.product
@@ -1508,26 +1408,6 @@ export default function Checkout() {
       return;
     }
 
-    /*
-     * -------------------------------------------------------
-     * DETERMINE ORDER STATUS
-     * -------------------------------------------------------
-     *
-     * IMPORTANT:
-     *
-     * Instructions ONLY
-     * → done
-     *
-     * Cash order with physical products
-     * → paid
-     *
-     * Normal Stripe order
-     * → pending
-     *
-     * The final Stripe status is still determined by the
-     * stripe-webhook using the actual order_items/products
-     * on the server.
-     */
     const targetStatus =
       isInstructionOnly
         ? 'done'
@@ -1546,22 +1426,9 @@ export default function Checkout() {
       );
 
     try {
-      /*
-       * =====================================================
-       * STEP 1 — VERIFY CURRENT SESSION
-       * =====================================================
-       */
       let activeSession =
         await getCheckoutSession();
 
-      /*
-       * If React says a user is logged in but Supabase
-       * currently has no valid session:
-       *
-       * - CASH/admin → stop and ask admin to sign in
-       * - normal Stripe → clear stale local auth and
-       *   continue as guest
-       */
       if (
         user &&
         !activeSession
@@ -1578,24 +1445,10 @@ export default function Checkout() {
           );
         }
 
-        /*
-         * Guest checkout is allowed for normal Stripe orders.
-         */
         activeSession = null;
       }
 
-      /*
-       * =====================================================
-       * STEP 2 — CREATE ORDER / STRIPE SESSION
-       * =====================================================
-       */
       const requestBody = {
-        /*
-         * IMPORTANT:
-         *
-         * Use the CURRENT Supabase session user ID,
-         * not a stale React user ID.
-         */
         user_id:
           activeSession?.user?.id ??
           null,
@@ -1624,16 +1477,6 @@ export default function Checkout() {
         currency:
           globalCurrency,
 
-        /*
-         * Instructions only:
-         * done
-         *
-         * Cash physical order:
-         * paid
-         *
-         * Stripe:
-         * pending until webhook confirmation
-         */
         status:
           targetStatus,
 
@@ -1684,13 +1527,6 @@ export default function Checkout() {
                 quantity:
                   item.quantity,
 
-                /*
-                 * Kept for compatibility.
-                 *
-                 * create-order should continue using
-                 * the database product price as the
-                 * authoritative price.
-                 */
                 price:
                   Math.round(
                     calculateLocalAmount(
@@ -1707,11 +1543,6 @@ export default function Checkout() {
       let data: any = null;
       let funcError: any = null;
 
-      /*
-       * -------------------------------------------------------
-       * FIRST ATTEMPT
-       * -------------------------------------------------------
-       */
       const firstAttempt =
         await supabase.functions.invoke(
           'create-order',
@@ -1726,18 +1557,6 @@ export default function Checkout() {
       funcError =
         firstAttempt.error;
 
-      /*
-       * -------------------------------------------------------
-       * INVALID REFRESH TOKEN RECOVERY
-       * -------------------------------------------------------
-       *
-       * If Supabase tried to use an old refresh token and
-       * the function call failed because of it:
-       *
-       * 1. Clear broken local session.
-       * 2. Do NOT repeat for admin CASH.
-       * 3. Retry ONE time as guest for normal Stripe.
-       */
       if (
         funcError
       ) {
@@ -1761,9 +1580,6 @@ export default function Checkout() {
             );
           }
 
-          /*
-           * Retry exactly ONCE.
-           */
           const retryBody = {
             ...requestBody,
             user_id: null,
@@ -1785,11 +1601,6 @@ export default function Checkout() {
         }
       }
 
-      /*
-       * -------------------------------------------------------
-       * FUNCTION ERROR
-       * -------------------------------------------------------
-       */
       if (funcError) {
         const parsed =
           await parseFunctionError(
@@ -1812,11 +1623,6 @@ export default function Checkout() {
         );
       }
 
-      /*
-       * -------------------------------------------------------
-       * BACKEND RESPONSE VALIDATION
-       * -------------------------------------------------------
-       */
       if (
         !data?.success
       ) {
@@ -1848,14 +1654,6 @@ export default function Checkout() {
           data.order_id
         );
 
-        /*
-         * IMPORTANT:
-         *
-         * Use the backend status as authoritative.
-         *
-         * Instructions only → done
-         * Physical/Cash order → paid
-         */
         setDbOrderStatus(
           data.status ||
             targetStatus ||
@@ -1866,9 +1664,6 @@ export default function Checkout() {
 
         setStatus('success');
 
-        /*
-         * Clear cart ONLY after successful order creation.
-         */
         clearCart();
 
         return;
@@ -1878,22 +1673,6 @@ export default function Checkout() {
        * =====================================================
        * STRIPE
        * =====================================================
-       *
-       * create-order returns the Stripe Checkout URL.
-       *
-       * We DO NOT clear the cart here.
-       *
-       * Cart is cleared only after:
-       *
-       * Stripe payment
-       *       ↓
-       * stripe-webhook
-       *       ↓
-       * orders row
-       *       ↓
-       * Checkout polling / order status
-       *       ↓
-       * success
        */
       if (
         typeof data.checkout_url !==
@@ -1905,12 +1684,6 @@ export default function Checkout() {
         );
       }
 
-      /*
-       * Stripe Checkout redirect
-       *
-       * Use assign() instead of href so browser navigation
-       * is explicit and SPA router interference is avoided.
-       */
       window.location.assign(
         data.checkout_url
       );
@@ -1922,9 +1695,6 @@ export default function Checkout() {
 
       setStatus('idle');
 
-      /*
-       * Never leave the lock active after an error.
-       */
       submitLockRef.current =
         false;
 
@@ -1936,11 +1706,6 @@ export default function Checkout() {
       const lowerMessage =
         rawMessage.toLowerCase();
 
-      /*
-       * -------------------------------------------------------
-       * AUTH ERROR
-       * -------------------------------------------------------
-       */
       if (
         lowerMessage.includes(
           'invalid refresh token'
@@ -1961,11 +1726,6 @@ export default function Checkout() {
         return;
       }
 
-      /*
-       * -------------------------------------------------------
-       * RATE LIMIT
-       * -------------------------------------------------------
-       */
       if (
         lowerMessage.includes(
           'too many'
@@ -1984,11 +1744,6 @@ export default function Checkout() {
         return;
       }
 
-      /*
-       * -------------------------------------------------------
-       * NORMAL ERROR
-       * -------------------------------------------------------
-       */
       setErrorMessage(
         rawMessage ||
           'Failed to process order.'
@@ -2000,24 +1755,6 @@ export default function Checkout() {
    * =========================================================
    * STRIPE RETURN LOADING
    * =========================================================
-   *
-   * Because isConfirmingStripeReturn is initialized from
-   * window.location.search, this screen is rendered on the
-   * FIRST render after Stripe redirects back.
-   *
-   * This prevents:
-   *
-   * Checkout UI
-   *      ↓
-   * flash
-   *      ↓
-   * Confirming payment...
-   *
-   * Instead:
-   *
-   * Confirming payment...
-   *      ↓
-   * Success
    */
   if (
     isConfirmingStripeReturn &&
@@ -2430,7 +2167,13 @@ export default function Checkout() {
           {/* =================================================
               ORDER SUMMARY
               ================================================= */}
-          <div className="w-full order-2 lg:sticky lg:top-24 lg:pt-20 self-start space-y-6">
+          <div
+            className={`w-full order-2 lg:sticky lg:top-24 self-start space-y-6 ${
+              hasScrolled
+                ? 'lg:pt-20'
+                : 'lg:pt-0'
+            }`}
+          >
             <div className="bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200 dark:border-neutral-800 p-6 space-y-6 shadow-sm dark:shadow-none">
               <div className="flex justify-between items-center">
                 <h2 className="text-neutral-900 dark:text-white font-bold text-lg">
