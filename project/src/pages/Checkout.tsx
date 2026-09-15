@@ -195,33 +195,6 @@ export default function Checkout() {
    * ORDER SUMMARY SCROLL STATE
    * =========================================================
    */
-  const [hasScrolled, setHasScrolled] =
-    useState(false);
-
-  useEffect(() => {
-    const handleScroll = () => {
-      setHasScrolled(
-        window.scrollY > 8
-      );
-    };
-
-    handleScroll();
-
-    window.addEventListener(
-      'scroll',
-      handleScroll,
-      {
-        passive: true,
-      }
-    );
-
-    return () => {
-      window.removeEventListener(
-        'scroll',
-        handleScroll
-      );
-    };
-  }, []);
 
   const [form, setForm] =
     useState({
@@ -805,37 +778,49 @@ export default function Checkout() {
   }, [clearCart]);
 
   /*
-   * =========================================================
-   * CURRENCY → COUNTRY SYNC
-   * =========================================================
-   */
-  useEffect(() => {
-    const matchingCountry =
-      CURRENCY_TO_COUNTRY[
-        globalCurrency
-      ];
+ * =========================================================
+ * CURRENCY → COUNTRY SYNC
+ * =========================================================
+ *
+ * Only change the country when the CURRENT country does
+ * not actually use the selected global currency.
+ *
+ * This is important because both Germany and France use EUR.
+ * We must NOT force France back to Germany just because
+ * CURRENCY_TO_COUNTRY['EUR'] points to Germany.
+ */
+useEffect(() => {
+  const matchingCountry =
+    CURRENCY_TO_COUNTRY[
+      globalCurrency
+    ];
 
-    if (
-      matchingCountry &&
-      form.country !==
-        matchingCountry
-    ) {
-      setForm((prev) => ({
-        ...prev,
-        country:
-          matchingCountry,
-      }));
+  const currentCountryCurrency =
+    COUNTRY_TO_CURRENCY[
+      form.country
+    ];
 
-      setAppliedCoupon(
-        null
-      );
+  if (
+    matchingCountry &&
+    currentCountryCurrency !==
+      globalCurrency
+  ) {
+    setForm((prev) => ({
+      ...prev,
+      country:
+        matchingCountry,
+    }));
 
-      setCouponError(null);
-    }
-  }, [
-    globalCurrency,
-    form.country,
-  ]);
+    setAppliedCoupon(
+      null
+    );
+
+    setCouponError(null);
+  }
+}, [
+  globalCurrency,
+  form.country,
+]);
 
   const selectedCountryConfig =
     COUNTRY_CONFIG[
@@ -2509,12 +2494,8 @@ export default function Checkout() {
               ORDER SUMMARY
               ================================================= */}
           <div
-            className={`w-full order-2 lg:sticky lg:top-24 self-start space-y-6 ${
-              hasScrolled
-                ? 'lg:pt-20'
-                : 'lg:pt-0'
-            }`}
-          >
+  className="w-full order-2 lg:sticky lg:top-24 self-start space-y-6"
+>
             <div className="bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200 dark:border-neutral-800 p-6 space-y-6 shadow-sm dark:shadow-none">
               <div className="flex justify-between items-center">
                 <h2 className="text-neutral-900 dark:text-white font-bold text-lg">
