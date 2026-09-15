@@ -33,7 +33,7 @@ export default function IntroOverlay({
     theme === 'dark';
 
   const logoUrl =
-    'https://raw.githubusercontent.com/itsspaco0809/scitem-images/main/LCP_logo_trans.png';
+    '/LCP_logo_trans.png';
 
   useLayoutEffect(() => {
     const overlay =
