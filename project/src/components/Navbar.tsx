@@ -1,10 +1,13 @@
+```tsx
 import {
   useState,
   useEffect,
   useLayoutEffect,
   useRef,
 } from 'react';
+
 import gsap from 'gsap';
+
 import {
   ShoppingBag,
   Menu,
@@ -22,13 +25,34 @@ import {
   Sun,
   Moon,
 } from 'lucide-react';
-import { Link, useRouter } from '@/lib/router';
-import { useCart } from '@/lib/cart';
-import { useAuth } from '@/lib/auth';
-import { globalLenis } from '@/lib/lenis';
+
+import {
+  Link,
+  useRouter,
+} from '@/lib/router';
+
+import {
+  useCart,
+} from '@/lib/cart';
+
+import {
+  useAuth,
+} from '@/lib/auth';
+
+import {
+  globalLenis,
+} from '@/lib/lenis';
+
 import AuthModal from '@/components/AuthModal';
-import { useCurrency, CURRENCIES } from '@/lib/currency';
-import { useTheme } from '@/lib/theme';
+
+import {
+  useCurrency,
+  CURRENCIES,
+} from '@/lib/currency';
+
+import {
+  useTheme,
+} from '@/lib/theme';
 
 interface NavbarProps {
   isIntroFinished?: boolean;
@@ -37,9 +61,21 @@ interface NavbarProps {
 export default function Navbar({
   isIntroFinished = false,
 }: NavbarProps) {
-  const { totalItems, openCart } = useCart();
-  const { path, navigate } = useRouter();
-  const { user, isAdmin, signOut } = useAuth();
+  const {
+    totalItems,
+    openCart,
+  } = useCart();
+
+  const {
+    path,
+    navigate,
+  } = useRouter();
+
+  const {
+    user,
+    isAdmin,
+    signOut,
+  } = useAuth();
 
   const {
     currency,
@@ -47,25 +83,53 @@ export default function Navbar({
     currencyConfig,
   } = useCurrency();
 
-  const { theme, setTheme } = useTheme();
+  const {
+    theme,
+    setTheme,
+  } = useTheme();
 
-  const [scrolled, setScrolled] = useState(false);
-  const [mobileOpen, setMobileOpen] = useState(false);
-  const [mobileMenuRendered, setMobileMenuRendered] =
+  const [scrolled, setScrolled] =
     useState(false);
-  const [mobileMenuAnimating, setMobileMenuAnimating] =
-    useState(false);
-  const [authOpen, setAuthOpen] = useState(false);
-  const [userMenuOpen, setUserMenuOpen] =
-    useState(false);
-  const [currencyMenuOpen, setCurrencyMenuOpen] =
-    useState(false);
-  const [mobileCurrencyOpen, setMobileCurrencyOpen] =
-    useState(false);
-  const [hidden, setHidden] = useState(false);
 
-  const lastScrollY = useRef(0);
-  const ticking = useRef(false);
+  const [mobileOpen, setMobileOpen] =
+    useState(false);
+
+  const [
+    mobileMenuRendered,
+    setMobileMenuRendered,
+  ] = useState(false);
+
+  const [
+    mobileMenuAnimating,
+    setMobileMenuAnimating,
+  ] = useState(false);
+
+  const [authOpen, setAuthOpen] =
+    useState(false);
+
+  const [
+    userMenuOpen,
+    setUserMenuOpen,
+  ] = useState(false);
+
+  const [
+    currencyMenuOpen,
+    setCurrencyMenuOpen,
+  ] = useState(false);
+
+  const [
+    mobileCurrencyOpen,
+    setMobileCurrencyOpen,
+  ] = useState(false);
+
+  const [hidden, setHidden] =
+    useState(false);
+
+  const lastScrollY =
+    useRef(0);
+
+  const ticking =
+    useRef(false);
 
   const userMenuRef =
     useRef<HTMLDivElement>(null);
@@ -104,10 +168,14 @@ export default function Navbar({
     useRef(false);
 
   const mobileMenuUnlockTimerRef =
-    useRef<ReturnType<typeof setTimeout> | null>(null);
+    useRef<ReturnType<
+      typeof setTimeout
+    > | null>(null);
 
   const mobileMenuUnmountTimerRef =
-    useRef<ReturnType<typeof setTimeout> | null>(null);
+    useRef<ReturnType<
+      typeof setTimeout
+    > | null>(null);
 
   const bodyScrollYRef =
     useRef(0);
@@ -118,11 +186,6 @@ export default function Navbar({
   /*
    * =========================================================
    * MOBILE AUTH SCROLL PROTECTION
-   *
-   * When the user opens Login from the mobile hamburger,
-   * remember the exact page position before the hamburger
-   * closes so iOS Safari cannot lose the original position
-   * during the AuthModal / authentication transition.
    * =========================================================
    */
 
@@ -147,7 +210,8 @@ export default function Navbar({
    * =========================================================
    */
 
-  const MOBILE_BREAKPOINT = 1536;
+  const MOBILE_BREAKPOINT =
+    1536;
 
   /*
    * =========================================================
@@ -172,12 +236,16 @@ export default function Navbar({
         ? '#0a0a0a'
         : '#ffffff';
 
-    if (mobileSafeAreaRef.current) {
+    if (
+      mobileSafeAreaRef.current
+    ) {
       mobileSafeAreaRef.current.style.backgroundColor =
         background;
     }
 
-    if (mobileMenuRef.current) {
+    if (
+      mobileMenuRef.current
+    ) {
       mobileMenuRef.current.style.backgroundColor =
         background;
     }
@@ -192,23 +260,27 @@ export default function Navbar({
    * =========================================================
    */
 
-  const hasOtherScrollLock = () => {
-    const html =
-      document.documentElement;
+  const hasOtherScrollLock =
+    () => {
+      const html =
+        document.documentElement;
 
-    return (
-      html.classList.contains('cart-open') ||
-      html.classList.contains('product-loading') ||
-      html.classList.contains('intro-active')
-    );
-  };
+      return (
+        html.classList.contains(
+          'cart-open'
+        ) ||
+        html.classList.contains(
+          'product-loading'
+        ) ||
+        html.classList.contains(
+          'intro-active'
+        )
+      );
+    };
 
   /*
    * =========================================================
    * RESTORE NATIVE + LENIS SCROLL
-   *
-   * Centralized helper so mobile menu close and auth restore
-   * use exactly the same scroll synchronization logic.
    * =========================================================
    */
 
@@ -222,9 +294,6 @@ export default function Navbar({
         ? targetY
         : 0;
 
-    /*
-     * Native browser scroll.
-     */
     window.scrollTo({
       top: safeY,
       left: 0,
@@ -244,10 +313,6 @@ export default function Navbar({
     document.documentElement.scrollTop =
       safeY;
 
-    /*
-     * Only touch body.scrollTop when body is not currently
-     * fixed by another modal/scroll lock.
-     */
     if (
       document.body.style.position !==
       'fixed'
@@ -256,9 +321,6 @@ export default function Navbar({
         safeY;
     }
 
-    /*
-     * Lenis synchronization.
-     */
     if (globalLenis) {
       try {
         globalLenis.resize();
@@ -286,74 +348,52 @@ export default function Navbar({
   /*
    * =========================================================
    * MOBILE AUTH SCROLL RESTORE
-   *
-   * Safari/iOS can perform another layout pass after the
-   * AuthModal closes. Restore immediately + multiple RAFs +
-   * short delayed passes.
    * =========================================================
    */
 
-  const restoreMobileAuthScroll = () => {
-    if (
-      !mobileAuthOpenedRef.current
-    ) {
-      return;
-    }
+  const restoreMobileAuthScroll =
+    () => {
+      if (
+        !mobileAuthOpenedRef.current
+      ) {
+        return;
+      }
 
-    const targetY =
-      mobileAuthScrollYRef.current;
+      const targetY =
+        mobileAuthScrollYRef.current;
 
-    const restore = () => {
-      restoreScrollPosition(
-        targetY,
-        !authOpenRef.current
-      );
-    };
+      const restore = () => {
+        restoreScrollPosition(
+          targetY,
+          !authOpenRef.current
+        );
+      };
 
-    /*
-     * Immediate restore.
-     */
-    restore();
-
-    /*
-     * First Safari layout pass.
-     */
-    requestAnimationFrame(() => {
       restore();
 
-      /*
-       * Second Safari layout pass.
-       */
       requestAnimationFrame(() => {
         restore();
 
-        /*
-         * Third pass for iOS Safari.
-         */
         requestAnimationFrame(() => {
           restore();
+
+          requestAnimationFrame(() => {
+            restore();
+          });
         });
       });
-    });
 
-    /*
-     * Delayed Safari layout corrections.
-     */
-    window.setTimeout(() => {
-      restore();
-    }, 50);
+      window.setTimeout(() => {
+        restore();
+      }, 50);
 
-    window.setTimeout(() => {
-      restore();
-    }, 150);
+      window.setTimeout(() => {
+        restore();
+      }, 150);
 
-    /*
-     * Allow another auth interaction to capture a fresh
-     * position later.
-     */
-    mobileAuthOpenedRef.current =
-      false;
-  };
+      mobileAuthOpenedRef.current =
+        false;
+    };
 
   /*
    * =========================================================
@@ -429,13 +469,12 @@ export default function Navbar({
                 return;
               }
 
-              /*
-               * Force layout so Safari acknowledges the
-               * off-screen starting position.
-               */
-              void mobileMenuRef.current.offsetWidth;
+              void mobileMenuRef.current
+                .offsetWidth;
 
-              setMobileMenuAnimating(true);
+              setMobileMenuAnimating(
+                true
+              );
 
               document.documentElement.classList.add(
                 'mobile-menu-open-visible'
@@ -476,9 +515,6 @@ export default function Navbar({
     mobileMenuScrollLockedRef.current =
       true;
 
-    /*
-     * Start the 300ms translateX close animation.
-     */
     setMobileMenuAnimating(false);
 
     document.documentElement.classList.remove(
@@ -500,16 +536,18 @@ export default function Navbar({
           'mobile-menu-open'
         );
 
-        document.body.style.position = '';
-        document.body.style.top = '';
-        document.body.style.width = '';
-        document.body.style.overflow = '';
+        document.body.style.position =
+          '';
 
-        /*
-         * If AuthModal is currently open, do NOT start Lenis.
-         * Navbar keeps the page position stable while the
-         * authentication transition is in progress.
-         */
+        document.body.style.top =
+          '';
+
+        document.body.style.width =
+          '';
+
+        document.body.style.overflow =
+          '';
+
         const authIsOpen =
           authOpenRef.current;
 
@@ -527,9 +565,6 @@ export default function Navbar({
           )
         );
 
-        /*
-         * If AuthModal is NOT open, do one extra Safari pass.
-         */
         if (!authIsOpen) {
           requestAnimationFrame(() => {
             restoreScrollPosition(
@@ -563,101 +598,100 @@ export default function Navbar({
    * =========================================================
    */
 
-  const openMobileMenu = () => {
-    if (
-      mobileMenuUnlockTimerRef.current
-    ) {
-      clearTimeout(
+  const openMobileMenu =
+    () => {
+      if (
         mobileMenuUnlockTimerRef.current
-      );
+      ) {
+        clearTimeout(
+          mobileMenuUnlockTimerRef.current
+        );
 
-      mobileMenuUnlockTimerRef.current =
-        null;
-    }
+        mobileMenuUnlockTimerRef.current =
+          null;
+      }
 
-    if (
-      mobileMenuUnmountTimerRef.current
-    ) {
-      clearTimeout(
+      if (
         mobileMenuUnmountTimerRef.current
+      ) {
+        clearTimeout(
+          mobileMenuUnmountTimerRef.current
+        );
+
+        mobileMenuUnmountTimerRef.current =
+          null;
+      }
+
+      if (
+        mobileMenuAnimationFrameRef.current !==
+        null
+      ) {
+        cancelAnimationFrame(
+          mobileMenuAnimationFrameRef.current
+        );
+
+        mobileMenuAnimationFrameRef.current =
+          null;
+      }
+
+      const currentScrollY =
+        window.scrollY ||
+        window.pageYOffset ||
+        document.documentElement
+          .scrollTop ||
+        0;
+
+      bodyScrollYRef.current =
+        currentScrollY;
+
+      document.body.style.position =
+        'fixed';
+
+      document.body.style.top =
+        `-${currentScrollY}px`;
+
+      document.body.style.width =
+        '100%';
+
+      document.body.style.overflow =
+        'hidden';
+
+      document.documentElement.classList.add(
+        'mobile-menu-open'
       );
 
-      mobileMenuUnmountTimerRef.current =
-        null;
-    }
-
-    if (
-      mobileMenuAnimationFrameRef.current !==
-      null
-    ) {
-      cancelAnimationFrame(
-        mobileMenuAnimationFrameRef.current
+      document.body.classList.add(
+        'mobile-menu-open'
       );
 
-      mobileMenuAnimationFrameRef.current =
-        null;
-    }
+      window.dispatchEvent(
+        new Event(
+          'lcp-surface-change'
+        )
+      );
 
-    /*
-     * Lock document BEFORE React renders the menu.
-     *
-     * This is the critical original scroll position.
-     */
-    const currentScrollY =
-      window.scrollY ||
-      window.pageYOffset ||
-      document.documentElement.scrollTop ||
-      0;
+      if (globalLenis) {
+        globalLenis.stop();
+      }
 
-    bodyScrollYRef.current =
-      currentScrollY;
+      if (
+        mobileSafeAreaRef.current
+      ) {
+        mobileSafeAreaRef.current.style.backgroundColor =
+          theme === 'dark'
+            ? '#0a0a0a'
+            : '#ffffff';
+      }
 
-    document.body.style.position =
-      'fixed';
+      setMobileMenuAnimating(
+        false
+      );
 
-    document.body.style.top =
-      `-${currentScrollY}px`;
+      mobileOpenRef.current =
+        true;
 
-    document.body.style.width =
-      '100%';
-
-    document.body.style.overflow =
-      'hidden';
-
-    document.documentElement.classList.add(
-      'mobile-menu-open'
-    );
-
-    document.body.classList.add(
-      'mobile-menu-open'
-    );
-
-    window.dispatchEvent(
-      new Event(
-        'lcp-surface-change'
-      )
-    );
-
-    if (globalLenis) {
-      globalLenis.stop();
-    }
-
-    /*
-     * Keep safe area immediately synchronized.
-     */
-    if (mobileSafeAreaRef.current) {
-      mobileSafeAreaRef.current.style.backgroundColor =
-        theme === 'dark'
-          ? '#0a0a0a'
-          : '#ffffff';
-    }
-
-    setMobileMenuAnimating(false);
-
-    mobileOpenRef.current = true;
-
-    setMobileOpen(true);
-  };
+      setMobileOpen(true);
+    };
 
   /*
    * =========================================================
@@ -665,43 +699,40 @@ export default function Navbar({
    * =========================================================
    */
 
-  const closeMobileMenu = () => {
-    if (
-      !mobileOpenRef.current &&
-      !mobileMenuRendered
-    ) {
-      return;
-    }
+  const closeMobileMenu =
+    () => {
+      if (
+        !mobileOpenRef.current &&
+        !mobileMenuRendered
+      ) {
+        return;
+      }
 
-    if (
-      mobileMenuAnimationFrameRef.current !==
-      null
-    ) {
-      cancelAnimationFrame(
-        mobileMenuAnimationFrameRef.current
+      if (
+        mobileMenuAnimationFrameRef.current !==
+        null
+      ) {
+        cancelAnimationFrame(
+          mobileMenuAnimationFrameRef.current
+        );
+
+        mobileMenuAnimationFrameRef.current =
+          null;
+      }
+
+      setMobileMenuAnimating(
+        false
       );
 
-      mobileMenuAnimationFrameRef.current =
-        null;
-    }
+      document.documentElement.classList.remove(
+        'mobile-menu-open-visible'
+      );
 
-    /*
-     * IMPORTANT:
-     *
-     * Do NOT overwrite bodyScrollYRef here.
-     * It contains the exact page position from before the
-     * hamburger was opened.
-     */
-    setMobileMenuAnimating(false);
+      mobileOpenRef.current =
+        false;
 
-    document.documentElement.classList.remove(
-      'mobile-menu-open-visible'
-    );
-
-    mobileOpenRef.current = false;
-
-    setMobileOpen(false);
-  };
+      setMobileOpen(false);
+    };
 
   /*
    * =========================================================
@@ -709,97 +740,92 @@ export default function Navbar({
    * =========================================================
    */
 
-  const handleMobileThemeToggle = () => {
-    const nextTheme =
-      theme === 'dark'
-        ? 'light'
-        : 'dark';
+  const handleMobileThemeToggle =
+    () => {
+      const nextTheme =
+        theme === 'dark'
+          ? 'light'
+          : 'dark';
 
-    const background =
-      nextTheme === 'dark'
-        ? '#0a0a0a'
-        : '#ffffff';
+      const background =
+        nextTheme === 'dark'
+          ? '#0a0a0a'
+          : '#ffffff';
 
-    if (mobileMenuRef.current) {
-      mobileMenuRef.current.style.backgroundColor =
-        background;
-    }
+      if (
+        mobileMenuRef.current
+      ) {
+        mobileMenuRef.current.style.backgroundColor =
+          background;
+      }
 
-    if (mobileSafeAreaRef.current) {
-      mobileSafeAreaRef.current.style.backgroundColor =
-        background;
-    }
+      if (
+        mobileSafeAreaRef.current
+      ) {
+        mobileSafeAreaRef.current.style.backgroundColor =
+          background;
+      }
 
-    const root =
-      document.documentElement;
+      const root =
+        document.documentElement;
 
-    root.style.setProperty(
-      '--mobile-menu-background',
-      background
-    );
+      root.style.setProperty(
+        '--mobile-menu-background',
+        background
+      );
 
-    root.style.setProperty(
-      '--safe-area-background',
-      background
-    );
+      root.style.setProperty(
+        '--safe-area-background',
+        background
+      );
 
-    root.style.setProperty(
-      '--browser-chrome-background',
-      background
-    );
+      root.style.setProperty(
+        '--browser-chrome-background',
+        background
+      );
 
-    root.style.setProperty(
-      '--ios-edge-background',
-      background
-    );
+      root.style.setProperty(
+        '--ios-edge-background',
+        background
+      );
 
-    document.body?.style.setProperty(
-      '--ios-edge-background',
-      background
-    );
+      document.body?.style.setProperty(
+        '--ios-edge-background',
+        background
+      );
 
-    setTheme(nextTheme);
-  };
+      setTheme(nextTheme);
+    };
 
   /*
    * =========================================================
    * AUTH MODAL
-   *
-   * Capture Login state when AuthModal is opened from mobile.
    * =========================================================
    */
 
-  const openMobileAuth = () => {
-    /*
-     * Capture the exact native scroll position BEFORE closing
-     * the hamburger.
-     */
-    const currentScrollY =
-      window.scrollY ||
-      window.pageYOffset ||
-      document.documentElement.scrollTop ||
-      0;
+  const openMobileAuth =
+    () => {
+      const currentScrollY =
+        window.scrollY ||
+        window.pageYOffset ||
+        document.documentElement
+          .scrollTop ||
+        0;
 
-    mobileAuthScrollYRef.current =
-      currentScrollY;
+      mobileAuthScrollYRef.current =
+        currentScrollY;
 
-    mobileAuthOpenedRef.current =
-      true;
+      mobileAuthOpenedRef.current =
+        true;
 
-    /*
-     * Close hamburger.
-     */
-    closeMobileMenu();
+      closeMobileMenu();
 
-    setAuthOpen(true);
-  };
+      setAuthOpen(true);
+    };
 
   /*
    * =========================================================
    * DETECT SUCCESSFUL LOGIN
-   *
-   * When user changes from null -> logged in after opening
-   * mobile Login, restore the exact original position.
    * =========================================================
    */
 
@@ -827,16 +853,10 @@ export default function Navbar({
   /*
    * =========================================================
    * AUTH MODAL CLOSE
-   *
-   * If AuthModal closes before/after the user state changes,
-   * restore the original mobile position again.
    * =========================================================
    */
 
   useEffect(() => {
-    /*
-     * Only act when AuthModal has actually closed.
-     */
     if (authOpen) {
       return;
     }
@@ -919,8 +939,12 @@ export default function Navbar({
       ];
 
       if (
-        blockedKeys.includes(e.code) ||
-        blockedKeys.includes(e.key)
+        blockedKeys.includes(
+          e.code
+        ) ||
+        blockedKeys.includes(
+          e.key
+        )
       ) {
         if (e.cancelable) {
           e.preventDefault();
@@ -1031,10 +1055,17 @@ export default function Navbar({
         'mobile-menu-open'
       );
 
-      document.body.style.position = '';
-      document.body.style.top = '';
-      document.body.style.width = '';
-      document.body.style.overflow = '';
+      document.body.style.position =
+        '';
+
+      document.body.style.top =
+        '';
+
+      document.body.style.width =
+        '';
+
+      document.body.style.overflow =
+        '';
 
       window.dispatchEvent(
         new Event(
@@ -1087,7 +1118,9 @@ export default function Navbar({
     if (
       !currentContent
         .toLowerCase()
-        .includes('viewport-fit')
+        .includes(
+          'viewport-fit'
+        )
     ) {
       viewportMeta.setAttribute(
         'content',
@@ -1103,6 +1136,18 @@ export default function Navbar({
   /*
    * =========================================================
    * INTRO SEQUENCE ANIMATION
+   *
+   * IMPORTANT:
+   *
+   * All mobile navbar items use the SAME GSAP animation.
+   *
+   * Hamburger
+   * Logo
+   * Theme
+   * Cart
+   *
+   * No individual mobile theme opacity/scale animation is
+   * applied here.
    * =========================================================
    */
 
@@ -1161,11 +1206,15 @@ export default function Navbar({
 
         if (
           !targetItems ||
-          targetItems.length === 0
+          targetItems.length ===
+            0
         ) {
           return;
         }
 
+        /*
+         * Header itself moves first.
+         */
         gsap.set(
           headerRef.current,
           {
@@ -1174,6 +1223,10 @@ export default function Navbar({
           }
         );
 
+        /*
+         * Every navbar item starts from exactly the same
+         * position and opacity.
+         */
         gsap.set(
           targetItems,
           {
@@ -1201,6 +1254,9 @@ export default function Navbar({
             },
           });
 
+        /*
+         * Header enters.
+         */
         tl.to(
           headerRef.current,
           {
@@ -1209,7 +1265,13 @@ export default function Navbar({
             duration: 0.4,
             ease: 'power3.out',
           }
-        ).to(
+        );
+
+        /*
+         * All mobile / desktop navbar items share this exact
+         * GSAP animation.
+         */
+        tl.to(
           targetItems,
           {
             y: 0,
@@ -1228,7 +1290,9 @@ export default function Navbar({
 
     return () =>
       ctx.revert();
-  }, [isIntroFinished]);
+  }, [
+    isIntroFinished,
+  ]);
 
   /*
    * =========================================================
@@ -1377,7 +1441,9 @@ export default function Navbar({
           event.target as Node
         )
       ) {
-        setCurrencyMenuOpen(false);
+        setCurrencyMenuOpen(
+          false
+        );
       }
     };
 
@@ -1435,9 +1501,6 @@ export default function Navbar({
         return;
       }
 
-      /*
-       * MOBILE MENU OPEN
-       */
       if (
         mobileOpenRef.current
       ) {
@@ -1500,29 +1563,30 @@ export default function Navbar({
       }
     };
 
-    const onNativeScroll = () => {
-      if (ticking.current) {
-        return;
-      }
-
-      ticking.current = true;
-
-      window.requestAnimationFrame(
-        () => {
-          const currentScrollY =
-            window.scrollY ||
-            document.documentElement
-              .scrollTop ||
-            0;
-
-          handleScrollLogic(
-            currentScrollY
-          );
-
-          ticking.current = false;
+    const onNativeScroll =
+      () => {
+        if (ticking.current) {
+          return;
         }
-      );
-    };
+
+        ticking.current = true;
+
+        window.requestAnimationFrame(
+          () => {
+            const currentScrollY =
+              window.scrollY ||
+              document.documentElement
+                .scrollTop ||
+              0;
+
+            handleScrollLogic(
+              currentScrollY
+            );
+
+            ticking.current = false;
+          }
+        );
+      };
 
     const onLenisScroll = (
       e: any
@@ -1600,75 +1664,83 @@ export default function Navbar({
    * =========================================================
    */
 
-  const scrollToTopAnimated = () => {
-    if (
-      mobileOpenRef.current ||
-      mobileMenuScrollLockedRef.current
-    ) {
-      return;
-    }
+  const scrollToTopAnimated =
+    () => {
+      if (
+        mobileOpenRef.current ||
+        mobileMenuScrollLockedRef.current
+      ) {
+        return;
+      }
 
-    if (globalLenis) {
-      globalLenis.start();
+      if (globalLenis) {
+        globalLenis.start();
 
-      globalLenis.scrollTo(0, {
-        duration: 0.9,
+        globalLenis.scrollTo(
+          0,
+          {
+            duration: 0.9,
+          }
+        );
+
+        return;
+      }
+
+      const scrollingElement =
+        document.scrollingElement ||
+        document.documentElement;
+
+      scrollingElement.scrollTo({
+        top: 0,
+        left: 0,
+        behavior: 'smooth',
       });
+    };
 
-      return;
-    }
+  const resetScrollForNavigation =
+    () => {
+      if (globalLenis) {
+        globalLenis.stop();
 
-    const scrollingElement =
-      document.scrollingElement ||
-      document.documentElement;
+        globalLenis.scrollTo(
+          0,
+          {
+            immediate: true,
+          }
+        );
 
-    scrollingElement.scrollTo({
-      top: 0,
-      left: 0,
-      behavior: 'smooth',
-    });
-  };
+        globalLenis.resize();
+      }
 
-  const resetScrollForNavigation = () => {
-    /*
-     * Cross-route navigation must never wait for Lenis
-     * smooth-scroll animation.
-     */
+      const scrollingElement =
+        document.scrollingElement ||
+        document.documentElement;
 
-    if (globalLenis) {
-      globalLenis.stop();
+      scrollingElement.scrollTop =
+        0;
 
-      globalLenis.scrollTo(0, {
-        immediate: true,
+      scrollingElement.scrollLeft =
+        0;
+
+      document.documentElement.scrollTop =
+        0;
+
+      document.body.scrollTop =
+        0;
+
+      window.scrollTo({
+        top: 0,
+        left: 0,
+        behavior: 'auto',
       });
-
-      globalLenis.resize();
-    }
-
-    const scrollingElement =
-      document.scrollingElement ||
-      document.documentElement;
-
-    scrollingElement.scrollTop = 0;
-    scrollingElement.scrollLeft = 0;
-
-    document.documentElement.scrollTop =
-      0;
-
-    document.body.scrollTop =
-      0;
-
-    window.scrollTo({
-      top: 0,
-      left: 0,
-      behavior: 'auto',
-    });
-  };
+    };
 
   const handleNavClick = (
     to: string
   ) => {
-    setMobileCurrencyOpen(false);
+    setMobileCurrencyOpen(
+      false
+    );
 
     const currentPath =
       path.split('?')[0];
@@ -1689,9 +1761,6 @@ export default function Navbar({
     }
 
     if (menuIsOpen) {
-      /*
-       * Navigation intentionally goes to top.
-       */
       bodyScrollYRef.current =
         0;
 
@@ -1704,7 +1773,8 @@ export default function Navbar({
     }
 
     if (
-      currentPath === targetPath &&
+      currentPath ===
+        targetPath &&
       !menuIsOpen
     ) {
       resetScrollForNavigation();
@@ -1754,12 +1824,22 @@ export default function Navbar({
 
   /*
    * =========================================================
-   * LOGO
+   * LOCAL LOGO
    * =========================================================
+   *
+   * File:
+   *
+   * public/LCP_logo_trans.png
+   *
+   * Served from:
+   *
+   * /LCP_logo_trans.png
+   *
+   * This removes the GitHub raw-image request.
    */
 
   const logoUrl =
-    'https://raw.githubusercontent.com/itsspaco0809/scitem-images/main/LCP_logo_trans.png';
+    '/LCP_logo_trans.png';
 
   /*
    * =========================================================
@@ -1937,6 +2017,7 @@ export default function Navbar({
               relative
             "
           >
+
             {/* =================================================
                 MOBILE HAMBURGER
                 ================================================= */}
@@ -2005,6 +2086,7 @@ export default function Navbar({
                 `}
               />
             </button>
+
 
             {/* =================================================
                 LOGO
@@ -2125,6 +2207,7 @@ export default function Navbar({
               </Link>
             </div>
 
+
             {/* =================================================
                 DESKTOP NAV
                 ================================================= */}
@@ -2208,6 +2291,7 @@ export default function Navbar({
               )}
             </div>
 
+
             {/* =================================================
                 RIGHT ACTIONS
                 ================================================= */}
@@ -2223,6 +2307,7 @@ export default function Navbar({
                 z-50
               "
             >
+
               {/* =================================================
                   DESKTOP CURRENCY
                   ================================================= */}
@@ -2437,6 +2522,7 @@ export default function Navbar({
                 )}
               </div>
 
+
               {/* =================================================
                   DESKTOP THEME TOGGLE
                   ================================================= */}
@@ -2536,6 +2622,7 @@ export default function Navbar({
                   />
                 </span>
               </button>
+
 
               {/* =================================================
                   DESKTOP USER
@@ -2782,8 +2869,21 @@ export default function Navbar({
                 )}
               </div>
 
+
               {/* =================================================
                   MOBILE THEME TOGGLE
+                  
+                  IMPORTANT FIX:
+                  
+                  NO:
+                    transition-all
+                    opacity-0
+                    opacity-100
+                    scale-90
+                    scale-100
+                  
+                  The navbar intro GSAP now owns the animation
+                  exactly like Hamburger / Logo / Cart.
                   ================================================= */}
 
               <button
@@ -2791,7 +2891,7 @@ export default function Navbar({
                 onClick={
                   handleMobileThemeToggle
                 }
-                className={`
+                className="
                   mobile-header-item
                   min-[1536px]:hidden
                   relative
@@ -2806,17 +2906,7 @@ export default function Navbar({
                   justify-center
                   touch-manipulation
                   shrink-0
-
-                  transition-all
-                  duration-300
-                  ease-out
-
-                  ${
-                    mobileOpen
-                      ? 'opacity-0 scale-90 pointer-events-none'
-                      : 'opacity-100 scale-100'
-                  }
-                `}
+                "
                 aria-label={`Switch to ${
                   theme === 'dark'
                     ? 'light'
@@ -2862,12 +2952,15 @@ export default function Navbar({
                 />
               </button>
 
+
               {/* =================================================
                   CART
                   ================================================= */}
 
               <button
-                onClick={openCart}
+                onClick={
+                  openCart
+                }
                 className="
                   mobile-header-item
                   desktop-header-item
@@ -2913,6 +3006,7 @@ export default function Navbar({
           </div>
         </nav>
       </header>
+
 
       {/* =======================================================
           MOBILE MENU
@@ -2969,6 +3063,7 @@ export default function Navbar({
               pt-[calc(5rem+env(safe-area-inset-top))]
             "
           >
+
             {/* ===================================================
                 SCROLLABLE MENU CONTENT
                 =================================================== */}
@@ -3009,6 +3104,7 @@ export default function Navbar({
                   flex-col
                 "
               >
+
                 {/* =================================================
                     MAIN NAV LINKS
                     ================================================= */}
@@ -3057,6 +3153,7 @@ export default function Navbar({
                     );
                   }
                 )}
+
 
                 {/* =================================================
                     USER LINKS
@@ -3111,6 +3208,7 @@ export default function Navbar({
                     )}
                   </>
                 )}
+
 
                 {/* =================================================
                     MOBILE CURRENCY
@@ -3283,6 +3381,7 @@ export default function Navbar({
                   )}
                 </div>
 
+
                 {/* =================================================
                     MOBILE ACCOUNT
                     ================================================= */}
@@ -3432,6 +3531,7 @@ export default function Navbar({
               </div>
             </div>
 
+
             {/* ===================================================
                 MOBILE BOTTOM SAFE AREA
                 =================================================== */}
@@ -3460,6 +3560,7 @@ export default function Navbar({
         </div>
       )}
 
+
       {/* =====================================================
           AUTH MODAL
           ===================================================== */}
@@ -3473,3 +3574,4 @@ export default function Navbar({
     </>
   );
 }
+```
