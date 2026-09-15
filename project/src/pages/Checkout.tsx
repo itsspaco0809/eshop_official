@@ -40,7 +40,9 @@ const COUNTRY_CONFIG: Record<
     rate: number;
     symbol: string;
     taxRate: number;
-    Flag: React.ComponentType<{ className?: string }>;
+    Flag: React.ComponentType<{
+      className?: string;
+    }>;
   }
 > = {
   'Hong Kong': {
@@ -108,7 +110,10 @@ const COUNTRY_CONFIG: Record<
   },
 };
 
-const COUNTRY_TO_CURRENCY: Record<string, string> = {
+const COUNTRY_TO_CURRENCY: Record<
+  string,
+  string
+> = {
   'Hong Kong': 'HKD',
   'United States': 'USD',
   Canada: 'CAD',
@@ -119,7 +124,10 @@ const COUNTRY_TO_CURRENCY: Record<string, string> = {
   Japan: 'JPY',
 };
 
-const CURRENCY_TO_COUNTRY: Record<string, string> = {
+const CURRENCY_TO_COUNTRY: Record<
+  string,
+  string
+> = {
   HKD: 'Hong Kong',
   USD: 'United States',
   CAD: 'Canada',
@@ -131,7 +139,9 @@ const CURRENCY_TO_COUNTRY: Record<string, string> = {
 
 type AppliedCoupon = {
   code: string;
-  discountType: 'percentage' | 'fixed';
+  discountType:
+    | 'percentage'
+    | 'fixed';
   discountValue: number;
   currency: string;
 };
@@ -142,9 +152,13 @@ type CheckoutStatus =
   | 'success';
 
 export default function Checkout() {
-  const { items = [], clearCart } = useCart();
+  const {
+    items = [],
+    clearCart,
+  } = useCart();
 
-  const { navigate } = useRouter();
+  const { navigate } =
+    useRouter();
 
   const {
     user,
@@ -153,7 +167,8 @@ export default function Checkout() {
 
   const {
     currency: globalCurrency,
-    setCurrency: setGlobalCurrency,
+    setCurrency:
+      setGlobalCurrency,
   } = useCurrency();
 
   /*
@@ -161,25 +176,24 @@ export default function Checkout() {
    * SUBMIT LOCK
    * =========================================================
    */
-  const submitLockRef = useRef(false);
+  const submitLockRef =
+    useRef(false);
+
+  /*
+   * =========================================================
+   * STRIPE RETURN CONFIRMATION LOCK
+   * =========================================================
+   *
+   * Prevent the Stripe confirmation effect from being
+   * started more than once during the same page lifecycle.
+   */
+  const stripeConfirmationStartedRef =
+    useRef(false);
 
   /*
    * =========================================================
    * ORDER SUMMARY SCROLL STATE
    * =========================================================
-   *
-   * IMPORTANT:
-   *
-   * The Order Summary needs:
-   *
-   * BEFORE SCROLL
-   * → align exactly with Contact Information
-   *
-   * AFTER SCROLL
-   * → keep the existing sticky top spacing
-   *
-   * Therefore lg:pt-20 is only applied after the page has
-   * started scrolling.
    */
   const [hasScrolled, setHasScrolled] =
     useState(false);
@@ -209,39 +223,54 @@ export default function Checkout() {
     };
   }, []);
 
-  const [form, setForm] = useState({
-    email: '',
-    phone: '',
-    full_name: '',
-    shipping_address: '',
-    city: '',
-    postal_code: '',
-    country:
-      CURRENCY_TO_COUNTRY[globalCurrency] ||
-      'United States',
-    notes: '',
-  });
+  const [form, setForm] =
+    useState({
+      email: '',
+      phone: '',
+      full_name: '',
+      shipping_address: '',
+      city: '',
+      postal_code: '',
+      country:
+        CURRENCY_TO_COUNTRY[
+          globalCurrency
+        ] ||
+        'United States',
+      notes: '',
+    });
 
   const [couponInput, setCouponInput] =
     useState('');
 
   const [appliedCoupon, setAppliedCoupon] =
-    useState<AppliedCoupon | null>(null);
+    useState<AppliedCoupon | null>(
+      null
+    );
 
   const [couponError, setCouponError] =
-    useState<string | null>(null);
+    useState<string | null>(
+      null
+    );
 
-  const [isValidatingCoupon, setIsValidatingCoupon] =
-    useState(false);
+  const [
+    isValidatingCoupon,
+    setIsValidatingCoupon,
+  ] = useState(false);
 
   const [status, setStatus] =
-    useState<CheckoutStatus>('idle');
+    useState<CheckoutStatus>(
+      'idle'
+    );
 
   const [orderId, setOrderId] =
-    useState<string | null>(null);
+    useState<string | null>(
+      null
+    );
 
   const [errorMessage, setErrorMessage] =
-    useState<string | null>(null);
+    useState<string | null>(
+      null
+    );
 
   const [dbOrderStatus, setDbOrderStatus] =
     useState<string>('pending');
@@ -250,35 +279,54 @@ export default function Checkout() {
    * =========================================================
    * STRIPE RETURN INITIAL STATE
    * =========================================================
+   *
+   * If Stripe redirected back with a session_id,
+   * immediately enter confirmation mode.
+   *
+   * This prevents the normal checkout form from flashing
+   * before the Stripe order confirmation begins.
    */
-  const [isConfirmingStripeReturn, setIsConfirmingStripeReturn] =
-    useState(() => {
-      if (typeof window === 'undefined') {
-        return false;
-      }
+  const [
+    isConfirmingStripeReturn,
+    setIsConfirmingStripeReturn,
+  ] = useState(() => {
+    if (
+      typeof window ===
+      'undefined'
+    ) {
+      return false;
+    }
 
-      const searchParams =
-        new URLSearchParams(
-          window.location.search
-        );
-
-      const paymentStatus =
-        searchParams.get('status');
-
-      const stripeSuccess =
-        searchParams.get('success');
-
-      const sessionId =
-        searchParams.get('session_id');
-
-      return (
-        !!sessionId &&
-        (
-          paymentStatus === 'success' ||
-          stripeSuccess === 'true'
-        )
+    const searchParams =
+      new URLSearchParams(
+        window.location.search
       );
-    });
+
+    const paymentStatus =
+      searchParams.get(
+        'status'
+      );
+
+    const stripeSuccess =
+      searchParams.get(
+        'success'
+      );
+
+    const sessionId =
+      searchParams.get(
+        'session_id'
+      );
+
+    return (
+      !!sessionId &&
+      (
+        paymentStatus ===
+          'success' ||
+        stripeSuccess ===
+          'true'
+      )
+    );
+  });
 
   /*
    * =========================================================
@@ -304,14 +352,19 @@ export default function Checkout() {
       behavior: 'instant',
     });
 
-    document.documentElement.scrollTop = 0;
+    document.documentElement.scrollTop =
+      0;
+
     document.body.scrollTop = 0;
 
     const mainContainer =
-      document.querySelector('main');
+      document.querySelector(
+        'main'
+      );
 
     if (mainContainer) {
-      mainContainer.scrollTop = 0;
+      mainContainer.scrollTop =
+        0;
     }
   };
 
@@ -319,12 +372,26 @@ export default function Checkout() {
    * =========================================================
    * STRIPE WEBHOOK CONFIRMATION
    * =========================================================
+   *
+   * IMPORTANT:
+   *
+   * The frontend does NOT assume payment is paid merely
+   * because Stripe returned the customer to the website.
+   *
+   * It waits for the orders table to contain:
+   *
+   *   paid
+   *   done
+   *
+   * This keeps the displayed status tied to the database.
    */
   useEffect(() => {
     let cancelled = false;
 
     let pollTimer:
-      | ReturnType<typeof setTimeout>
+      | ReturnType<
+          typeof setTimeout
+        >
       | null = null;
 
     const confirmStripeOrder =
@@ -335,16 +402,24 @@ export default function Checkout() {
           );
 
         const paymentStatus =
-          searchParams.get('status');
+          searchParams.get(
+            'status'
+          );
 
         const stripeSuccess =
-          searchParams.get('success');
+          searchParams.get(
+            'success'
+          );
 
         const sessionId =
-          searchParams.get('session_id');
+          searchParams.get(
+            'session_id'
+          );
 
         const paramOrderId =
-          searchParams.get('order_id');
+          searchParams.get(
+            'order_id'
+          );
 
         /*
          * -----------------------------------------------------
@@ -356,17 +431,26 @@ export default function Checkout() {
             return;
           }
 
-          setOrderId(paramOrderId);
+          setOrderId(
+            paramOrderId
+          );
 
-          setStatus('success');
+          setStatus(
+            'success'
+          );
 
           const {
             data,
             error,
           } = await supabase
             .from('orders')
-            .select('status')
-            .eq('id', paramOrderId)
+            .select(
+              'status'
+            )
+            .eq(
+              'id',
+              paramOrderId
+            )
             .maybeSingle();
 
           if (cancelled) {
@@ -381,7 +465,9 @@ export default function Checkout() {
               data.status
             );
           } else {
-            setDbOrderStatus('paid');
+            setDbOrderStatus(
+              'paid'
+            );
           }
 
           clearCart();
@@ -403,7 +489,8 @@ export default function Checkout() {
          * -----------------------------------------------------
          */
         if (
-          paymentStatus === 'cancel'
+          paymentStatus ===
+          'cancel'
         ) {
           if (cancelled) {
             return;
@@ -413,7 +500,9 @@ export default function Checkout() {
             false
           );
 
-          setStatus('idle');
+          setStatus(
+            'idle'
+          );
 
           setErrorMessage(
             'Payment was cancelled. No order was created.'
@@ -435,8 +524,10 @@ export default function Checkout() {
          */
         if (
           (
-            paymentStatus !== 'success' &&
-            stripeSuccess !== 'true'
+            paymentStatus !==
+              'success' &&
+            stripeSuccess !==
+              'true'
           ) ||
           !sessionId
         ) {
@@ -448,6 +539,20 @@ export default function Checkout() {
 
           return;
         }
+
+        /*
+         * -----------------------------------------------------
+         * PREVENT DUPLICATE CONFIRMATION
+         * -----------------------------------------------------
+         */
+        if (
+          stripeConfirmationStartedRef.current
+        ) {
+          return;
+        }
+
+        stripeConfirmationStartedRef.current =
+          true;
 
         if (cancelled) {
           return;
@@ -466,6 +571,12 @@ export default function Checkout() {
 
         scrollToTop();
 
+        /*
+         * Remove Stripe query parameters immediately.
+         *
+         * This prevents refresh from triggering the same
+         * confirmation process again.
+         */
         window.history.replaceState(
           {},
           document.title,
@@ -475,6 +586,23 @@ export default function Checkout() {
         const startedAt =
           Date.now();
 
+        /*
+         * -----------------------------------------------------
+         * POLL ORDER
+         * -----------------------------------------------------
+         *
+         * First request immediately.
+         *
+         * Then:
+         * 350ms
+         * 500ms
+         * 750ms
+         * 1000ms
+         * ...
+         *
+         * This gives the webhook a chance to finish without
+         * hammering Supabase.
+         */
         const pollForOrder =
           async () => {
             if (cancelled) {
@@ -496,26 +624,38 @@ export default function Checkout() {
                 )
                 .maybeSingle();
 
+              if (cancelled) {
+                return;
+              }
+
               if (error) {
                 console.error(
-                  'Stripe order confirmation query failed:',
+                  '[Checkout] Stripe order confirmation query failed:',
                   error
                 );
               }
 
+              /*
+               * -------------------------------------------------
+               * ORDER FOUND
+               * -------------------------------------------------
+               */
               if (data?.id) {
-                if (cancelled) {
-                  return;
-                }
-
                 setOrderId(
                   data.id
                 );
 
                 if (
-                  data.status === 'paid' ||
-                  data.status === 'done'
+                  data.status ===
+                    'paid' ||
+                  data.status ===
+                    'done'
                 ) {
+                  /*
+                   * This is the important point:
+                   *
+                   * The database has confirmed the payment.
+                   */
                   setDbOrderStatus(
                     data.status
                   );
@@ -535,84 +675,119 @@ export default function Checkout() {
                   return;
                 }
 
-                if (
-                  Date.now() -
-                    startedAt <
-                  60000
-                ) {
-                  pollTimer =
-                    setTimeout(
-                      pollForOrder,
-                      1000
-                    );
-
-                  return;
-                }
+                /*
+                 * Order exists but webhook has not yet
+                 * changed its status.
+                 *
+                 * Keep waiting.
+                 */
               }
 
+              /*
+               * -------------------------------------------------
+               * TIMEOUT
+               * -------------------------------------------------
+               */
               if (
                 Date.now() -
-                  startedAt <
+                  startedAt >=
                 60000
               ) {
-                pollTimer =
-                  setTimeout(
-                    pollForOrder,
-                    1500
-                  );
+                if (
+                  cancelled
+                ) {
+                  return;
+                }
+
+                setIsConfirmingStripeReturn(
+                  false
+                );
+
+                setStatus(
+                  'idle'
+                );
+
+                setErrorMessage(
+                  'Payment received. Your order is still being processed. Please check your order history shortly.'
+                );
 
                 return;
               }
 
-              if (cancelled) {
-                return;
+              /*
+               * -------------------------------------------------
+               * NEXT POLL
+               * -------------------------------------------------
+               */
+              const elapsed =
+                Date.now() -
+                startedAt;
+
+              let nextDelay =
+                1000;
+
+              if (
+                elapsed < 2000
+              ) {
+                nextDelay = 350;
+              } else if (
+                elapsed < 5000
+              ) {
+                nextDelay = 500;
+              } else if (
+                elapsed < 10000
+              ) {
+                nextDelay = 750;
+              } else {
+                nextDelay = 1000;
               }
 
-              setIsConfirmingStripeReturn(
-                false
-              );
-
-              setStatus('idle');
-
-              setErrorMessage(
-                'Payment received. Your order is still being processed. Please check your order history shortly.'
-              );
+              pollTimer =
+                setTimeout(
+                  pollForOrder,
+                  nextDelay
+                );
             } catch (error) {
               console.error(
-                'Stripe order confirmation error:',
+                '[Checkout] Stripe order confirmation error:',
                 error
               );
 
-              if (
-                Date.now() -
-                  startedAt <
-                60000
-              ) {
-                pollTimer =
-                  setTimeout(
-                    pollForOrder,
-                    1500
-                  );
-
-                return;
-              }
-
               if (cancelled) {
                 return;
               }
 
-              setIsConfirmingStripeReturn(
-                false
-              );
+              if (
+                Date.now() -
+                  startedAt >=
+                60000
+              ) {
+                setIsConfirmingStripeReturn(
+                  false
+                );
 
-              setStatus('idle');
+                setStatus(
+                  'idle'
+                );
 
-              setErrorMessage(
-                'We could not confirm your order yet. Please check your order history shortly.'
-              );
+                setErrorMessage(
+                  'We could not confirm your order yet. Please check your order history shortly.'
+                );
+
+                return;
+              }
+
+              pollTimer =
+                setTimeout(
+                  pollForOrder,
+                  1000
+                );
             }
           };
 
+        /*
+         * Start immediately.
+         */
         pollForOrder();
       };
 
@@ -642,27 +817,40 @@ export default function Checkout() {
 
     if (
       matchingCountry &&
-      form.country !== matchingCountry
+      form.country !==
+        matchingCountry
     ) {
       setForm((prev) => ({
         ...prev,
-        country: matchingCountry,
+        country:
+          matchingCountry,
       }));
 
-      setAppliedCoupon(null);
+      setAppliedCoupon(
+        null
+      );
+
       setCouponError(null);
     }
-  }, [globalCurrency]);
+  }, [
+    globalCurrency,
+    form.country,
+  ]);
 
   const selectedCountryConfig =
-    COUNTRY_CONFIG[form.country] ||
-    COUNTRY_CONFIG['United States'];
+    COUNTRY_CONFIG[
+      form.country
+    ] ||
+    COUNTRY_CONFIG[
+      'United States'
+    ];
 
   const {
     taxRate,
     symbol,
     rate,
-    currency: selectedCurrency,
+    currency:
+      selectedCurrency,
   } = selectedCountryConfig;
 
   const SelectedCountryFlag =
@@ -679,9 +867,12 @@ export default function Checkout() {
     const raw =
       usdAmount * rate;
 
-    return selectedCurrency === 'HKD'
+    return selectedCurrency ===
+      'HKD'
       ? Math.ceil(raw)
-      : Number(raw.toFixed(2));
+      : Number(
+          raw.toFixed(2)
+        );
   };
 
   const renderFormattedPrice = (
@@ -693,7 +884,8 @@ export default function Checkout() {
       );
 
     const isHKD =
-      selectedCurrency === 'HKD';
+      selectedCurrency ===
+      'HKD';
 
     const formattedNumber =
       localAmount.toLocaleString(
@@ -724,17 +916,23 @@ export default function Checkout() {
     }));
 
     const newCurrency =
-      COUNTRY_TO_CURRENCY[country];
+      COUNTRY_TO_CURRENCY[
+        country
+      ];
 
     if (
       newCurrency &&
-      newCurrency !== globalCurrency
+      newCurrency !==
+        globalCurrency
     ) {
       setGlobalCurrency(
         newCurrency
       );
 
-      setAppliedCoupon(null);
+      setAppliedCoupon(
+        null
+      );
+
       setCouponError(null);
     }
   };
@@ -752,7 +950,9 @@ export default function Checkout() {
 
     const words =
       text.trim()
-        ? text.trim().split(/\s+/)
+        ? text
+            .trim()
+            .split(/\s+/)
             .length
         : 0;
 
@@ -777,7 +977,8 @@ export default function Checkout() {
     price?: number
   ) => {
     if (
-      typeof price !== 'number'
+      typeof price !==
+      'number'
     ) {
       return 0;
     }
@@ -810,21 +1011,27 @@ export default function Checkout() {
       product.name;
 
     const sectionStr =
-      Array.isArray(rawSection)
+      Array.isArray(
+        rawSection
+      )
         ? rawSection.join(' ')
         : String(
             rawSection || ''
           );
 
     const categoryStr =
-      Array.isArray(rawCategory)
+      Array.isArray(
+        rawCategory
+      )
         ? rawCategory.join(' ')
         : String(
             rawCategory || ''
           );
 
     const nameStr =
-      Array.isArray(rawName)
+      Array.isArray(
+        rawName
+      )
         ? rawName.join(' ')
         : String(
             rawName || ''
@@ -887,9 +1094,9 @@ export default function Checkout() {
    * =========================================================
    */
   const handleApplyCoupon = async (
-    e: FormEvent
+    e?: FormEvent | React.MouseEvent
   ) => {
-    e.preventDefault();
+    e?.preventDefault();
 
     setCouponError(null);
 
@@ -902,7 +1109,9 @@ export default function Checkout() {
       return;
     }
 
-    setIsValidatingCoupon(true);
+    setIsValidatingCoupon(
+      true
+    );
 
     try {
       const {
@@ -919,9 +1128,13 @@ export default function Checkout() {
         );
 
       const coupon =
-        data?.coupon ?? null;
+        data?.coupon ??
+        null;
 
-      if (error || !coupon) {
+      if (
+        error ||
+        !coupon
+      ) {
         setCouponError(
           'Invalid coupon code.'
         );
@@ -947,7 +1160,8 @@ export default function Checkout() {
         'USD';
 
       if (
-        couponCurrency !== 'ALL' &&
+        couponCurrency !==
+          'ALL' &&
         couponCurrency !==
           selectedCurrency
       ) {
@@ -998,12 +1212,17 @@ export default function Checkout() {
         'Failed to validate coupon.'
       );
     } finally {
-      setIsValidatingCoupon(false);
+      setIsValidatingCoupon(
+        false
+      );
     }
   };
 
   const removeCoupon = () => {
-    setAppliedCoupon(null);
+    setAppliedCoupon(
+      null
+    );
+
     setCouponError(null);
   };
 
@@ -1013,7 +1232,10 @@ export default function Checkout() {
    * =========================================================
    */
   useEffect(() => {
-    if (status === 'success') {
+    if (
+      status ===
+      'success'
+    ) {
       scrollToTop();
     }
   }, [status]);
@@ -1034,11 +1256,18 @@ export default function Checkout() {
           data,
         } = await supabase
           .from('orders')
-          .select('status')
-          .eq('id', orderId)
+          .select(
+            'status'
+          )
+          .eq(
+            'id',
+            orderId
+          )
           .maybeSingle();
 
-        if (data?.status) {
+        if (
+          data?.status
+        ) {
           setDbOrderStatus(
             data.status
           );
@@ -1085,7 +1314,8 @@ export default function Checkout() {
    * DISCOUNT
    * =========================================================
    */
-  let discountAmountUSD = 0;
+  let discountAmountUSD =
+    0;
 
   if (appliedCoupon) {
     if (
@@ -1123,7 +1353,9 @@ export default function Checkout() {
       (acc, item) => {
         if (
           item?.product &&
-          !isInstructionItem(item)
+          !isInstructionItem(
+            item
+          )
         ) {
           return (
             acc +
@@ -1143,7 +1375,9 @@ export default function Checkout() {
     items.some(
       (item) =>
         item?.product &&
-        !isInstructionItem(item)
+        !isInstructionItem(
+          item
+        )
     );
 
   /*
@@ -1156,7 +1390,9 @@ export default function Checkout() {
     items.every(
       (item) =>
         item?.product &&
-        isInstructionItem(item)
+        isInstructionItem(
+          item
+        )
     );
 
   /*
@@ -1182,7 +1418,8 @@ export default function Checkout() {
       : 7.99;
 
   const baseTaxUSD =
-    discountedSubtotalUSD === 0
+    discountedSubtotalUSD ===
+      0
       ? 0
       : discountedSubtotalUSD *
         taxRate;
@@ -1277,8 +1514,8 @@ export default function Checkout() {
 
       try {
         if (
-          funcError?.context?.headers
-            ?.get
+          funcError?.context
+            ?.headers?.get
         ) {
           retryAfter =
             funcError.context.headers.get(
@@ -1313,7 +1550,8 @@ export default function Checkout() {
       } catch (_) {}
 
       if (
-        statusCode === 429
+        statusCode ===
+        429
       ) {
         if (retryAfter) {
           const seconds =
@@ -1379,22 +1617,30 @@ export default function Checkout() {
   ) => {
     e.preventDefault();
 
-    if (submitLockRef.current) {
+    if (
+      submitLockRef.current
+    ) {
       return;
     }
 
-    submitLockRef.current = true;
+    submitLockRef.current =
+      true;
 
-    setStatus('submitting');
+    setStatus(
+      'submitting'
+    );
+
     setErrorMessage(null);
 
     const invalidItems =
       items.filter(
-        (item) => !item?.product
+        (item) =>
+          !item?.product
       );
 
     if (
-      invalidItems.length > 0
+      invalidItems.length >
+      0
     ) {
       submitLockRef.current =
         false;
@@ -1445,12 +1691,14 @@ export default function Checkout() {
           );
         }
 
-        activeSession = null;
+        activeSession =
+          null;
       }
 
       const requestBody = {
         user_id:
-          activeSession?.user?.id ??
+          activeSession?.user
+            ?.id ??
           null,
 
         email:
@@ -1495,12 +1743,14 @@ export default function Checkout() {
 
         discount_amount:
           Math.round(
-            localDiscountAmount * 100
+            localDiscountAmount *
+              100
           ),
 
         total_amount:
           Math.round(
-            localTotalAmount * 100
+            localTotalAmount *
+              100
           ),
 
         items:
@@ -1540,14 +1790,23 @@ export default function Checkout() {
           ),
       };
 
-      let data: any = null;
-      let funcError: any = null;
+      let data: any =
+        null;
 
+      let funcError: any =
+        null;
+
+      /*
+       * -----------------------------------------------------
+       * CREATE ORDER
+       * -----------------------------------------------------
+       */
       const firstAttempt =
         await supabase.functions.invoke(
           'create-order',
           {
-            body: requestBody,
+            body:
+              requestBody,
           }
         );
 
@@ -1557,6 +1816,11 @@ export default function Checkout() {
       funcError =
         firstAttempt.error;
 
+      /*
+       * -----------------------------------------------------
+       * INVALID REFRESH TOKEN RETRY
+       * -----------------------------------------------------
+       */
       if (
         funcError
       ) {
@@ -1574,22 +1838,26 @@ export default function Checkout() {
 
           await clearBrokenAuthSession();
 
-          if (isCashPayment) {
+          if (
+            isCashPayment
+          ) {
             throw new Error(
               'Your admin session has expired. Please sign in again before creating a cash order.'
             );
           }
 
-          const retryBody = {
-            ...requestBody,
-            user_id: null,
-          };
+          const retryBody =
+            {
+              ...requestBody,
+              user_id: null,
+            };
 
           const retry =
             await supabase.functions.invoke(
               'create-order',
               {
-                body: retryBody,
+                body:
+                  retryBody,
               }
             );
 
@@ -1601,7 +1869,14 @@ export default function Checkout() {
         }
       }
 
-      if (funcError) {
+      /*
+       * -----------------------------------------------------
+       * EDGE FUNCTION ERROR
+       * -----------------------------------------------------
+       */
+      if (
+        funcError
+      ) {
         const parsed =
           await parseFunctionError(
             funcError
@@ -1623,6 +1898,11 @@ export default function Checkout() {
         );
       }
 
+      /*
+       * -----------------------------------------------------
+       * ORDER CREATION ERROR
+       * -----------------------------------------------------
+       */
       if (
         !data?.success
       ) {
@@ -1662,9 +1942,14 @@ export default function Checkout() {
 
         scrollToTop();
 
-        setStatus('success');
+        setStatus(
+          'success'
+        );
 
         clearCart();
+
+        submitLockRef.current =
+          false;
 
         return;
       }
@@ -1684,6 +1969,11 @@ export default function Checkout() {
         );
       }
 
+      /*
+       * Keep the submit lock active while navigating to
+       * Stripe. This prevents duplicate order creation
+       * from double-clicking the button.
+       */
       window.location.assign(
         data.checkout_url
       );
@@ -1755,6 +2045,12 @@ export default function Checkout() {
    * =========================================================
    * STRIPE RETURN LOADING
    * =========================================================
+   *
+   * This is intentionally rendered BEFORE the normal
+   * checkout form.
+   *
+   * Therefore there is no checkout-form flash while waiting
+   * for the webhook.
    */
   if (
     isConfirmingStripeReturn &&
@@ -1765,8 +2061,12 @@ export default function Checkout() {
         <div className="text-center">
           <div className="w-12 h-12 rounded-full border-4 border-neutral-300 dark:border-neutral-700 border-t-neutral-900 dark:border-t-white animate-spin mx-auto mb-5" />
 
-          <p className="text-neutral-600 dark:text-neutral-400 text-sm">
+          <p className="text-neutral-900 dark:text-white text-sm font-medium">
             Confirming payment...
+          </p>
+
+          <p className="text-neutral-500 dark:text-neutral-500 text-xs mt-2">
+            Please wait while we confirm your order.
           </p>
         </div>
       </div>
@@ -1779,10 +2079,12 @@ export default function Checkout() {
    * =========================================================
    */
   if (
-    status === 'success'
+    status ===
+    'success'
   ) {
     const isCompleted =
-      dbOrderStatus === 'done';
+      dbOrderStatus ===
+      'done';
 
     return (
       <div className="bg-neutral-50 dark:bg-neutral-950 min-h-screen flex flex-col justify-start items-center px-4 pb-12 pt-[calc(5rem+env(safe-area-inset-top)+2rem)] md:pt-[calc(7rem+env(safe-area-inset-top)+2rem)] transition-colors">
@@ -1830,7 +2132,10 @@ export default function Checkout() {
               Order reference:{' '}
               <span className="text-neutral-800 dark:text-neutral-300 font-mono">
                 {orderId
-                  .slice(0, 8)
+                  .slice(
+                    0,
+                    8
+                  )
                   .toUpperCase()}
               </span>
             </p>
@@ -1853,7 +2158,8 @@ export default function Checkout() {
    * =========================================================
    */
   if (
-    items.length === 0
+    items.length ===
+    0
   ) {
     return (
       <div className="bg-neutral-50 dark:bg-neutral-950 min-h-screen flex items-center justify-center px-4 transition-colors">
@@ -1892,7 +2198,9 @@ export default function Checkout() {
         <button
           type="button"
           onClick={() =>
-            navigate('/store')
+            navigate(
+              '/store'
+            )
           }
           className="flex items-center gap-2 text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors mb-6 text-sm"
         >
@@ -1916,7 +2224,9 @@ export default function Checkout() {
 
         <form
           id="checkout-form"
-          onSubmit={handleSubmit}
+          onSubmit={
+            handleSubmit
+          }
           className="flex flex-col lg:grid lg:grid-cols-2 gap-8 items-start"
         >
           <div className="w-full space-y-6 order-1">
@@ -1931,16 +2241,20 @@ export default function Checkout() {
                   required
                   type="email"
                   placeholder="Email address"
-                  value={form.email}
+                  value={
+                    form.email
+                  }
                   onChange={(e) =>
                     setForm({
                       ...form,
                       email:
-                        e.target.value,
+                        e.target
+                          .value,
                     })
                   }
                   style={{
-                    fontSize: '16px',
+                    fontSize:
+                      '16px',
                   }}
                   className={
                     inputClass
@@ -1951,16 +2265,20 @@ export default function Checkout() {
                   required
                   type="tel"
                   placeholder="Phone number"
-                  value={form.phone}
+                  value={
+                    form.phone
+                  }
                   onChange={(e) =>
                     setForm({
                       ...form,
                       phone:
-                        e.target.value,
+                        e.target
+                          .value,
                     })
                   }
                   style={{
-                    fontSize: '16px',
+                    fontSize:
+                      '16px',
                   }}
                   className={
                     inputClass
@@ -1978,11 +2296,13 @@ export default function Checkout() {
                     setForm({
                       ...form,
                       full_name:
-                        e.target.value,
+                        e.target
+                          .value,
                     })
                   }
                   style={{
-                    fontSize: '16px',
+                    fontSize:
+                      '16px',
                   }}
                   className={
                     inputClass
@@ -2009,11 +2329,13 @@ export default function Checkout() {
                     setForm({
                       ...form,
                       shipping_address:
-                        e.target.value,
+                        e.target
+                          .value,
                     })
                   }
                   style={{
-                    fontSize: '16px',
+                    fontSize:
+                      '16px',
                   }}
                   className={
                     inputClass
@@ -2025,16 +2347,20 @@ export default function Checkout() {
                     required
                     type="text"
                     placeholder="City"
-                    value={form.city}
+                    value={
+                      form.city
+                    }
                     onChange={(e) =>
                       setForm({
                         ...form,
                         city:
-                          e.target.value,
+                          e.target
+                            .value,
                       })
                     }
                     style={{
-                      fontSize: '16px',
+                      fontSize:
+                        '16px',
                     }}
                     className={
                       inputClass
@@ -2052,11 +2378,13 @@ export default function Checkout() {
                       setForm({
                         ...form,
                         postal_code:
-                          e.target.value,
+                          e.target
+                            .value,
                       })
                     }
                     style={{
-                      fontSize: '16px',
+                      fontSize:
+                        '16px',
                     }}
                     className={
                       inputClass
@@ -2070,11 +2398,13 @@ export default function Checkout() {
                   }
                   onChange={(e) =>
                     handleCountryChange(
-                      e.target.value
+                      e.target
+                        .value
                     )
                   }
                   style={{
-                    fontSize: '16px',
+                    fontSize:
+                      '16px',
                   }}
                   className={
                     inputClass +
@@ -2084,14 +2414,20 @@ export default function Checkout() {
                   {Object.keys(
                     COUNTRY_CONFIG
                   ).map(
-                    (country) => (
+                    (
+                      country
+                    ) => (
                       <option
-                        key={country}
+                        key={
+                          country
+                        }
                         value={
                           country
                         }
                       >
-                        {country}
+                        {
+                          country
+                        }
                       </option>
                     )
                   )}
@@ -2107,19 +2443,24 @@ export default function Checkout() {
                 </h2>
 
                 <span className="text-xs text-neutral-500 font-mono">
-                  {wordCount} / 200 words
+                  {wordCount} / 200
+                  {' '}
+                  words
                 </span>
               </div>
 
               <textarea
                 rows={3}
                 placeholder="Delivery instructions, gift notes, wheel setup, etc."
-                value={form.notes}
+                value={
+                  form.notes
+                }
                 onChange={
                   handleNotesChange
                 }
                 style={{
-                  fontSize: '16px',
+                  fontSize:
+                    '16px',
                 }}
                 className={
                   inputClass +
@@ -2203,7 +2544,9 @@ export default function Checkout() {
                     ) {
                       return (
                         <div
-                          key={idx}
+                          key={
+                            idx
+                          }
                           className="p-3 bg-red-500/10 border border-red-500/30 rounded-xl text-red-600 dark:text-red-400 text-xs"
                         >
                           Failed to fetch product details
@@ -2432,14 +2775,17 @@ export default function Checkout() {
                 <div className="flex justify-between text-sm">
                   <span className="text-neutral-600 dark:text-neutral-400">
                     Tax{' '}
-                    {taxRate > 0
+                    {taxRate >
+                    0
                       ? `(${taxRate * 100}%)`
                       : ''}
                   </span>
 
                   <span className="text-neutral-900 dark:text-white">
-                    {taxRate === 0 ||
-                    baseTaxUSD === 0
+                    {taxRate ===
+                      0 ||
+                    baseTaxUSD ===
+                      0
                       ? 'Free'
                       : renderFormattedPrice(
                           baseTaxUSD
@@ -2469,7 +2815,7 @@ export default function Checkout() {
                 form="checkout-form"
                 disabled={
                   status ===
-                    'submitting'
+                  'submitting'
                 }
                 className={`flex items-center justify-center gap-2 w-full py-4 text-white dark:text-neutral-950 font-bold text-sm uppercase tracking-wider rounded-full transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 ${
                   isCashPayment
