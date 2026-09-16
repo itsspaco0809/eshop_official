@@ -1912,15 +1912,15 @@ export default function AdminPanel({ initialTab = 'analytics' }: { initialTab?: 
                     </select>
                   </div>
 
-                  <div>
-                    <label className="block text-xs uppercase text-neutral-500 dark:text-neutral-400 mb-1">Color</label>
+                  <div className="md:col-span-2">
+                    <label className="block text-xs uppercase text-neutral-500 dark:text-neutral-400 mb-1">Instruction Color</label>
                     <select
                       value={fileForm.color || ''}
                       onChange={(e) => setFileForm({ ...fileForm, color: e.target.value })}
                       disabled={!fileForm.product_id}
                       className="w-full bg-neutral-50 dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 rounded-lg px-3 py-2 text-base sm:text-sm text-neutral-900 dark:text-white focus:outline-none focus:border-neutral-400 dark:focus:border-neutral-700 disabled:opacity-50"
                     >
-                      <option value="">General / All Colors</option>
+                      <option value="">{fileForm.product_id ? 'General / All Colors' : 'Select a product first...'}</option>
                       {fileForm.product_id && (productById[fileForm.product_id]?.colors || []).map((color, index) => {
                         const colorName = typeof color === 'string' ? color : color?.name;
                         const normalizedName = colorName?.trim();
@@ -1932,7 +1932,9 @@ export default function AdminPanel({ initialTab = 'analytics' }: { initialTab?: 
                         );
                       })}
                     </select>
-                    <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">Choose which product color this instruction file belongs to.</p>
+                    <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
+                      Select the exact product color this instruction file belongs to. For example: TRX → Light Gray → Light Gray instruction link.
+                    </p>
                   </div>
 
                   <div>
