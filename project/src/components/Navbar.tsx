@@ -93,6 +93,23 @@ export default function Navbar({
   const [mobileOpen, setMobileOpen] =
     useState(false);
 
+  /*
+   * =========================================================
+   * MOBILE THEME ICON VISIBILITY
+   *
+   * false = hidden / fading out
+   * true  = visible / fading in
+   *
+   * This is deliberately separate from mobileOpen so the
+   * theme icon animation can be controlled independently.
+   * =========================================================
+   */
+
+  const [
+    mobileThemeVisible,
+    setMobileThemeVisible,
+  ] = useState(true);
+
   const [
     mobileMenuRendered,
     setMobileMenuRendered,
@@ -451,6 +468,12 @@ export default function Navbar({
      */
 
     if (mobileOpen) {
+      /*
+       * Theme icon fades out immediately when menu opens.
+       */
+
+      setMobileThemeVisible(false);
+
       setMobileMenuRendered(true);
       setMobileMenuAnimating(false);
 
@@ -499,6 +522,13 @@ export default function Navbar({
     if (
       !wasMobileMenuOpenRef.current
     ) {
+      /*
+       * On initial page load the theme icon should
+       * remain visible.
+       */
+
+      setMobileThemeVisible(true);
+
       setMobileMenuAnimating(false);
       setMobileMenuRendered(false);
 
@@ -519,6 +549,13 @@ export default function Navbar({
 
     mobileMenuScrollLockedRef.current =
       true;
+
+    /*
+     * Theme icon starts fading back in as soon as
+     * the hamburger menu starts closing.
+     */
+
+    setMobileThemeVisible(true);
 
     setMobileMenuAnimating(false);
 
@@ -649,6 +686,12 @@ export default function Navbar({
       bodyScrollYRef.current =
         currentScrollY;
 
+      /*
+       * Fade theme icon out immediately.
+       */
+
+      setMobileThemeVisible(false);
+
       document.body.style.position =
         'fixed';
 
@@ -710,6 +753,13 @@ export default function Navbar({
         !mobileOpenRef.current &&
         !mobileMenuRendered
       ) {
+        /*
+         * Make sure theme icon is visible if the
+         * menu is already closed.
+         */
+
+        setMobileThemeVisible(true);
+
         return;
       }
 
@@ -724,6 +774,12 @@ export default function Navbar({
         mobileMenuAnimationFrameRef.current =
           null;
       }
+
+      /*
+       * Fade theme icon in immediately.
+       */
+
+      setMobileThemeVisible(true);
 
       setMobileMenuAnimating(
         false
@@ -1141,26 +1197,6 @@ export default function Navbar({
   /*
    * =========================================================
    * INTRO SEQUENCE ANIMATION
-   *
-   * MOBILE:
-   *
-   * 1. HAMBURGER
-   * 2. LOGO
-   * 3. THEME
-   * 4. CART
-   *
-   * IMPORTANT:
-   *
-   * The LOGO uses a dedicated animation wrapper.
-   * The positioning wrapper stays completely static.
-   *
-   * This prevents:
-   *
-   * absolute
-   * left-1/2
-   * -translate-x-1/2
-   *
-   * from fighting with GSAP's Y transform.
    * =========================================================
    */
 
@@ -1171,10 +1207,6 @@ export default function Navbar({
     ) {
       return;
     }
-
-    /*
-     * If intro already completed, do not replay it.
-     */
 
     if (
       introAnimatedRef.current
@@ -1213,12 +1245,6 @@ export default function Navbar({
           window.innerWidth <
           MOBILE_BREAKPOINT;
 
-        /*
-         * =====================================================
-         * MOBILE INTRO
-         * =====================================================
-         */
-
         if (isMobile) {
           const mobileElements =
             Array.from(
@@ -1246,10 +1272,6 @@ export default function Navbar({
             return;
           }
 
-          /*
-           * Header stays completely still.
-           */
-
           gsap.set(
             headerRef.current,
             {
@@ -1259,11 +1281,6 @@ export default function Navbar({
             }
           );
 
-          /*
-           * ALL FOUR elements start from exactly
-           * the same vertical position.
-           */
-
           gsap.set(
             mobileElements,
             {
@@ -1272,24 +1289,11 @@ export default function Navbar({
             }
           );
 
-          /*
-           * Exact sequence:
-           *
-           * 0.00s Hamburger
-           * 0.12s Logo
-           * 0.24s Theme
-           * 0.36s Cart
-           */
-
           const mobileTimeline =
             gsap.timeline({
               onComplete: () => {
                 introAnimatedRef.current =
                   true;
-
-                /*
-                 * Remove only the GSAP intro transforms.
-                 */
 
                 gsap.set(
                   mobileElements,
@@ -1326,12 +1330,6 @@ export default function Navbar({
 
           return;
         }
-
-        /*
-         * =====================================================
-         * DESKTOP INTRO
-         * =====================================================
-         */
 
         const desktopElements =
           Array.from(
@@ -1416,11 +1414,6 @@ export default function Navbar({
   /*
    * =========================================================
    * MOBILE HEADER HIDE / SHOW
-   *
-   * IMPORTANT:
-   *
-   * NEVER interfere with the intro animation.
-   * Hide/show starts ONLY after intro is finished.
    * =========================================================
    */
 
@@ -1431,11 +1424,6 @@ export default function Navbar({
     ) {
       return;
     }
-
-    /*
-     * Do not touch the header while the intro
-     * sequence is still running.
-     */
 
     if (
       !introAnimatedRef.current
@@ -2218,15 +2206,6 @@ export default function Navbar({
 
             {/* =================================================
                 LOGO POSITIONING WRAPPER
-                =================================================
-                
-                IMPORTANT:
-                
-                This wrapper NEVER receives the GSAP
-                entrance animation.
-                
-                It is responsible ONLY for positioning
-                the logo in the center.
                 ================================================= */}
 
             <div
@@ -2243,16 +2222,6 @@ export default function Navbar({
                 shrink-0
               "
             >
-
-              {/* =================================================
-                  LOGO ANIMATION WRAPPER
-                  
-                  THIS is what GSAP moves.
-                  
-                  No translate-x.
-                  No transition-transform.
-                  No positioning transform.
-                  ================================================= */}
 
               <div
                 data-mobile-header-item
@@ -2280,13 +2249,11 @@ export default function Navbar({
                     min-[1536px]:h-20
                     w-32
                     min-[1536px]:w-48
-
                     min-[1536px]:transition-transform
                     min-[1536px]:duration-300
                     min-[1536px]:ease-out
                     min-[1536px]:hover:scale-110
                     min-[1536px]:active:scale-95
-
                     touch-manipulation
                     z-50
                     select-none
@@ -3033,6 +3000,21 @@ export default function Navbar({
               {/* =================================================
                   MOBILE THEME TOGGLE
                   ORDER 3
+                  
+                  NEW BEHAVIOUR:
+                  
+                  MENU CLOSED:
+                    opacity 1
+                    scale 1
+                    pointer-events auto
+                  
+                  MENU OPEN:
+                    opacity 0
+                    scale .75
+                    pointer-events none
+                  
+                  The button itself remains in the DOM.
+                  Only its visual state changes.
                   ================================================= */}
 
               <button
@@ -3042,7 +3024,7 @@ export default function Navbar({
                 }
                 data-mobile-header-item
                 data-mobile-header-order="3"
-                className="
+                className={`
                   min-[1536px]:hidden
                   relative
                   p-2
@@ -3056,7 +3038,17 @@ export default function Navbar({
                   justify-center
                   touch-manipulation
                   shrink-0
-                "
+
+                  transition-[opacity,transform]
+                  duration-300
+                  ease-out
+
+                  ${
+                    mobileThemeVisible
+                      ? 'opacity-100 scale-100 pointer-events-auto'
+                      : 'opacity-0 scale-75 pointer-events-none'
+                  }
+                `}
                 aria-label={`Switch to ${
                   theme === 'dark'
                     ? 'light'
@@ -3166,11 +3158,9 @@ export default function Navbar({
             z-[45]
             min-[1536px]:hidden
             overscroll-contain
-
             transform
             transform-gpu
             will-change-transform
-
             transition-transform
             duration-300
             ease-in-out
