@@ -107,8 +107,8 @@ const COUNTRY_TO_CURRENCY: Record<string, string> = {
   Canada: 'CAD',
   'United Kingdom': 'GBP',
   Australia: 'AUD',
-  Germany: 'EUR',
-  France: 'EUR',
+  Germany: 'EUR_DE',
+  France: 'EUR_FR',
   Japan: 'JPY',
 };
 
@@ -118,7 +118,8 @@ const CURRENCY_TO_COUNTRY: Record<string, string> = {
   CAD: 'Canada',
   GBP: 'United Kingdom',
   AUD: 'Australia',
-  EUR: 'Germany',
+  EUR_DE: 'Germany',
+  EUR_FR: 'France',
   JPY: 'Japan',
 };
 
@@ -721,26 +722,26 @@ export default function Checkout() {
    */
 
   const handleCountryChange = (
-    country: string
-  ) => {
-    setForm((prev) => ({
-      ...prev,
-      country,
-    }));
+  country: string
+) => {
+  setForm((prev) => ({
+    ...prev,
+    country,
+  }));
 
-    const newCurrency =
-      COUNTRY_TO_CURRENCY[country];
+  const newCurrencyKey =
+    COUNTRY_TO_CURRENCY[country];
 
-    if (
-      newCurrency &&
-      newCurrency !== globalCurrency
-    ) {
-      setGlobalCurrency(newCurrency);
+  if (
+    newCurrencyKey &&
+    newCurrencyKey !== globalCurrency
+  ) {
+    setGlobalCurrency(newCurrencyKey);
 
-      setAppliedCoupon(null);
-      setCouponError(null);
-    }
-  };
+    setAppliedCoupon(null);
+    setCouponError(null);
+  }
+};
 
   /*
    * =========================================================
@@ -1601,7 +1602,7 @@ export default function Checkout() {
           form.country,
 
         currency:
-          globalCurrency,
+          selectedCurrency,
 
         /*
          * Instructions only:
