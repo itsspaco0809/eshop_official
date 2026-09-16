@@ -41,6 +41,7 @@ export interface DigitalFile {
   file_path: string | null;
   external_url: string | null;
   file_name: string;
+  color: string | null;
   created_at: string;
 }
 
@@ -119,7 +120,7 @@ interface ConfirmState {
 }
 
 type ProductSortField = 'id' | 'name' | 'price' | 'category' | 'section' | 'stock_quantity';
-type FileSortField = 'id' | 'product_id' | 'file_name' | 'source_type' | 'file_path' | 'external_url';
+type FileSortField = 'id' | 'product_id' | 'file_name' | 'color' | 'source_type' | 'file_path' | 'external_url';
 type OrderSortField = 'id' | 'created_at' | 'user_id' | 'currency' | 'total' | 'status' | 'email';
 type MessageSortField = 'id' | 'created_at' | 'name' | 'email' | 'subject';
 
@@ -222,6 +223,7 @@ const emptyFileForm: Omit<DigitalFile, 'id' | 'created_at'> = {
   file_path: '',
   external_url: '',
   file_name: '',
+  color: '',
 };
 
 const emptyOrderForm: OrderFormState = {
@@ -496,7 +498,8 @@ export default function AdminPanel({ initialTab = 'analytics' }: { initialTab?: 
       const product = productById[file.product_id];
       const productName = product?.name || '';
       const productSlug = product?.slug || '';
-      return productName.toLowerCase().includes(query) || productSlug.toLowerCase().includes(query);
+      const fileColor = file.color || '';
+      return productName.toLowerCase().includes(query) || productSlug.toLowerCase().includes(query) || fileColor.toLowerCase().includes(query) || file.file_name.toLowerCase().includes(query);
     });
   }, [files, fileSearch, productById]);
 
@@ -870,6 +873,7 @@ export default function AdminPanel({ initialTab = 'analytics' }: { initialTab?: 
       file_path: file.file_path || '',
       external_url: file.external_url || '',
       file_name: file.file_name || '',
+      color: file.color || '',
     });
   };
 
@@ -905,6 +909,7 @@ export default function AdminPanel({ initialTab = 'analytics' }: { initialTab?: 
       file_path: file.file_path,
       external_url: file.external_url,
       file_name: `${file.file_name} (copy)`,
+      color: file.color || null,
     };
 
     const { error } = await supabase.from('digital_files').insert([duplicatedPayload]);
@@ -1774,7 +1779,7 @@ export default function AdminPanel({ initialTab = 'analytics' }: { initialTab?: 
                     <tbody className="divide-y divide-neutral-200 dark:divide-neutral-800">
                       {sortedProducts.length === 0 ? (
                         <tr>
-                          <td colSpan={6} className="p-10 text-center text-sm text-neutral-500 dark:text-neutral-400">
+                          <td colSpan={7} className="p-10 text-center text-sm text-neutral-500 dark:text-neutral-400">
                             {productSearch.trim() ? 'No products match your search.' : 'No products found.'}
                           </td>
                         </tr>
@@ -1893,7 +1898,7 @@ export default function AdminPanel({ initialTab = 'analytics' }: { initialTab?: 
                     <label className="block text-xs uppercase text-neutral-500 dark:text-neutral-400 mb-1">Product</label>
                     <select
                       value={fileForm.product_id}
-                      onChange={(e) => setFileForm({ ...fileForm, product_id: e.target.value })}
+                      onChange={(e) => setFileForm({ ...fileForm, product_id: e.target.value, color: '' })}
                       className="w-full bg-neutral-50 dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 rounded-lg px-3 py-2 text-base sm:text-sm text-neutral-900 dark:text-white focus:outline-none focus:border-neutral-400 dark:focus:border-neutral-700"
                     >
                       <option value="">Select a product...</option>
@@ -1901,6 +1906,24 @@ export default function AdminPanel({ initialTab = 'analytics' }: { initialTab?: 
                         <option key={p.id} value={p.id}>{p.name} ({p.id})</option>
                       ))}
                     </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs uppercase text-neutral-500 dark:text-neutral-400 mb-1">Color</label>
+                    <select
+                      value={fileForm.color || ''}
+                      onChange={(e) => setFileForm({ ...fileForm, color: e.target.value })}
+                      className="w-full bg-neutral-50 dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 rounded-lg px-3 py-2 text-base sm:text-sm text-neutral-900 dark:text-white focus:outline-none focus:border-neutral-400 dark:focus:border-neutral-700"
+                      disabled={!fileForm.product_id}
+                    >
+                      <option value="">General / All Colors</option>
+                      {normalizeProductColors(productById[fileForm.product_id]?.colors ?? []).map((color) => (
+                        <option key={color.name || color.hex} value={color.name}>
+                          {color.name || color.hex}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="mt-1 text-[11px] text-neutral-400">Leave as General / All Colors for a shared instruction file.</p>
                   </div>
 
                   <div>
@@ -1983,13 +2006,16 @@ export default function AdminPanel({ initialTab = 'analytics' }: { initialTab?: 
             ) : (
               <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-2xl overflow-hidden shadow-sm">
                 <div className="overflow-x-auto">
-                  <table className="w-full min-w-[980px] text-left text-sm">
+                  <table className="w-full min-w-[1100px] text-left text-sm">
                     <thead className="bg-neutral-50 dark:bg-neutral-950 border-b border-neutral-200 dark:border-neutral-800 text-neutral-500 dark:text-neutral-400">
                       <tr>
                         <th className="p-4 font-medium whitespace-nowrap">Image</th>
                         <th className="p-4 font-medium whitespace-nowrap min-w-[220px]">Product</th>
                         <th className="p-4 font-medium cursor-pointer whitespace-nowrap min-w-[180px]" onClick={() => handleFileSort('file_name')}>
                           <div className="flex items-center gap-2 whitespace-nowrap">File Name <ArrowUpDown className="w-4 h-4 shrink-0" /></div>
+                        </th>
+                        <th className="p-4 font-medium cursor-pointer whitespace-nowrap min-w-[140px]" onClick={() => handleFileSort('color')}>
+                          <div className="flex items-center gap-2 whitespace-nowrap">Color <ArrowUpDown className="w-4 h-4 shrink-0" /></div>
                         </th>
                         <th className="p-4 font-medium cursor-pointer whitespace-nowrap min-w-[150px]" onClick={() => handleFileSort('source_type')}>
                           <div className="flex items-center gap-2 whitespace-nowrap">Source <ArrowUpDown className="w-4 h-4 shrink-0" /></div>
@@ -2032,6 +2058,11 @@ export default function AdminPanel({ initialTab = 'analytics' }: { initialTab?: 
                           </td>
                           <td className="p-4 font-semibold text-neutral-900 dark:text-white whitespace-nowrap">
                             {f.file_name}
+                          </td>
+                          <td className="p-4 whitespace-nowrap">
+                            <span className={`inline-flex whitespace-nowrap px-2.5 py-1 rounded-full text-xs font-semibold ${f.color ? 'bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300' : 'bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300'}`}>
+                              {f.color || 'General / All Colors'}
+                            </span>
                           </td>
                           <td className="p-4 whitespace-nowrap">
                             <span className="inline-flex whitespace-nowrap px-2.5 py-1 rounded-full text-xs font-semibold bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300">
