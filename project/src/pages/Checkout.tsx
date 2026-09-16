@@ -29,7 +29,8 @@ import {
   CA,
   GB,
   AU,
-  EU,
+  DE,
+  FR,
   JP,
 } from 'country-flag-icons/react/3x2';
 
