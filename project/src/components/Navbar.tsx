@@ -136,12 +136,6 @@ export default function Navbar({
   const currencyMenuRef =
     useRef<HTMLDivElement>(null);
 
-  /*
-   * =========================================================
-   * INTRO ANIMATION STATE
-   * =========================================================
-   */
-
   const introAnimatedRef =
     useRef(false);
 
@@ -153,12 +147,6 @@ export default function Navbar({
 
   const mobileMenuScrollRef =
     useRef<HTMLDivElement>(null);
-
-  /*
-   * =========================================================
-   * MOBILE SAFE AREA REF
-   * =========================================================
-   */
 
   const mobileSafeAreaRef =
     useRef<HTMLDivElement>(null);
@@ -188,12 +176,6 @@ export default function Navbar({
   const mobileMenuAnimationFrameRef =
     useRef<number | null>(null);
 
-  /*
-   * =========================================================
-   * MOBILE AUTH SCROLL PROTECTION
-   * =========================================================
-   */
-
   const mobileAuthOpenedRef =
     useRef(false);
 
@@ -209,31 +191,13 @@ export default function Navbar({
   const CurrentFlag =
     currencyConfig?.Flag;
 
-  /*
-   * =========================================================
-   * RESPONSIVE BREAKPOINT
-   * =========================================================
-   */
-
   const MOBILE_BREAKPOINT =
     1536;
-
-  /*
-   * =========================================================
-   * KEEP AUTH REF IN SYNC
-   * =========================================================
-   */
 
   useLayoutEffect(() => {
     authOpenRef.current =
       authOpen;
   }, [authOpen]);
-
-  /*
-   * =========================================================
-   * MOBILE SAFE AREA SURFACE
-   * =========================================================
-   */
 
   useLayoutEffect(() => {
     const background =
@@ -259,12 +223,6 @@ export default function Navbar({
     mobileMenuRendered,
   ]);
 
-  /*
-   * =========================================================
-   * MOBILE MENU + SCROLL LOCK
-   * =========================================================
-   */
-
   const hasOtherScrollLock =
     () => {
       const html =
@@ -282,12 +240,6 @@ export default function Navbar({
         )
       );
     };
-
-  /*
-   * =========================================================
-   * RESTORE NATIVE + LENIS SCROLL
-   * =========================================================
-   */
 
   const restoreScrollPosition = (
     targetY: number,
@@ -350,12 +302,6 @@ export default function Navbar({
     }
   };
 
-  /*
-   * =========================================================
-   * MOBILE AUTH SCROLL RESTORE
-   * =========================================================
-   */
-
   const restoreMobileAuthScroll =
     () => {
       if (
@@ -400,12 +346,6 @@ export default function Navbar({
         false;
     };
 
-  /*
-   * =========================================================
-   * MOBILE MENU LIFECYCLE
-   * =========================================================
-   */
-
   useLayoutEffect(() => {
     mobileOpenRef.current =
       mobileOpen;
@@ -443,12 +383,6 @@ export default function Navbar({
       mobileMenuAnimationFrameRef.current =
         null;
     }
-
-    /*
-     * =======================================================
-     * OPEN
-     * =======================================================
-     */
 
     if (mobileOpen) {
       setMobileMenuRendered(true);
@@ -490,12 +424,6 @@ export default function Navbar({
       return;
     }
 
-    /*
-     * =======================================================
-     * INITIAL CLOSED STATE
-     * =======================================================
-     */
-
     if (
       !wasMobileMenuOpenRef.current
     ) {
@@ -507,12 +435,6 @@ export default function Navbar({
 
       return;
     }
-
-    /*
-     * =======================================================
-     * CLOSE
-     * =======================================================
-     */
 
     wasMobileMenuOpenRef.current =
       false;
@@ -596,12 +518,6 @@ export default function Navbar({
       }
     };
   }, [mobileOpen]);
-
-  /*
-   * =========================================================
-   * MOBILE MENU OPEN
-   * =========================================================
-   */
 
   const openMobileMenu =
     () => {
@@ -698,12 +614,6 @@ export default function Navbar({
       setMobileOpen(true);
     };
 
-  /*
-   * =========================================================
-   * MOBILE MENU CLOSE
-   * =========================================================
-   */
-
   const closeMobileMenu =
     () => {
       if (
@@ -738,12 +648,6 @@ export default function Navbar({
 
       setMobileOpen(false);
     };
-
-  /*
-   * =========================================================
-   * MOBILE THEME TOGGLE
-   * =========================================================
-   */
 
   const handleMobileThemeToggle =
     () => {
@@ -802,12 +706,6 @@ export default function Navbar({
       setTheme(nextTheme);
     };
 
-  /*
-   * =========================================================
-   * AUTH MODAL
-   * =========================================================
-   */
-
   const openMobileAuth =
     () => {
       const currentScrollY =
@@ -827,12 +725,6 @@ export default function Navbar({
 
       setAuthOpen(true);
     };
-
-  /*
-   * =========================================================
-   * DETECT SUCCESSFUL LOGIN
-   * =========================================================
-   */
 
   useEffect(() => {
     const previousUser =
@@ -855,12 +747,6 @@ export default function Navbar({
     }
   }, [user]);
 
-  /*
-   * =========================================================
-   * AUTH MODAL CLOSE
-   * =========================================================
-   */
-
   useEffect(() => {
     if (authOpen) {
       return;
@@ -876,12 +762,6 @@ export default function Navbar({
       restoreMobileAuthScroll();
     });
   }, [authOpen]);
-
-  /*
-   * =========================================================
-   * PREVENT PAGE SCROLL WHEN MOBILE MENU IS OPEN/CLOSING
-   * =========================================================
-   */
 
   useEffect(() => {
     const handlePreventScroll = (
@@ -1003,12 +883,6 @@ export default function Navbar({
     };
   }, []);
 
-  /*
-   * =========================================================
-   * CLEANUP MOBILE MENU LOCK
-   * =========================================================
-   */
-
   useEffect(() => {
     return () => {
       mobileMenuScrollLockedRef.current =
@@ -1080,12 +954,6 @@ export default function Navbar({
     };
   }, []);
 
-  /*
-   * =========================================================
-   * iOS / iPad VIEWPORT SAFE AREA
-   * =========================================================
-   */
-
   useEffect(() => {
     let viewportMeta =
       document.querySelector(
@@ -1138,32 +1006,6 @@ export default function Navbar({
     }
   }, []);
 
-  /*
-   * =========================================================
-   * INTRO SEQUENCE ANIMATION
-   *
-   * MOBILE:
-   *
-   * 1. HAMBURGER
-   * 2. LOGO
-   * 3. THEME
-   * 4. CART
-   *
-   * IMPORTANT:
-   *
-   * The LOGO uses a dedicated animation wrapper.
-   * The positioning wrapper stays completely static.
-   *
-   * This prevents:
-   *
-   * absolute
-   * left-1/2
-   * -translate-x-1/2
-   *
-   * from fighting with GSAP's Y transform.
-   * =========================================================
-   */
-
   useLayoutEffect(() => {
     if (
       !headerRef.current ||
@@ -1171,10 +1013,6 @@ export default function Navbar({
     ) {
       return;
     }
-
-    /*
-     * If intro already completed, do not replay it.
-     */
 
     if (
       introAnimatedRef.current
@@ -1213,12 +1051,6 @@ export default function Navbar({
           window.innerWidth <
           MOBILE_BREAKPOINT;
 
-        /*
-         * =====================================================
-         * MOBILE INTRO
-         * =====================================================
-         */
-
         if (isMobile) {
           const mobileElements =
             Array.from(
@@ -1246,10 +1078,6 @@ export default function Navbar({
             return;
           }
 
-          /*
-           * Header stays completely still.
-           */
-
           gsap.set(
             headerRef.current,
             {
@@ -1259,11 +1087,6 @@ export default function Navbar({
             }
           );
 
-          /*
-           * ALL FOUR elements start from exactly
-           * the same vertical position.
-           */
-
           gsap.set(
             mobileElements,
             {
@@ -1272,24 +1095,11 @@ export default function Navbar({
             }
           );
 
-          /*
-           * Exact sequence:
-           *
-           * 0.00s Hamburger
-           * 0.12s Logo
-           * 0.24s Theme
-           * 0.36s Cart
-           */
-
           const mobileTimeline =
             gsap.timeline({
               onComplete: () => {
                 introAnimatedRef.current =
                   true;
-
-                /*
-                 * Remove only the GSAP intro transforms.
-                 */
 
                 gsap.set(
                   mobileElements,
@@ -1326,12 +1136,6 @@ export default function Navbar({
 
           return;
         }
-
-        /*
-         * =====================================================
-         * DESKTOP INTRO
-         * =====================================================
-         */
 
         const desktopElements =
           Array.from(
@@ -1413,17 +1217,6 @@ export default function Navbar({
     isIntroFinished,
   ]);
 
-  /*
-   * =========================================================
-   * MOBILE HEADER HIDE / SHOW
-   *
-   * IMPORTANT:
-   *
-   * NEVER interfere with the intro animation.
-   * Hide/show starts ONLY after intro is finished.
-   * =========================================================
-   */
-
   useEffect(() => {
     if (
       !headerRef.current ||
@@ -1431,11 +1224,6 @@ export default function Navbar({
     ) {
       return;
     }
-
-    /*
-     * Do not touch the header while the intro
-     * sequence is still running.
-     */
 
     if (
       !introAnimatedRef.current
@@ -1477,12 +1265,6 @@ export default function Navbar({
     mobileOpen,
     isIntroFinished,
   ]);
-
-  /*
-   * =========================================================
-   * CLOSE MENUS ON SCROLL / ESC
-   * =========================================================
-   */
 
   useEffect(() => {
     if (
@@ -1549,12 +1331,6 @@ export default function Navbar({
     currencyMenuOpen,
   ]);
 
-  /*
-   * =========================================================
-   * CLICK OUTSIDE
-   * =========================================================
-   */
-
   useEffect(() => {
     const handleClickOutside = (
       event:
@@ -1604,12 +1380,6 @@ export default function Navbar({
       );
     };
   }, []);
-
-  /*
-   * =========================================================
-   * SCROLL LOGIC
-   * =========================================================
-   */
 
   useEffect(() => {
     const handleScrollLogic = (
@@ -1775,12 +1545,6 @@ export default function Navbar({
     };
   }, []);
 
-  /*
-   * =========================================================
-   * ROUTE CHANGE
-   * =========================================================
-   */
-
   useEffect(() => {
     setUserMenuOpen(false);
     setCurrencyMenuOpen(false);
@@ -1792,12 +1556,6 @@ export default function Navbar({
       closeMobileMenu();
     }
   }, [path]);
-
-  /*
-   * =========================================================
-   * NAV CLICK
-   * =========================================================
-   */
 
   const scrollToTopAnimated =
     () => {
@@ -1916,12 +1674,6 @@ export default function Navbar({
     }
   };
 
-  /*
-   * =========================================================
-   * NAV LINKS
-   * =========================================================
-   */
-
   const navLinks = [
     {
       label: 'Home',
@@ -1957,32 +1709,14 @@ export default function Navbar({
       ? path === '/'
       : path.startsWith(to);
 
-  /*
-   * =========================================================
-   * LOCAL LOGO
-   * =========================================================
-   */
-
   const logoUrl =
     '/LCP_logo_trans.png';
-
-  /*
-   * =========================================================
-   * MONOCHROME PAGE
-   * =========================================================
-   */
 
   const isMonochromePage =
     path === '/' ||
     path.startsWith('/orders') ||
     path.startsWith('/admin') ||
     path.startsWith('/checkout');
-
-  /*
-   * =========================================================
-   * MOBILE ROW BASE
-   * =========================================================
-   */
 
   const mobileRowBase =
     'mobile-nav-item w-full h-12 px-6 flex items-center justify-between text-base font-bold uppercase tracking-wider transition-colors';
@@ -2089,10 +1823,6 @@ export default function Navbar({
         `}
       </style>
 
-      {/* =====================================================
-          HEADER
-          ===================================================== */}
-
       <header
         ref={headerRef}
         className={`
@@ -2142,12 +1872,6 @@ export default function Navbar({
               relative
             "
           >
-
-            {/* =================================================
-                MOBILE HAMBURGER
-                ORDER 1
-                ================================================= */}
-
             <button
               data-mobile-header-item
               data-mobile-header-order="1"
@@ -2215,20 +1939,6 @@ export default function Navbar({
               />
             </button>
 
-
-            {/* =================================================
-                LOGO POSITIONING WRAPPER
-                =================================================
-                
-                IMPORTANT:
-                
-                This wrapper NEVER receives the GSAP
-                entrance animation.
-                
-                It is responsible ONLY for positioning
-                the logo in the center.
-                ================================================= */}
-
             <div
               className="
                 absolute
@@ -2243,17 +1953,6 @@ export default function Navbar({
                 shrink-0
               "
             >
-
-              {/* =================================================
-                  LOGO ANIMATION WRAPPER
-                  
-                  THIS is what GSAP moves.
-                  
-                  No translate-x.
-                  No transition-transform.
-                  No positioning transform.
-                  ================================================= */}
-
               <div
                 data-mobile-header-item
                 data-mobile-header-order="2"
@@ -2367,11 +2066,6 @@ export default function Navbar({
               </div>
             </div>
 
-
-            {/* =================================================
-                DESKTOP NAV
-                ================================================= */}
-
             <div
               className="
                 hidden
@@ -2451,11 +2145,6 @@ export default function Navbar({
               )}
             </div>
 
-
-            {/* =================================================
-                RIGHT ACTIONS
-                ================================================= */}
-
             <div
               className="
                 flex
@@ -2467,11 +2156,6 @@ export default function Navbar({
                 z-50
               "
             >
-
-              {/* =================================================
-                  DESKTOP CURRENCY
-                  ================================================= */}
-
               <div
                 className="
                   hidden
@@ -2682,11 +2366,6 @@ export default function Navbar({
                 )}
               </div>
 
-
-              {/* =================================================
-                  DESKTOP THEME TOGGLE
-                  ================================================= */}
-
               <button
                 type="button"
                 onClick={(
@@ -2782,11 +2461,6 @@ export default function Navbar({
                   />
                 </span>
               </button>
-
-
-              {/* =================================================
-                  DESKTOP USER
-                  ================================================= */}
 
               <div
                 className="
@@ -3029,20 +2703,33 @@ export default function Navbar({
                 )}
               </div>
 
+              {/* MOBILE THEME TOGGLE
+                  IMPORTANT:
+                  The actual button is NOT a GSAP target.
+                  The invisible placeholder below remains
+                  order 3 so the existing GSAP animation
+                  still receives exactly 4 mobile items.
+              */}
 
-              {/* =================================================
-                  MOBILE THEME TOGGLE
-                  ORDER 3
-                  ================================================= */}
+              <span
+                data-mobile-header-item
+                data-mobile-header-order="3"
+                aria-hidden="true"
+                className="
+                  absolute
+                  w-0
+                  h-0
+                  overflow-hidden
+                  pointer-events-none
+                "
+              />
 
               <button
                 type="button"
                 onClick={
                   handleMobileThemeToggle
                 }
-                data-mobile-header-item
-                data-mobile-header-order="3"
-                className={`
+                className="
                   min-[1536px]:hidden
                   relative
                   p-2
@@ -3056,17 +2743,7 @@ export default function Navbar({
                   justify-center
                   touch-manipulation
                   shrink-0
-
-                  transition-opacity
-                  duration-300
-                  ease-out
-
-                  ${
-                    mobileOpen
-                      ? 'opacity-0 pointer-events-none'
-                      : 'opacity-100'
-                  }
-                `}
+                "
                 aria-label={`Switch to ${
                   theme === 'dark'
                     ? 'light'
@@ -3078,30 +2755,41 @@ export default function Navbar({
                     : 'dark'
                 } mode`}
               >
-                {theme === 'dark' ? (
-                  <Moon
-                    className="
-                      w-6
-                      h-6
-                      text-indigo-400
-                    "
-                  />
-                ) : (
-                  <Sun
-                    className="
-                      w-6
-                      h-6
-                      text-amber-500
-                    "
-                  />
-                )}
+                <span
+                  className={`
+                    flex
+                    items-center
+                    justify-center
+                    transition-opacity
+                    duration-300
+                    ease-in-out
+
+                    ${
+                      mobileOpen
+                        ? 'opacity-0 pointer-events-none'
+                        : 'opacity-100'
+                    }
+                  `}
+                >
+                  {theme === 'dark' ? (
+                    <Moon
+                      className="
+                        w-6
+                        h-6
+                        text-indigo-400
+                      "
+                    />
+                  ) : (
+                    <Sun
+                      className="
+                        w-6
+                        h-6
+                        text-amber-500
+                      "
+                    />
+                  )}
+                </span>
               </button>
-
-
-              {/* =================================================
-                  CART
-                  ORDER 4
-                  ================================================= */}
 
               <button
                 onClick={
@@ -3154,11 +2842,6 @@ export default function Navbar({
         </nav>
       </header>
 
-
-      {/* =======================================================
-          MOBILE MENU
-          ======================================================= */}
-
       {mobileMenuRendered && (
         <div
           ref={mobileMenuRef}
@@ -3210,11 +2893,6 @@ export default function Navbar({
               pt-[calc(5rem+env(safe-area-inset-top))]
             "
           >
-
-            {/* ===================================================
-                SCROLLABLE MENU CONTENT
-                =================================================== */}
-
             <div
               ref={
                 mobileMenuScrollRef
@@ -3251,11 +2929,6 @@ export default function Navbar({
                   flex-col
                 "
               >
-
-                {/* =================================================
-                    MAIN NAV LINKS
-                    ================================================= */}
-
                 {navLinks.map(
                   (link) => {
                     const Icon =
@@ -3300,11 +2973,6 @@ export default function Navbar({
                     );
                   }
                 )}
-
-
-                {/* =================================================
-                    USER LINKS
-                    ================================================= */}
 
                 {user && (
                   <>
@@ -3355,11 +3023,6 @@ export default function Navbar({
                     )}
                   </>
                 )}
-
-
-                {/* =================================================
-                    MOBILE CURRENCY
-                    ================================================= */}
 
                 <div className="w-full">
                   <button
@@ -3528,11 +3191,6 @@ export default function Navbar({
                   )}
                 </div>
 
-
-                {/* =================================================
-                    MOBILE ACCOUNT
-                    ================================================= */}
-
                 <div
                   className="
                     mobile-nav-item
@@ -3678,11 +3336,6 @@ export default function Navbar({
               </div>
             </div>
 
-
-            {/* ===================================================
-                MOBILE BOTTOM SAFE AREA
-                =================================================== */}
-
             <div
               ref={
                 mobileSafeAreaRef
@@ -3706,11 +3359,6 @@ export default function Navbar({
           </div>
         </div>
       )}
-
-
-      {/* =====================================================
-          AUTH MODAL
-          ===================================================== */}
 
       <AuthModal
         isOpen={authOpen}
