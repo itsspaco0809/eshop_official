@@ -3042,7 +3042,7 @@ export default function Navbar({
                 }
                 data-mobile-header-item
                 data-mobile-header-order="3"
-                className="
+                className={`
                   min-[1536px]:hidden
                   relative
                   p-2
@@ -3056,7 +3056,17 @@ export default function Navbar({
                   justify-center
                   touch-manipulation
                   shrink-0
-                "
+
+                  transition-opacity
+                  duration-300
+                  ease-out
+
+                  ${
+                    mobileOpen
+                      ? 'opacity-0 pointer-events-none'
+                      : 'opacity-100'
+                  }
+                `}
                 aria-label={`Switch to ${
                   theme === 'dark'
                     ? 'light'
