@@ -2704,32 +2704,20 @@ export default function Navbar({
               </div>
 
               {/* MOBILE THEME TOGGLE
-                  IMPORTANT:
-                  The actual button is NOT a GSAP target.
-                  The invisible placeholder below remains
-                  order 3 so the existing GSAP animation
-                  still receives exactly 4 mobile items.
+                  Keep this as a GSAP target so it still
+                  participates in the original intro fall animation.
+                  The opacity gate prevents the initial browser paint
+                  from flashing the icon before GSAP starts.
               */}
-
-              <span
-                data-mobile-header-item
-                data-mobile-header-order="3"
-                aria-hidden="true"
-                className="
-                  absolute
-                  w-0
-                  h-0
-                  overflow-hidden
-                  pointer-events-none
-                "
-              />
 
               <button
                 type="button"
                 onClick={
                   handleMobileThemeToggle
                 }
-                className="
+                data-mobile-header-item
+                data-mobile-header-order="3"
+                className={`
                   min-[1536px]:hidden
                   relative
                   p-2
@@ -2743,7 +2731,13 @@ export default function Navbar({
                   justify-center
                   touch-manipulation
                   shrink-0
-                "
+
+                  ${
+                    !isIntroFinished
+                      ? 'opacity-0'
+                      : 'opacity-100'
+                  }
+                `}
                 aria-label={`Switch to ${
                   theme === 'dark'
                     ? 'light'
