@@ -585,7 +585,7 @@ export default function Home() {
             },
             {
               title: 'Sports Car',
-              img: 'https://raw.githubusercontent.com/itsspaco0809/scitem-images/main/Hyundai/Ioniq_6_N/MC00002800/0.webp?auto=compress&cs=tinysrgb&h=650&w=940',
+              img: 'https://raw.githubusercontent.com/itsspaco0809/scitem-images/main/Hyundai/Ioniq%206%20N/0.webp?auto=compress&cs=tinysrgb&h=650&w=940',
               cat: 'Sports Car',
             },
             {
