@@ -93,23 +93,6 @@ export default function Navbar({
   const [mobileOpen, setMobileOpen] =
     useState(false);
 
-  /*
-   * =========================================================
-   * MOBILE THEME ICON VISIBILITY
-   *
-   * false = hidden / fading out
-   * true  = visible / fading in
-   *
-   * This is deliberately separate from mobileOpen so the
-   * theme icon animation can be controlled independently.
-   * =========================================================
-   */
-
-  const [
-    mobileThemeVisible,
-    setMobileThemeVisible,
-  ] = useState(true);
-
   const [
     mobileMenuRendered,
     setMobileMenuRendered,
@@ -468,12 +451,6 @@ export default function Navbar({
      */
 
     if (mobileOpen) {
-      /*
-       * Theme icon fades out immediately when menu opens.
-       */
-
-      setMobileThemeVisible(false);
-
       setMobileMenuRendered(true);
       setMobileMenuAnimating(false);
 
@@ -522,13 +499,6 @@ export default function Navbar({
     if (
       !wasMobileMenuOpenRef.current
     ) {
-      /*
-       * On initial page load the theme icon should
-       * remain visible.
-       */
-
-      setMobileThemeVisible(true);
-
       setMobileMenuAnimating(false);
       setMobileMenuRendered(false);
 
@@ -549,13 +519,6 @@ export default function Navbar({
 
     mobileMenuScrollLockedRef.current =
       true;
-
-    /*
-     * Theme icon starts fading back in as soon as
-     * the hamburger menu starts closing.
-     */
-
-    setMobileThemeVisible(true);
 
     setMobileMenuAnimating(false);
 
@@ -686,12 +649,6 @@ export default function Navbar({
       bodyScrollYRef.current =
         currentScrollY;
 
-      /*
-       * Fade theme icon out immediately.
-       */
-
-      setMobileThemeVisible(false);
-
       document.body.style.position =
         'fixed';
 
@@ -753,13 +710,6 @@ export default function Navbar({
         !mobileOpenRef.current &&
         !mobileMenuRendered
       ) {
-        /*
-         * Make sure theme icon is visible if the
-         * menu is already closed.
-         */
-
-        setMobileThemeVisible(true);
-
         return;
       }
 
@@ -774,12 +724,6 @@ export default function Navbar({
         mobileMenuAnimationFrameRef.current =
           null;
       }
-
-      /*
-       * Fade theme icon in immediately.
-       */
-
-      setMobileThemeVisible(true);
 
       setMobileMenuAnimating(
         false
@@ -1245,6 +1189,12 @@ export default function Navbar({
           window.innerWidth <
           MOBILE_BREAKPOINT;
 
+        /*
+         * =====================================================
+         * MOBILE INTRO
+         * =====================================================
+         */
+
         if (isMobile) {
           const mobileElements =
             Array.from(
@@ -1330,6 +1280,12 @@ export default function Navbar({
 
           return;
         }
+
+        /*
+         * =====================================================
+         * DESKTOP INTRO
+         * =====================================================
+         */
 
         const desktopElements =
           Array.from(
@@ -2249,11 +2205,13 @@ export default function Navbar({
                     min-[1536px]:h-20
                     w-32
                     min-[1536px]:w-48
+
                     min-[1536px]:transition-transform
                     min-[1536px]:duration-300
                     min-[1536px]:ease-out
                     min-[1536px]:hover:scale-110
                     min-[1536px]:active:scale-95
+
                     touch-manipulation
                     z-50
                     select-none
@@ -3001,20 +2959,9 @@ export default function Navbar({
                   MOBILE THEME TOGGLE
                   ORDER 3
                   
-                  NEW BEHAVIOUR:
-                  
-                  MENU CLOSED:
-                    opacity 1
-                    scale 1
-                    pointer-events auto
-                  
-                  MENU OPEN:
-                    opacity 0
-                    scale .75
-                    pointer-events none
-                  
-                  The button itself remains in the DOM.
-                  Only its visual state changes.
+                  ONLY CHANGE:
+                  - transition-opacity
+                  - opacity based on mobileOpen
                   ================================================= */}
 
               <button
@@ -3039,14 +2986,14 @@ export default function Navbar({
                   touch-manipulation
                   shrink-0
 
-                  transition-[opacity,transform]
+                  transition-opacity
                   duration-300
-                  ease-out
+                  ease-in-out
 
                   ${
-                    mobileThemeVisible
-                      ? 'opacity-100 scale-100 pointer-events-auto'
-                      : 'opacity-0 scale-75 pointer-events-none'
+                    mobileOpen
+                      ? 'opacity-0 pointer-events-none'
+                      : 'opacity-100'
                   }
                 `}
                 aria-label={`Switch to ${
@@ -3158,9 +3105,11 @@ export default function Navbar({
             z-[45]
             min-[1536px]:hidden
             overscroll-contain
+
             transform
             transform-gpu
             will-change-transform
+
             transition-transform
             duration-300
             ease-in-out
