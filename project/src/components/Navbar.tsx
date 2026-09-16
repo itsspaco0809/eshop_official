@@ -1141,6 +1141,26 @@ export default function Navbar({
   /*
    * =========================================================
    * INTRO SEQUENCE ANIMATION
+   *
+   * MOBILE:
+   *
+   * 1. HAMBURGER
+   * 2. LOGO
+   * 3. THEME
+   * 4. CART
+   *
+   * IMPORTANT:
+   *
+   * The LOGO uses a dedicated animation wrapper.
+   * The positioning wrapper stays completely static.
+   *
+   * This prevents:
+   *
+   * absolute
+   * left-1/2
+   * -translate-x-1/2
+   *
+   * from fighting with GSAP's Y transform.
    * =========================================================
    */
 
@@ -1151,6 +1171,10 @@ export default function Navbar({
     ) {
       return;
     }
+
+    /*
+     * If intro already completed, do not replay it.
+     */
 
     if (
       introAnimatedRef.current
@@ -1222,6 +1246,10 @@ export default function Navbar({
             return;
           }
 
+          /*
+           * Header stays completely still.
+           */
+
           gsap.set(
             headerRef.current,
             {
@@ -1231,6 +1259,11 @@ export default function Navbar({
             }
           );
 
+          /*
+           * ALL FOUR elements start from exactly
+           * the same vertical position.
+           */
+
           gsap.set(
             mobileElements,
             {
@@ -1239,11 +1272,24 @@ export default function Navbar({
             }
           );
 
+          /*
+           * Exact sequence:
+           *
+           * 0.00s Hamburger
+           * 0.12s Logo
+           * 0.24s Theme
+           * 0.36s Cart
+           */
+
           const mobileTimeline =
             gsap.timeline({
               onComplete: () => {
                 introAnimatedRef.current =
                   true;
+
+                /*
+                 * Remove only the GSAP intro transforms.
+                 */
 
                 gsap.set(
                   mobileElements,
@@ -1370,6 +1416,11 @@ export default function Navbar({
   /*
    * =========================================================
    * MOBILE HEADER HIDE / SHOW
+   *
+   * IMPORTANT:
+   *
+   * NEVER interfere with the intro animation.
+   * Hide/show starts ONLY after intro is finished.
    * =========================================================
    */
 
@@ -1380,6 +1431,11 @@ export default function Navbar({
     ) {
       return;
     }
+
+    /*
+     * Do not touch the header while the intro
+     * sequence is still running.
+     */
 
     if (
       !introAnimatedRef.current
@@ -2162,6 +2218,15 @@ export default function Navbar({
 
             {/* =================================================
                 LOGO POSITIONING WRAPPER
+                =================================================
+                
+                IMPORTANT:
+                
+                This wrapper NEVER receives the GSAP
+                entrance animation.
+                
+                It is responsible ONLY for positioning
+                the logo in the center.
                 ================================================= */}
 
             <div
@@ -2178,6 +2243,16 @@ export default function Navbar({
                 shrink-0
               "
             >
+
+              {/* =================================================
+                  LOGO ANIMATION WRAPPER
+                  
+                  THIS is what GSAP moves.
+                  
+                  No translate-x.
+                  No transition-transform.
+                  No positioning transform.
+                  ================================================= */}
 
               <div
                 data-mobile-header-item
@@ -2958,10 +3033,6 @@ export default function Navbar({
               {/* =================================================
                   MOBILE THEME TOGGLE
                   ORDER 3
-                  
-                  ONLY CHANGE:
-                  - transition-opacity
-                  - opacity based on mobileOpen
                   ================================================= */}
 
               <button
@@ -2971,7 +3042,7 @@ export default function Navbar({
                 }
                 data-mobile-header-item
                 data-mobile-header-order="3"
-                className={`
+                className="
                   min-[1536px]:hidden
                   relative
                   p-2
@@ -2985,17 +3056,7 @@ export default function Navbar({
                   justify-center
                   touch-manipulation
                   shrink-0
-
-                  transition-opacity
-                  duration-300
-                  ease-in-out
-
-                  ${
-                    mobileOpen
-                      ? 'opacity-0 pointer-events-none'
-                      : 'opacity-100'
-                  }
-                `}
+                "
                 aria-label={`Switch to ${
                   theme === 'dark'
                     ? 'light'
