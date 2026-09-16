@@ -498,8 +498,12 @@ export default function AdminPanel({ initialTab = 'analytics' }: { initialTab?: 
       const product = productById[file.product_id];
       const productName = product?.name || '';
       const productSlug = product?.slug || '';
-      const fileColor = file.color || '';
-      return productName.toLowerCase().includes(query) || productSlug.toLowerCase().includes(query) || fileColor.toLowerCase().includes(query) || file.file_name.toLowerCase().includes(query);
+      const colorName = file.color || '';
+      const fileName = file.file_name || '';
+      return productName.toLowerCase().includes(query) ||
+        productSlug.toLowerCase().includes(query) ||
+        colorName.toLowerCase().includes(query) ||
+        fileName.toLowerCase().includes(query);
     });
   }, [files, fileSearch, productById]);
 
@@ -1779,7 +1783,7 @@ export default function AdminPanel({ initialTab = 'analytics' }: { initialTab?: 
                     <tbody className="divide-y divide-neutral-200 dark:divide-neutral-800">
                       {sortedProducts.length === 0 ? (
                         <tr>
-                          <td colSpan={7} className="p-10 text-center text-sm text-neutral-500 dark:text-neutral-400">
+                          <td colSpan={6} className="p-10 text-center text-sm text-neutral-500 dark:text-neutral-400">
                             {productSearch.trim() ? 'No products match your search.' : 'No products found.'}
                           </td>
                         </tr>
@@ -1870,7 +1874,7 @@ export default function AdminPanel({ initialTab = 'analytics' }: { initialTab?: 
                       type="search"
                       value={fileSearch}
                       onChange={(e) => setFileSearch(e.target.value)}
-                      placeholder="Search by product name or slug..."
+                      placeholder="Search by product, color, or file name..."
                       className="w-full h-11 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-lg pl-9 pr-3 text-base sm:text-sm text-neutral-900 dark:text-white placeholder:text-neutral-400 focus:outline-none focus:border-neutral-400 dark:focus:border-neutral-700"
                     />
                   </div>
@@ -1913,17 +1917,22 @@ export default function AdminPanel({ initialTab = 'analytics' }: { initialTab?: 
                     <select
                       value={fileForm.color || ''}
                       onChange={(e) => setFileForm({ ...fileForm, color: e.target.value })}
-                      className="w-full bg-neutral-50 dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 rounded-lg px-3 py-2 text-base sm:text-sm text-neutral-900 dark:text-white focus:outline-none focus:border-neutral-400 dark:focus:border-neutral-700"
                       disabled={!fileForm.product_id}
+                      className="w-full bg-neutral-50 dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 rounded-lg px-3 py-2 text-base sm:text-sm text-neutral-900 dark:text-white focus:outline-none focus:border-neutral-400 dark:focus:border-neutral-700 disabled:opacity-50"
                     >
                       <option value="">General / All Colors</option>
-                      {normalizeProductColors(productById[fileForm.product_id]?.colors ?? []).map((color) => (
-                        <option key={color.name || color.hex} value={color.name}>
-                          {color.name || color.hex}
-                        </option>
-                      ))}
+                      {fileForm.product_id && (productById[fileForm.product_id]?.colors || []).map((color, index) => {
+                        const colorName = typeof color === 'string' ? color : color?.name;
+                        const normalizedName = colorName?.trim();
+                        if (!normalizedName) return null;
+                        return (
+                          <option key={`${normalizedName}-${index}`} value={normalizedName}>
+                            {normalizedName}
+                          </option>
+                        );
+                      })}
                     </select>
-                    <p className="mt-1 text-[11px] text-neutral-400">Leave as General / All Colors for a shared instruction file.</p>
+                    <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">Choose which product color this instruction file belongs to.</p>
                   </div>
 
                   <div>
@@ -2014,7 +2023,7 @@ export default function AdminPanel({ initialTab = 'analytics' }: { initialTab?: 
                         <th className="p-4 font-medium cursor-pointer whitespace-nowrap min-w-[180px]" onClick={() => handleFileSort('file_name')}>
                           <div className="flex items-center gap-2 whitespace-nowrap">File Name <ArrowUpDown className="w-4 h-4 shrink-0" /></div>
                         </th>
-                        <th className="p-4 font-medium cursor-pointer whitespace-nowrap min-w-[140px]" onClick={() => handleFileSort('color')}>
+                        <th className="p-4 font-medium cursor-pointer whitespace-nowrap min-w-[160px]" onClick={() => handleFileSort('color')}>
                           <div className="flex items-center gap-2 whitespace-nowrap">Color <ArrowUpDown className="w-4 h-4 shrink-0" /></div>
                         </th>
                         <th className="p-4 font-medium cursor-pointer whitespace-nowrap min-w-[150px]" onClick={() => handleFileSort('source_type')}>
@@ -2027,7 +2036,7 @@ export default function AdminPanel({ initialTab = 'analytics' }: { initialTab?: 
                     <tbody className="divide-y divide-neutral-200 dark:divide-neutral-800">
                       {sortedFiles.length === 0 ? (
                         <tr>
-                          <td colSpan={6} className="p-10 text-center text-sm text-neutral-500 dark:text-neutral-400">
+                          <td colSpan={7} className="p-10 text-center text-sm text-neutral-500 dark:text-neutral-400">
                             {fileSearch.trim() ? 'No digital files match your search.' : 'No digital files found.'}
                           </td>
                         </tr>
@@ -2060,7 +2069,7 @@ export default function AdminPanel({ initialTab = 'analytics' }: { initialTab?: 
                             {f.file_name}
                           </td>
                           <td className="p-4 whitespace-nowrap">
-                            <span className={`inline-flex whitespace-nowrap px-2.5 py-1 rounded-full text-xs font-semibold ${f.color ? 'bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300' : 'bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300'}`}>
+                            <span className={f.color ? 'inline-flex whitespace-nowrap px-2.5 py-1 rounded-full text-xs font-semibold bg-neutral-900 dark:bg-white text-white dark:text-neutral-950' : 'inline-flex whitespace-nowrap px-2.5 py-1 rounded-full text-xs font-semibold bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300'}>
                               {f.color || 'General / All Colors'}
                             </span>
                           </td>
