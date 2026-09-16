@@ -2441,7 +2441,7 @@ export default function Checkout() {
               w-full
     order-2
     lg:sticky
-    lg:top-24
+    lg:top-36
     self-start
             "
           >
