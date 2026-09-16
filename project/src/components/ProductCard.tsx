@@ -32,7 +32,6 @@ export default function ProductCard({
     product.section?.toLowerCase() === 'instructions' ||
     product.section?.toLowerCase() === 'instruction';
 
-
   return (
     <div
       className="
@@ -89,7 +88,6 @@ export default function ProductCard({
           "
         />
 
-
         {showNewBadge && (
           <div className="absolute top-2 left-2 sm:top-3 sm:left-3">
             <span
@@ -108,7 +106,7 @@ export default function ProductCard({
                 shadow-md
               "
               style={{
-                backgroundColor:'#D2FF00',
+                backgroundColor: '#D2FF00',
               }}
             >
               NEW IN
@@ -117,8 +115,6 @@ export default function ProductCard({
         )}
 
       </Link>
-
-
 
       {/* CONTENT */}
       <div
@@ -168,7 +164,6 @@ export default function ProductCard({
 
           </Link>
 
-
           <p
             className="
               text-neutral-500
@@ -186,10 +181,7 @@ export default function ProductCard({
             }
           </p>
 
-
         </div>
-
-
 
         {/* PRICE + BUTTON */}
         <div
@@ -218,9 +210,7 @@ export default function ProductCard({
             {formatPrice(product.price)}
           </span>
 
-
-
-          {/* 
+          {/*
             Keep the same space even when sold out.
             Button disappears but card height stays equal.
           */}
@@ -229,7 +219,9 @@ export default function ProductCard({
               w-[68px]
               h-[40px]
               flex
-              justify-end
+              items-center
+              justify-center
+              flex-shrink-0
             "
           >
 
@@ -241,6 +233,7 @@ export default function ProductCard({
                 className="
                   flex
                   items-center
+                  justify-center
                   gap-1.5
                   px-3
                   py-2
