@@ -2439,14 +2439,10 @@ export default function Checkout() {
           <div
             className="
               w-full
-              order-2
-              lg:sticky
-              lg:top-32
-              lg:pt-8
-              xl:top-36
-              xl:pt-10
-              self-start
-              space-y-6
+    order-2
+    lg:sticky
+    lg:top-24
+    self-start
             "
           >
             <div className="bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200 dark:border-neutral-800 p-6 space-y-6 shadow-sm dark:shadow-none">
