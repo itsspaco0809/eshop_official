@@ -83,14 +83,14 @@ const COUNTRY_CONFIG: Record<
     rate: 0.92,
     symbol: '€',
     taxRate: 0.08,
-    Flag: EU,
+    Flag: DE,
   },
   France: {
     currency: 'EUR',
     rate: 0.92,
     symbol: '€',
     taxRate: 0.08,
-    Flag: EU,
+    Flag: FR,
   },
   Japan: {
     currency: 'JPY',
