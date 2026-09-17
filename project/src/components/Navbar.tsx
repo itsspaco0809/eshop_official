@@ -1593,6 +1593,8 @@ export default function Navbar({
   const resetScrollForNavigation =
     () => {
       if (globalLenis) {
+        // Stop the current Lenis animation first so the navigation
+        // reset cannot be overridden by an in-progress smooth scroll.
         globalLenis.stop();
 
         globalLenis.scrollTo(
@@ -1618,7 +1620,13 @@ export default function Navbar({
       document.documentElement.scrollTop =
         0;
 
+      document.documentElement.scrollLeft =
+        0;
+
       document.body.scrollTop =
+        0;
+
+      document.body.scrollLeft =
         0;
 
       window.scrollTo({
@@ -1626,6 +1634,22 @@ export default function Navbar({
         left: 0,
         behavior: 'auto',
       });
+
+      // IMPORTANT:
+      // If the user clicks the navbar item for the page they are
+      // already on, the router path does not change. Therefore the
+      // normal route-change effect will NOT run to start Lenis again.
+      // Explicitly restart it here after resetting the scroll.
+      if (globalLenis) {
+        globalLenis.resize();
+        globalLenis.scrollTo(
+          0,
+          {
+            immediate: true,
+          }
+        );
+        globalLenis.start();
+      }
     };
 
   const handleNavClick = (
@@ -1665,13 +1689,10 @@ export default function Navbar({
       resetScrollForNavigation();
     }
 
-    if (
-      currentPath ===
-        targetPath &&
-      !menuIsOpen
-    ) {
-      resetScrollForNavigation();
-    }
+    // resetScrollForNavigation() already handles the same-page case
+    // and restarts Lenis. Do not call it a second time here.
+    // This prevents unnecessary stop/start cycles.
+
   };
 
   const navLinks = [
