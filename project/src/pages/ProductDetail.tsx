@@ -1973,10 +1973,10 @@ export default function ProductDetail({
                               colorObj.name
                             }
                             className={`relative w-6 h-6 rounded-full transition-all touch-manipulation border-2 ${
-                              isSelected
-                                ? 'ring-2 ring-neutral-100 dark:ring-white scale-110 border--neutral-300 dark:border-white'
-                                : 'border-neutral-300 dark:border-white hover:scale-105'
-                            }`}
+  isSelected
+    ? 'scale-110 border-neutral-300 dark:border-white'
+    : 'border-neutral-300 dark:border-white hover:scale-105'
+}`}
                             style={{
                               backgroundColor:
                                 colorObj.hex,
