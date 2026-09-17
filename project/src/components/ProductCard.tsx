@@ -95,12 +95,12 @@ export default function ProductCard({
         {(showExclusiveBadge || showNewBadge) && (
           <div className="absolute top-2 left-2 sm:top-3 sm:left-3">
             <span
-              className="
+              className={`
                 px-2
                 py-0.5
                 sm:px-3
                 sm:py-1
-                text-neutral-950
+                ${showExclusiveBadge ? 'text-white' : 'text-neutral-950'}
                 text-[10px]
                 sm:text-xs
                 font-black
@@ -108,7 +108,7 @@ export default function ProductCard({
                 tracking-wider
                 rounded-full
                 shadow-md
-              "
+              `}
               style={{
                 backgroundColor: showExclusiveBadge ? '#007AFF' : '#D2FF00',
               }}
