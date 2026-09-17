@@ -25,8 +25,12 @@ export default function ProductCard({
     isNew ??
     (product.is_new || product.isNew || false);
 
-  const showNewBadge =
-    isKit && rawIsNew;
+  const isExclusive =
+    Boolean((product as Product & { exclusive?: boolean }).exclusive);
+
+  // Exclusive has priority over NEW IN.
+  const showExclusiveBadge = isExclusive;
+  const showNewBadge = isKit && !isExclusive && rawIsNew;
 
   const isInstruction =
     product.section?.toLowerCase() === 'instructions' ||
@@ -88,7 +92,7 @@ export default function ProductCard({
           "
         />
 
-        {showNewBadge && (
+        {(showExclusiveBadge || showNewBadge) && (
           <div className="absolute top-2 left-2 sm:top-3 sm:left-3">
             <span
               className="
@@ -106,10 +110,10 @@ export default function ProductCard({
                 shadow-md
               "
               style={{
-                backgroundColor: '#D2FF00',
+                backgroundColor: showExclusiveBadge ? '#007AFF' : '#D2FF00',
               }}
             >
-              NEW IN
+              {showExclusiveBadge ? 'KITS EXCLUSIVE' : 'NEW IN'}
             </span>
           </div>
         )}
