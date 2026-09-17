@@ -1759,7 +1759,7 @@ export default function ProductDetail({
               {badgeLabel && (
                 <div className="absolute top-4 left-4 z-20 pointer-events-none">
                   <span
-                    className="px-3 py-1.5 text-xs font-black uppercase tracking-wider rounded-full shadow-xl inline-block text-neutral-950"
+                    className={`px-3 py-1.5 text-xs font-black uppercase tracking-wider rounded-full shadow-xl inline-block ${badgeLabel === 'KITS EXCLUSIVE' ? 'text-white' : 'text-neutral-950'}`}
                     style={{
                       backgroundColor:
                         badgeLabel === 'KITS EXCLUSIVE'
