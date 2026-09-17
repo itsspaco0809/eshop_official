@@ -1363,52 +1363,6 @@ export default function ProductDetail({
 
   const getBackPathAndLabel =
     () => {
-      /*
-       * If this product was opened from one of the paginated listing pages,
-       * Router stores the EXACT source URL in the current history entry.
-       *
-       * Example:
-       *   /store?page=3 -> /product/foo
-       *
-       * Back to Kits must therefore go to /store?page=3, not /store.
-       * This is different from browser Back: this is the in-page
-       * "Back to Kits" link, so we need to explicitly preserve its target.
-       */
-      if (typeof window !== 'undefined') {
-        const fromPath =
-          window.history.state?.__lcpFromPath;
-
-        if (typeof fromPath === 'string') {
-          const cleanFromPath =
-            fromPath.split('?')[0].split('#')[0];
-
-          if (
-            cleanFromPath === '/store' ||
-            cleanFromPath === '/instructions' ||
-            cleanFromPath === '/custom-parts'
-          ) {
-            if (cleanFromPath === '/instructions') {
-              return {
-                path: fromPath,
-                label: 'Back to Instructions',
-              };
-            }
-
-            if (cleanFromPath === '/custom-parts') {
-              return {
-                path: fromPath,
-                label: 'Back to Custom Parts',
-              };
-            }
-
-            return {
-              path: fromPath,
-              label: 'Back to Kits',
-            };
-          }
-        }
-      }
-
       if (product) {
         const section = (
           product.section ||
@@ -1805,7 +1759,7 @@ export default function ProductDetail({
               {badgeLabel && (
                 <div className="absolute top-4 left-4 z-20 pointer-events-none">
                   <span
-                    className={`px-3 py-1.5 text-xs font-black uppercase tracking-wider rounded-full shadow-xl inline-block ${badgeLabel === 'KITS EXCLUSIVE' ? 'text-white' : 'text-neutral-950'}`}
+                    className={`relative overflow-hidden inline-flex items-center px-3 py-1.5 text-xs font-black uppercase tracking-wider rounded-full shadow-xl ${badgeLabel === 'KITS EXCLUSIVE' ? 'text-white' : 'text-neutral-950'}`}
                     style={{
                       backgroundColor:
                         badgeLabel === 'KITS EXCLUSIVE'
@@ -1813,7 +1767,27 @@ export default function ProductDetail({
                           : '#D2FF00',
                     }}
                   >
-                    {badgeLabel}
+                    <span className="relative z-10">
+                      {badgeLabel}
+                    </span>
+
+                    {badgeLabel === 'KITS EXCLUSIVE' && (
+                      <span
+                        aria-hidden="true"
+                        className="
+                          kits-exclusive-sweep
+                          pointer-events-none
+                          absolute
+                          z-20
+                          top-[-70%]
+                          bottom-[-70%]
+                          left-[-18%]
+                          w-[3px]
+                          rotate-[22deg]
+                          bg-white
+                        "
+                      />
+                    )}
                   </span>
                 </div>
               )}
