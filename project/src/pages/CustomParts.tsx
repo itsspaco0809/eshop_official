@@ -72,7 +72,51 @@ export default function CustomParts() {
   const [sort, setSort] = useState('date-desc');
   const [search, setSearch] = useState('');
   const [showFilters, setShowFilters] = useState(false);
-  const [currentPage, setCurrentPage] = useState(1);
+
+  // =========================================================
+  // PAGINATION
+  // Restore the page from the URL so browser Back can return
+  // to the exact listing page instead of resetting to page 1.
+  // =========================================================
+
+  const getPageFromPath = (currentPath: string) => {
+    const params = new URLSearchParams(
+      currentPath.split('?')[1] || ''
+    );
+
+    const page = Number(params.get('page'));
+
+    return Number.isFinite(page) && page >= 1
+      ? Math.floor(page)
+      : 1;
+  };
+
+  const [currentPage, setCurrentPage] = useState(() =>
+    getPageFromPath(path)
+  );
+
+  const filtersInitializedRef = useRef(false);
+
+  const updatePageInUrl = (page: number) => {
+    const params = new URLSearchParams(
+      window.location.search
+    );
+
+    if (page <= 1) {
+      params.delete('page');
+    } else {
+      params.set('page', String(page));
+    }
+
+    const query = params.toString();
+
+    window.history.replaceState(
+      {},
+      '',
+      `${window.location.pathname}${query ? `?${query}` : ''}`
+    );
+  };
+
   const [activeFeatureIndex, setActiveFeatureIndex] =
     useState(0);
 
@@ -141,7 +185,7 @@ export default function CustomParts() {
   const pageScrollEffectMountedRef = useRef(false);
 
   // =========================================================
-  // READ CATEGORY FROM URL
+  // READ CATEGORY + PAGE FROM URL
   // =========================================================
 
   useEffect(() => {
@@ -162,6 +206,14 @@ export default function CustomParts() {
       setCategory(cat);
     } else if (!cat) {
       setCategory('all');
+    }
+
+    const page = Number(params.get('page'));
+
+    if (Number.isFinite(page) && page >= 1) {
+      setCurrentPage(Math.floor(page));
+    } else {
+      setCurrentPage(1);
     }
   }, [path]);
 
@@ -351,8 +403,31 @@ export default function CustomParts() {
   // =========================================================
 
   useEffect(() => {
+    // Do not reset the restored ?page=N during the first render.
+    if (!filtersInitializedRef.current) {
+      filtersInitializedRef.current = true;
+      return;
+    }
+
     setCurrentPage(1);
+    updatePageInUrl(1);
   }, [category, sort, search]);
+
+  // =========================================================
+  // CLAMP PAGE IF FILTERED RESULT BECOMES SHORTER
+  // =========================================================
+
+  const totalPages =
+    Math.ceil(
+      filtered.length / ITEMS_PER_PAGE
+    ) || 1;
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+      updatePageInUrl(totalPages);
+    }
+  }, [currentPage, totalPages]);
 
   // =========================================================
   // ⭐ SMOOTH SCROLL TO TOP WHEN PAGE CHANGES
@@ -394,11 +469,6 @@ export default function CustomParts() {
   // =========================================================
   // PAGINATION
   // =========================================================
-
-  const totalPages =
-    Math.ceil(
-      filtered.length / ITEMS_PER_PAGE
-    ) || 1;
 
   const paginatedProducts = useMemo(() => {
     const start =
@@ -554,6 +624,7 @@ export default function CustomParts() {
     }
 
     setCurrentPage(newPage);
+    updatePageInUrl(newPage);
   };
 
   // =========================================================
