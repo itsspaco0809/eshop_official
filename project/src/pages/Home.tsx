@@ -575,7 +575,7 @@ export default function Home() {
           {[
             {
               title: 'Concept Car',
-              img: 'https://raw.githubusercontent.com/itsspaco0809/scitem-images/main/Alpine/Alpenglow/MC00003200/0.webp?auto=compress&cs=tinysrgb&h=650&w=940',
+              img: 'https://raw.githubusercontent.com/itsspaco0809/scitem-images/main/Alpine/Alpenglow/0.webp?auto=compress&cs=tinysrgb&h=650&w=940',
               cat: 'Concept Car',
             },
             {
