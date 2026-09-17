@@ -29,6 +29,7 @@ export interface Product {
   stock_quantity: number | null;
   featured: boolean;
   in_stock: boolean;
+  exclusive: boolean;
   rating: number;
   created_at: string;
   section: string;
@@ -138,6 +139,7 @@ interface ProductFormState {
   stock_quantity: number | '';
   featured: boolean;
   in_stock: boolean;
+  exclusive: boolean;
   rating: number;
   created_at: string;
   section: string;
@@ -177,6 +179,7 @@ const emptyProductForm: ProductFormState = {
   stock_quantity: 0,
   featured: false,
   in_stock: true,
+  exclusive: false,
   rating: 5.0,
   created_at: '',
   section: 'kits',
@@ -766,6 +769,7 @@ export default function AdminPanel({ initialTab = 'analytics' }: { initialTab?: 
       stock_quantity: product.stock_quantity ?? 0,
       featured: product.featured,
       in_stock: product.in_stock,
+      exclusive: product.exclusive ?? false,
       rating: product.rating,
       created_at: product.created_at || '',
       section: product.section ?? '',
@@ -821,6 +825,7 @@ export default function AdminPanel({ initialTab = 'analytics' }: { initialTab?: 
       stock_quantity: product.stock_quantity,
       featured: product.featured,
       in_stock: product.in_stock,
+      exclusive: product.exclusive ?? false,
       rating: product.rating,
       section: product.section,
     };
@@ -1784,6 +1789,16 @@ export default function AdminPanel({ initialTab = 'analytics' }: { initialTab?: 
                         className="rounded border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-white focus:ring-0"
                       />
                       <span className="text-sm font-medium">in_stock</span>
+                    </label>
+
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={productForm.exclusive}
+                        onChange={(e) => setProductForm({ ...productForm, exclusive: e.target.checked })}
+                        className="rounded border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-white focus:ring-0"
+                      />
+                      <span className="text-sm font-medium">exclusive (KITS EXCLUSIVE)</span>
                     </label>
                   </div>
                 </div>
