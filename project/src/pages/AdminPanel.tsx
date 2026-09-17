@@ -5,7 +5,7 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth';
 import { useRouter } from '@/lib/router';
 import { globalLenis } from '@/lib/lenis';
-import { ChartBar as BarChart3, Users, Eye, DollarSign, ShoppingBag, UserCheck, Plus, PencilLine, Trash2, Copy, Check, Loader as Loader2, Package, FileCode, Upload, CircleAlert as AlertCircle, TriangleAlert as AlertTriangle, Calendar, ShieldAlert, ChevronDown, ChevronRight, ArrowUpDown, ShoppingCart, MessageSquare, Layers, Image as ImageIcon, Search } from 'lucide-react';
+import { ChartBar as BarChart3, Users, Eye, DollarSign, ShoppingBag, UserCheck, Plus, PencilLine, Trash2, Copy, Check, Loader as Loader2, Package, FileCode, Upload, CircleAlert as AlertCircle, TriangleAlert as AlertTriangle, Calendar, ShieldAlert, ChevronDown, ChevronRight, ArrowUpDown, ShoppingCart, MessageSquare, Layers, Image as ImageIcon, Search, MoreHorizontal } from 'lucide-react';
 
 export type ProductColor = {
   hex: string;
@@ -279,6 +279,19 @@ export default function AdminPanel({ initialTab = 'analytics' }: { initialTab?: 
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  // Close an open digital-file action menu when clicking elsewhere.
+  useEffect(() => {
+    const handleFileMenuOutsideClick = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      if (!target.closest('[data-file-action-menu]')) {
+        setOpenFileMenuId(null);
+      }
+    };
+
+    document.addEventListener('mousedown', handleFileMenuOutsideClick);
+    return () => document.removeEventListener('mousedown', handleFileMenuOutsideClick);
+  }, []);
+
   const [savedScrollPos, setSavedScrollPos] = useState<number>(0);
 
   // Sorting States
@@ -325,6 +338,7 @@ export default function AdminPanel({ initialTab = 'analytics' }: { initialTab?: 
   const [editingFileId, setEditingFileId] = useState<string | null>(null);
   const [fileForm, setFileForm] = useState(emptyFileForm);
   const [isAddingFile, setIsAddingFile] = useState(false);
+  const [openFileMenuId, setOpenFileMenuId] = useState<string | null>(null);
 
   // Integrated Orders & Order Items State
   const [orders, setOrders] = useState<Order[]>([]);
@@ -395,6 +409,47 @@ export default function AdminPanel({ initialTab = 'analytics' }: { initialTab?: 
 
     return prod?.image_url || item.thumbnail || item.image_url || null;
   };
+
+  // Digital-file presentation helpers. products.colors is the source of truth
+  // for the color hex, thumbnail and gallery used by each digital-file row.
+  const getDigitalFileColor = (product: Product | undefined, colorName: string | null) => {
+    if (!product || !colorName) return null;
+
+    const normalizedTarget = colorName.trim().toLowerCase();
+    if (!normalizedTarget) return null;
+
+    return normalizeProductColors(product.colors).find(
+      (color) => color.name.trim().toLowerCase() === normalizedTarget,
+    ) || null;
+  };
+
+  const getColorContrastText = (hex: string) => {
+    const normalized = hex.trim().replace('#', '');
+    if (!/^[0-9a-fA-F]{6}$/.test(normalized)) return '#171717';
+
+    const r = parseInt(normalized.slice(0, 2), 16);
+    const g = parseInt(normalized.slice(2, 4), 16);
+    const b = parseInt(normalized.slice(4, 6), 16);
+    const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+    return luminance > 0.62 ? '#171717' : '#ffffff';
+  };
+
+  const getDigitalFileThumbnail = (product: Product | undefined, colorName: string | null) => {
+    const color = getDigitalFileColor(product, colorName);
+    return color?.thumbnail || color?.gallery?.[0] || product?.image_url || null;
+  };
+
+  // Multiple files for one product/color remain separate digital_files rows.
+  // This keeps the existing database/download structure intact and lets the
+  // admin UI show how many files belong to the same product/color combination.
+  const digitalFileGroupCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    files.forEach((file) => {
+      const key = `${file.product_id}::${(file.color || '').trim().toLowerCase()}`;
+      counts[key] = (counts[key] || 0) + 1;
+    });
+    return counts;
+  }, [files]);
 
   // Tab Item Config
   const tabItems = [
@@ -2016,105 +2071,176 @@ export default function AdminPanel({ initialTab = 'analytics' }: { initialTab?: 
               </div>
             ) : (
               <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-2xl overflow-hidden shadow-sm">
+                <div className="px-4 py-3 border-b border-neutral-200 dark:border-neutral-800 bg-neutral-50/70 dark:bg-neutral-950/50">
+                  <p className="text-xs text-neutral-500 dark:text-neutral-400">
+                    Multiple files for the same product/color are supported. Each file stays as its own database record, while the product color controls the thumbnail and color appearance.
+                  </p>
+                </div>
                 <div className="overflow-x-auto">
-                  <table className="w-full min-w-[1100px] text-left text-sm">
+                  <table className="w-full min-w-[900px] text-left text-sm">
                     <thead className="bg-neutral-50 dark:bg-neutral-950 border-b border-neutral-200 dark:border-neutral-800 text-neutral-500 dark:text-neutral-400">
                       <tr>
                         <th className="p-4 font-medium whitespace-nowrap">Image</th>
-                        <th className="p-4 font-medium whitespace-nowrap min-w-[220px]">Product</th>
-                        <th className="p-4 font-medium cursor-pointer whitespace-nowrap min-w-[180px]" onClick={() => handleFileSort('file_name')}>
+                        <th className="p-4 font-medium whitespace-nowrap min-w-[240px]">Product</th>
+                        <th className="p-4 font-medium cursor-pointer whitespace-nowrap min-w-[220px]" onClick={() => handleFileSort('file_name')}>
                           <div className="flex items-center gap-2 whitespace-nowrap">File Name <ArrowUpDown className="w-4 h-4 shrink-0" /></div>
                         </th>
-                        <th className="p-4 font-medium cursor-pointer whitespace-nowrap min-w-[160px]" onClick={() => handleFileSort('color')}>
+                        <th className="p-4 font-medium cursor-pointer whitespace-nowrap min-w-[180px]" onClick={() => handleFileSort('color')}>
                           <div className="flex items-center gap-2 whitespace-nowrap">Color <ArrowUpDown className="w-4 h-4 shrink-0" /></div>
                         </th>
                         <th className="p-4 font-medium cursor-pointer whitespace-nowrap min-w-[150px]" onClick={() => handleFileSort('source_type')}>
                           <div className="flex items-center gap-2 whitespace-nowrap">Source <ArrowUpDown className="w-4 h-4 shrink-0" /></div>
                         </th>
-                        <th className="p-4 font-medium whitespace-nowrap min-w-[280px]">Location</th>
-                        <th className="p-4 font-medium text-right whitespace-nowrap min-w-[140px]">Actions</th>
+                        <th className="p-4 font-medium text-right whitespace-nowrap min-w-[90px]">Actions</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-neutral-200 dark:divide-neutral-800">
                       {sortedFiles.length === 0 ? (
                         <tr>
-                          <td colSpan={7} className="p-10 text-center text-sm text-neutral-500 dark:text-neutral-400">
+                          <td colSpan={6} className="p-10 text-center text-sm text-neutral-500 dark:text-neutral-400">
                             {fileSearch.trim() ? 'No digital files match your search.' : 'No digital files found.'}
                           </td>
                         </tr>
                       ) : sortedFiles.map((f) => {
                         const product = productById[f.product_id];
+                        const matchedColor = getDigitalFileColor(product, f.color);
+                        const thumbnail = getDigitalFileThumbnail(product, f.color);
+                        const groupKey = `${f.product_id}::${(f.color || '').trim().toLowerCase()}`;
+                        const groupCount = digitalFileGroupCounts[groupKey] || 1;
+                        const hasHex = Boolean(matchedColor?.hex?.trim());
+                        const colorText = f.color || 'General / All Colors';
+
                         return (
-                        <tr key={f.id} className="hover:bg-neutral-50/50 dark:hover:bg-neutral-800/50 transition-colors">
-                          <td className="p-4">
-                            {product?.image_url ? (
-                              <img
-                                src={product.image_url}
-                                alt={product.name || f.file_name}
-                                className="w-10 h-10 object-cover rounded-lg border border-neutral-200 dark:border-neutral-800"
-                              />
-                            ) : (
-                              <div className="w-10 h-10 rounded-lg bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center">
-                                <ImageIcon className="w-5 h-5 text-neutral-400" />
+                          <tr key={f.id} className="hover:bg-neutral-50/50 dark:hover:bg-neutral-800/50 transition-colors">
+                            <td className="p-4 whitespace-nowrap">
+                              {thumbnail ? (
+                                <div
+                                  className="w-12 h-12 rounded-xl overflow-hidden border border-neutral-200 dark:border-neutral-800 shrink-0"
+                                  style={hasHex ? { backgroundColor: matchedColor!.hex } : undefined}
+                                >
+                                  <img
+                                    src={thumbnail}
+                                    alt={`${product?.name || f.file_name}${f.color ? ` - ${f.color}` : ''}`}
+                                    className="w-full h-full object-cover"
+                                  />
+                                </div>
+                              ) : (
+                                <div
+                                  className="w-12 h-12 rounded-xl bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center border border-neutral-200 dark:border-neutral-700"
+                                  style={hasHex ? { backgroundColor: matchedColor!.hex } : undefined}
+                                >
+                                  <ImageIcon className="w-5 h-5 text-neutral-400" />
+                                </div>
+                              )}
+                            </td>
+                            <td className="p-4 min-w-[240px]">
+                              <div className="flex items-center gap-3">
+                                <div className="min-w-0">
+                                  <div className="font-semibold text-neutral-900 dark:text-white whitespace-nowrap">
+                                    {product?.name || 'Unknown Product'}
+                                  </div>
+                                  <div className="text-xs text-neutral-500 dark:text-neutral-400 font-mono truncate max-w-[280px]">
+                                    {product?.slug || f.product_id}
+                                  </div>
+                                </div>
+                                {groupCount > 1 && (
+                                  <span className="shrink-0 inline-flex items-center rounded-full px-2 py-1 text-[10px] font-semibold bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 border border-neutral-200 dark:border-neutral-700">
+                                    {groupCount} files
+                                  </span>
+                                )}
                               </div>
-                            )}
-                          </td>
-                          <td className="p-4 min-w-[220px]">
-                            <div className="font-semibold text-neutral-900 dark:text-white whitespace-nowrap">
-                              {product?.name || 'Unknown Product'}
-                            </div>
-                            <div className="text-xs text-neutral-500 dark:text-neutral-400 font-mono truncate max-w-[280px]">
-                              {product?.slug || f.product_id}
-                            </div>
-                          </td>
-                          <td className="p-4 font-semibold text-neutral-900 dark:text-white whitespace-nowrap">
-                            {f.file_name}
-                          </td>
-                          <td className="p-4 whitespace-nowrap">
-                            <span className={f.color ? 'inline-flex whitespace-nowrap px-2.5 py-1 rounded-full text-xs font-semibold bg-neutral-900 dark:bg-white text-white dark:text-neutral-950' : 'inline-flex whitespace-nowrap px-2.5 py-1 rounded-full text-xs font-semibold bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300'}>
-                              {f.color || 'General / All Colors'}
-                            </span>
-                          </td>
-                          <td className="p-4 whitespace-nowrap">
-                            <span className="inline-flex whitespace-nowrap px-2.5 py-1 rounded-full text-xs font-semibold bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300">
-                              {f.source_type}
-                            </span>
-                          </td>
-                          <td className="p-4 font-mono text-xs min-w-[280px] max-w-[360px] truncate text-neutral-500 dark:text-neutral-400">
-                            {f.source_type === 'external_link' ? f.external_url : f.file_path}
-                          </td>
-                          <td className="p-4 text-right whitespace-nowrap">
-                            <div className="flex items-center justify-end gap-1.5">
-                              <button
-                                type="button"
-                                onClick={() => handleDuplicateFile(f)}
-                                className="w-9 h-9 flex items-center justify-center hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-lg text-neutral-500 hover:text-neutral-900 dark:hover:text-white transition-colors"
-                                title="Duplicate File"
-                                aria-label="Duplicate File"
-                              >
-                                <Copy className="w-[18px] h-[18px]" />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleEditFile(f)}
-                                className="w-9 h-9 flex items-center justify-center hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-lg text-neutral-500 hover:text-neutral-900 dark:hover:text-white transition-colors"
-                                title="Edit File"
-                                aria-label="Edit File"
-                              >
-                                <PencilLine className="w-[18px] h-[18px]" />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleDeleteFile(f.id)}
-                                className="w-9 h-9 flex items-center justify-center hover:bg-red-50 dark:hover:bg-red-950/50 rounded-lg text-red-500 transition-colors"
-                                title="Delete File"
-                                aria-label="Delete File"
-                              >
-                                <Trash2 className="w-[18px] h-[18px]" />
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
+                            </td>
+                            <td className="p-4 min-w-[220px]">
+                              <div className="font-semibold text-neutral-900 dark:text-white whitespace-nowrap truncate max-w-[300px]" title={f.file_name}>
+                                {f.file_name}
+                              </div>
+                            </td>
+                            <td className="p-4 whitespace-nowrap">
+                              {f.color ? (
+                                <span
+                                  className={`inline-flex items-center gap-2 px-2.5 py-1.5 rounded-full text-xs font-semibold border ${hasHex ? '' : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 border-neutral-200 dark:border-neutral-700'}`}
+                                  style={hasHex
+                                    ? {
+                                        backgroundColor: matchedColor!.hex,
+                                        borderColor: matchedColor!.hex,
+                                        color: getColorContrastText(matchedColor!.hex),
+                                      }
+                                    : undefined}
+                                >
+                                  <span
+                                    className="w-2.5 h-2.5 rounded-full border border-black/10 dark:border-white/20 shrink-0"
+                                    style={hasHex ? { backgroundColor: matchedColor!.hex } : undefined}
+                                  />
+                                  {colorText}
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center px-2.5 py-1.5 rounded-full text-xs font-semibold bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 border border-neutral-200 dark:border-neutral-700">
+                                  {colorText}
+                                </span>
+                              )}
+                            </td>
+                            <td className="p-4 whitespace-nowrap">
+                              <span className="inline-flex whitespace-nowrap px-2.5 py-1.5 rounded-full text-xs font-semibold bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 border border-neutral-200 dark:border-neutral-700">
+                                {f.source_type}
+                              </span>
+                            </td>
+                            <td className="p-4 text-right whitespace-nowrap">
+                              <div className="relative inline-flex" data-file-action-menu>
+                                <button
+                                  type="button"
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    setOpenFileMenuId((current) => current === f.id ? null : f.id);
+                                  }}
+                                  className="w-9 h-9 flex items-center justify-center rounded-lg text-neutral-500 hover:text-neutral-900 hover:bg-neutral-100 dark:text-neutral-400 dark:hover:text-white dark:hover:bg-neutral-800 transition-colors"
+                                  title="File actions"
+                                  aria-label={`Actions for ${f.file_name}`}
+                                  aria-expanded={openFileMenuId === f.id}
+                                >
+                                  <MoreHorizontal className="w-[19px] h-[19px]" />
+                                </button>
+
+                                {openFileMenuId === f.id && (
+                                  <div className="absolute right-0 top-full mt-2 w-44 z-50 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 shadow-xl overflow-hidden text-left">
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setOpenFileMenuId(null);
+                                        handleEditFile(f);
+                                      }}
+                                      className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-sm text-neutral-700 dark:text-neutral-200 hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors"
+                                    >
+                                      <PencilLine className="w-4 h-4" />
+                                      Edit File
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setOpenFileMenuId(null);
+                                        handleDuplicateFile(f);
+                                      }}
+                                      className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-sm text-neutral-700 dark:text-neutral-200 hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors"
+                                    >
+                                      <Copy className="w-4 h-4" />
+                                      Duplicate File
+                                    </button>
+                                    <div className="border-t border-neutral-100 dark:border-neutral-800" />
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setOpenFileMenuId(null);
+                                        handleDeleteFile(f.id);
+                                      }}
+                                      className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors"
+                                    >
+                                      <Trash2 className="w-4 h-4" />
+                                      Delete File
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
                         );
                       })}
                     </tbody>
