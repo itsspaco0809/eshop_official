@@ -75,22 +75,36 @@ let cachedInstructions: Product[] | null = null;
 export default function Instructions() {
   const { path } = useRouter();
 
+  // Restore category + page from the current URL when returning with Back.
+  const initialParams = new URLSearchParams(
+    path.split('?')[1] || ''
+  );
+
+  const initialCategory = initialParams.get('category');
+  const initialPage = Number(initialParams.get('page'));
+
   const [products, setProducts] = useState<Product[]>(
     () => cachedInstructions || []
   );
 
   const [loading, setLoading] = useState(() => !cachedInstructions);
 
-  const [category, setCategory] = useState('all');
+  const [category, setCategory] = useState(
+    initialCategory && CATEGORIES.includes(initialCategory)
+      ? initialCategory
+      : 'all'
+  );
   const [sort, setSort] = useState('rating');
   const [search, setSearch] = useState('');
   const [showFilters, setShowFilters] = useState(false);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [activeFeatureIndex, setActiveFeatureIndex] = useState(0);
 
-  // =========================================================
-  // CUSTOM DROPDOWN
-  // =========================================================
+  const [currentPage, setCurrentPage] = useState(
+    Number.isFinite(initialPage) && initialPage >= 1
+      ? Math.floor(initialPage)
+      : 1
+  );
+
+  const [activeFeatureIndex, setActiveFeatureIndex] = useState(0);
 
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
@@ -119,24 +133,33 @@ export default function Instructions() {
     };
   }, []);
 
-  // =========================================================
-  // READY / GSAP
-  // =========================================================
-
   const [isReady, setIsReady] = useState(() => !!cachedInstructions);
 
   const isMountedRef = useRef(false);
-
   const gridRef = useRef<HTMLDivElement>(null);
   const pageScrollEffectMountedRef = useRef(false);
+  const filtersInitializedRef = useRef(false);
 
-  // =========================================================
-  // READ CATEGORY FROM URL
-  // =========================================================
+  // Keep the current pagination page in the URL.
+  // This does NOT change the browser history entry, so Back still works normally.
+  const updatePageInUrl = (page: number) => {
+    const url = new URL(window.location.href);
+
+    if (page <= 1) {
+      url.searchParams.delete('page');
+    } else {
+      url.searchParams.set('page', String(page));
+    }
+
+    window.history.replaceState(
+      window.history.state,
+      '',
+      `${url.pathname}${url.search}${url.hash}`
+    );
+  };
 
   useEffect(() => {
     const params = new URLSearchParams(path.split('?')[1] || '');
-
     const cat = params.get('category');
 
     if (cat && CATEGORIES.includes(cat)) {
@@ -144,11 +167,13 @@ export default function Instructions() {
     } else if (!cat) {
       setCategory('all');
     }
-  }, [path]);
 
-  // =========================================================
-  // FETCH INSTRUCTIONS
-  // =========================================================
+    const page = Number(params.get('page'));
+
+    if (Number.isFinite(page) && page >= 1) {
+      setCurrentPage(Math.floor(page));
+    }
+  }, [path]);
 
   useEffect(() => {
     let isCurrent = true;
@@ -174,10 +199,6 @@ export default function Instructions() {
       isCurrent = false;
     };
   }, []);
-
-  // =========================================================
-  // FILTER + SORT
-  // =========================================================
 
   const filtered = useMemo(() => {
     const newestProductIds = new Set(
@@ -205,7 +226,6 @@ export default function Instructions() {
       };
     });
 
-    // Category
     if (category !== 'all') {
       result = result.filter((p) => {
         if (Array.isArray(p.category)) {
@@ -216,7 +236,6 @@ export default function Instructions() {
       });
     }
 
-    // Search
     if (search) {
       const q = search.toLowerCase();
 
@@ -227,7 +246,6 @@ export default function Instructions() {
       );
     }
 
-    // Sort
     switch (sort) {
       case 'date-desc':
         result.sort(
@@ -268,18 +286,17 @@ export default function Instructions() {
     return result;
   }, [products, category, sort, search]);
 
-  // =========================================================
-  // RESET PAGE WHEN FILTER / SORT / SEARCH CHANGES
-  // =========================================================
-
+  // Reset to page 1 only after the user actually changes a filter/sort/search.
+  // The first render is excluded so ?page=3 can be restored correctly.
   useEffect(() => {
-    setCurrentPage(1);
-  }, [category, sort, search]);
+    if (!filtersInitializedRef.current) {
+      filtersInitializedRef.current = true;
+      return;
+    }
 
-  // =========================================================
-  // ⭐ SMOOTH SCROLL TO TOP WHEN PAGE CHANGES
-  // SAME METHOD AS STORE PAGE
-  // =========================================================
+    setCurrentPage(1);
+    updatePageInUrl(1);
+  }, [category, sort, search]);
 
   useEffect(() => {
     if (!pageScrollEffectMountedRef.current) {
@@ -287,9 +304,6 @@ export default function Instructions() {
       return;
     }
 
-    // Pagination must always win over an in-progress Lenis scroll.
-    // Cancel the current smooth-scroll animation, jump to the top
-    // immediately, then resume Lenis for normal scrolling afterwards.
     if (globalLenis) {
       globalLenis.stop();
       globalLenis.scrollTo(0, { immediate: true });
@@ -313,12 +327,16 @@ export default function Instructions() {
     }
   }, [currentPage]);
 
-  // =========================================================
-  // PAGINATION
-  // =========================================================
-
   const totalPages =
     Math.ceil(filtered.length / ITEMS_PER_PAGE) || 1;
+
+  // Prevent an invalid restored page after filtering/data changes.
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+      updatePageInUrl(totalPages);
+    }
+  }, [currentPage, totalPages]);
 
   const paginatedProducts = useMemo(() => {
     const start = (currentPage - 1) * ITEMS_PER_PAGE;
@@ -333,10 +351,6 @@ export default function Instructions() {
     () => paginatedProducts.map((p) => p.id).join(','),
     [paginatedProducts]
   );
-
-  // =========================================================
-  // IMAGE PRELOADING
-  // =========================================================
 
   useEffect(() => {
     if (loading) return;
@@ -396,10 +410,6 @@ export default function Instructions() {
     paginatedProducts,
   ]);
 
-  // =========================================================
-  // GSAP STAGGER ANIMATION
-  // =========================================================
-
   useEffect(() => {
     if (
       loading ||
@@ -441,27 +451,18 @@ export default function Instructions() {
     paginatedProducts.length,
   ]);
 
-  // =========================================================
-  // PAGE CHANGE
-  // IMPORTANT:
-  // ONLY CHANGE PAGE HERE.
-  // SCROLL IS HANDLED BY useEffect ABOVE.
-  // =========================================================
-
   const handlePageChange = (newPage: number) => {
     if (
       newPage < 1 ||
-      newPage > totalPages
+      newPage > totalPages ||
+      newPage === currentPage
     ) {
       return;
     }
 
     setCurrentPage(newPage);
+    updatePageInUrl(newPage);
   };
-
-  // =========================================================
-  // SORT LABEL
-  // =========================================================
 
   const currentSortLabel =
     SORTS.find((s) => s.value === sort)?.label ||
@@ -470,29 +471,15 @@ export default function Instructions() {
   const CurrentFeatureIcon =
     FEATURES[activeFeatureIndex].icon;
 
-  // =========================================================
-  // RENDER
-  // =========================================================
-
   return (
     <div className="bg-white dark:bg-neutral-950 min-h-screen text-neutral-900 dark:text-neutral-100 transition-colors duration-200">
-
-      {/* =====================================================
-          HEADER
-      ===================================================== */}
-
       <div className="pt-16 md:pt-20 border-b border-neutral-200 dark:border-neutral-800 bg-neutral-50/50 dark:bg-neutral-900/30">
-
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-12 pb-8 md:pt-16 md:pb-10">
-
           <div className="flex items-center gap-3 mb-2">
-
             <FileText className="w-7 h-7 text-neutral-900 dark:text-white" />
-
             <h1 className="text-4xl md:text-5xl font-bold text-neutral-900 dark:text-white tracking-tight">
               Instructions
             </h1>
-
           </div>
 
           <p className="text-neutral-500 dark:text-neutral-400">
@@ -502,21 +489,11 @@ export default function Instructions() {
               : 'instructions'}{' '}
             available
           </p>
-
         </div>
-
       </div>
 
-      {/* =====================================================
-          MAIN CONTENT
-      ===================================================== */}
-
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-
-        {/* INFO BANNER */}
-
         <div className="flex items-center gap-3 p-4 bg-neutral-100 dark:bg-neutral-900 rounded-xl border border-neutral-200 dark:border-neutral-800 mb-6">
-
           <Download className="w-5 h-5 text-neutral-500 dark:text-neutral-400 flex-shrink-0" />
 
           <p className="text-neutral-600 dark:text-neutral-400 text-sm">
@@ -524,19 +501,10 @@ export default function Instructions() {
             Downloads will be available immediately in
             the order history after checkout.
           </p>
-
         </div>
 
-        {/* ===================================================
-            SEARCH + SORT
-        =================================================== */}
-
         <div className="flex flex-col sm:flex-row items-stretch gap-3 sm:gap-4 mb-6">
-
-          {/* Search */}
-
           <div className="relative flex-1">
-
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400 dark:text-neutral-500" />
 
             <input
@@ -548,13 +516,9 @@ export default function Instructions() {
               }
               className="w-full h-12 pl-11 pr-4 bg-neutral-100 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl text-neutral-900 dark:text-white placeholder:text-neutral-400 dark:placeholder:text-neutral-500 focus:outline-none focus:border-neutral-400 dark:focus:border-neutral-600 transition-colors"
             />
-
           </div>
 
           <div className="grid grid-cols-2 sm:flex items-center gap-3 w-full sm:w-auto">
-
-            {/* Mobile Filter */}
-
             <button
               onClick={() =>
                 setShowFilters(!showFilters)
@@ -565,13 +529,10 @@ export default function Instructions() {
               Filters
             </button>
 
-            {/* Sort */}
-
             <div
               className="relative h-12 w-full sm:w-auto"
               ref={dropdownRef}
             >
-
               <button
                 type="button"
                 onClick={() =>
@@ -581,7 +542,6 @@ export default function Instructions() {
                 }
                 className="w-full flex items-center justify-between gap-3 h-full sm:min-w-[200px] px-4 bg-neutral-100 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl text-neutral-900 dark:text-white hover:bg-neutral-200 dark:hover:bg-neutral-800 focus:outline-none transition-colors cursor-pointer"
               >
-
                 <span className="font-medium text-sm truncate">
                   {currentSortLabel}
                 </span>
@@ -593,14 +553,11 @@ export default function Instructions() {
                       : ''
                   }`}
                 />
-
               </button>
 
               {isDropdownOpen && (
                 <div className="absolute right-0 mt-2 w-56 py-1.5 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl shadow-xl z-50 overflow-hidden">
-
                   {SORTS.map((s) => {
-
                     const isSelected =
                       sort === s.value;
 
@@ -618,30 +575,19 @@ export default function Instructions() {
                             : 'text-neutral-600 dark:text-neutral-400 hover:bg-neutral-50 dark:hover:bg-neutral-800/50 hover:text-neutral-900 dark:hover:text-white'
                         }`}
                       >
-
                         <span>{s.label}</span>
 
                         {isSelected && (
                           <Check className="w-4 h-4 text-neutral-900 dark:text-white flex-shrink-0" />
                         )}
-
                       </button>
                     );
-
                   })}
-
                 </div>
               )}
-
             </div>
-
           </div>
-
         </div>
-
-        {/* ===================================================
-            CATEGORY FILTERS
-        =================================================== */}
 
         <div
           className={`space-y-4 mb-6 ${
@@ -650,11 +596,8 @@ export default function Instructions() {
               : 'hidden sm:block'
           }`}
         >
-
           <div className="flex flex-wrap gap-2">
-
             {CATEGORIES.map((cat) => (
-
               <button
                 key={cat}
                 onClick={() =>
@@ -668,11 +611,9 @@ export default function Instructions() {
               >
                 {cat}
               </button>
-
             ))}
 
             {(category !== 'all' || search) && (
-
               <button
                 onClick={() => {
                   setCategory('all');
@@ -680,48 +621,28 @@ export default function Instructions() {
                 }}
                 className="px-4 py-2 rounded-full text-sm font-medium text-neutral-500 hover:text-neutral-900 dark:hover:text-white transition-colors flex items-center gap-1"
               >
-
                 <X className="w-3.5 h-3.5" />
-
                 Clear
-
               </button>
-
             )}
-
           </div>
-
         </div>
 
-        {/* ===================================================
-            PRODUCT GRID
-        =================================================== */}
-
         {loading ? (
-
           <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-6 min-h-[600px] items-start">
-
             {[1, 2, 3, 4, 5, 6, 7, 8].map(
               (i) => (
-
                 <div
                   key={i}
                   className="w-full max-w-[320px] mx-auto sm:mx-0 bg-neutral-100 dark:bg-neutral-900 rounded-2xl border border-neutral-200 dark:border-neutral-800 overflow-hidden animate-pulse aspect-[3/4]"
                 />
-
               )
             )}
-
           </div>
-
         ) : filtered.length === 0 ? (
-
           <div className="flex flex-col items-center justify-center py-20 text-center min-h-[400px]">
-
             <div className="w-20 h-20 rounded-full bg-neutral-100 dark:bg-neutral-900 flex items-center justify-center mb-4">
-
               <Search className="w-8 h-8 text-neutral-400 dark:text-neutral-600" />
-
             </div>
 
             <p className="text-neutral-900 dark:text-white font-semibold text-lg">
@@ -731,47 +652,29 @@ export default function Instructions() {
             <p className="text-neutral-500 dark:text-neutral-400 mt-1">
               Try adjusting your filters or search.
             </p>
-
           </div>
-
         ) : (
-
           <>
-
             <div
               ref={gridRef}
               className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-6 min-h-[600px] items-start"
             >
-
               {paginatedProducts.map((p) => (
-
                 <div
                   key={p.id}
                   className="instruction-product-card opacity-0 translate-y-6 will-change-transform w-full max-w-[320px] mx-auto sm:mx-0"
                 >
-
                   <ProductCard
                     product={p}
                     isNew={p.is_new}
                     isReady={isReady}
                   />
-
                 </div>
-
               ))}
-
             </div>
 
-            {/* =================================================
-                PAGINATION
-            ================================================= */}
-
             {totalPages > 1 && (
-
               <div className="flex items-center justify-center gap-2 mt-12 pt-6">
-
-                {/* Previous */}
-
                 <button
                   onClick={() =>
                     handlePageChange(
@@ -782,22 +685,16 @@ export default function Instructions() {
                   className="p-2.5 rounded-full hover:bg-neutral-100 dark:hover:bg-neutral-900 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                   aria-label="Previous Page"
                 >
-
                   <ChevronLeft className="w-5 h-5 text-neutral-700 dark:text-neutral-300" />
-
                 </button>
 
-                {/* Page Numbers */}
-
                 <div className="flex items-center gap-1.5 px-2">
-
                   {Array.from(
                     {
                       length: totalPages,
                     },
                     (_, i) => i + 1
                   ).map((page) => (
-
                     <button
                       key={page}
                       onClick={() =>
@@ -811,12 +708,8 @@ export default function Instructions() {
                     >
                       {page}
                     </button>
-
                   ))}
-
                 </div>
-
-                {/* Next */}
 
                 <button
                   onClick={() =>
@@ -830,29 +723,15 @@ export default function Instructions() {
                   className="p-2.5 rounded-full hover:bg-neutral-100 dark:hover:bg-neutral-900 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                   aria-label="Next Page"
                 >
-
                   <ChevronRight className="w-5 h-5 text-neutral-700 dark:text-neutral-300" />
-
                 </button>
-
               </div>
-
             )}
-
           </>
-
         )}
 
-        {/* ===================================================
-            FEATURES
-        =================================================== */}
-
         <div className="mt-20 pt-12 border-t border-neutral-200 dark:border-neutral-800">
-
-          {/* Mobile */}
-
           <div className="block md:hidden flex flex-col items-center justify-center text-center max-w-lg mx-auto py-8">
-
             <CurrentFeatureIcon className="w-8 h-8 text-neutral-900 dark:text-white mb-3 transition-all duration-300" />
 
             <h3 className="text-lg font-bold text-neutral-900 dark:text-white mb-1 tracking-tight">
@@ -864,9 +743,7 @@ export default function Instructions() {
             </p>
 
             <div className="flex items-center justify-center gap-1.5 mt-6">
-
               {FEATURES.map((_, idx) => (
-
                 <button
                   key={idx}
                   onClick={() =>
@@ -881,19 +758,12 @@ export default function Instructions() {
                     idx + 1
                   }`}
                 />
-
               ))}
-
             </div>
-
           </div>
 
-          {/* Desktop */}
-
           <div className="hidden md:grid md:grid-cols-4 py-6">
-
             {FEATURES.map((feature, idx) => {
-
               const Icon = feature.icon;
 
               return (
@@ -905,11 +775,9 @@ export default function Instructions() {
                       : ''
                   }`}
                 >
-
                   <Icon className="w-6 h-6 text-neutral-900 dark:text-white flex-shrink-0 mt-1" />
 
                   <div>
-
                     <h3 className="text-sm font-bold text-neutral-900 dark:text-white tracking-tight mb-1">
                       {feature.title}
                     </h3>
@@ -917,20 +785,13 @@ export default function Instructions() {
                     <p className="text-xs text-neutral-500 dark:text-neutral-400 leading-relaxed">
                       {feature.description}
                     </p>
-
                   </div>
-
                 </div>
               );
-
             })}
-
           </div>
-
         </div>
-
       </div>
-
     </div>
   );
 }
