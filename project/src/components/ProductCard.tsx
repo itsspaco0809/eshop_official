@@ -131,8 +131,8 @@ export default function ProductCard({
                     z-20
                     top-[-70%]
                     bottom-[-70%]
-                    left-[-18%]
-                    w-[3px]
+                    left-[-20%]
+                    w-[8px]
                     rotate-[22deg]
                     bg-white
                   "
