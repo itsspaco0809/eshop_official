@@ -439,6 +439,16 @@ export default function ProductDetail({
           fetchedProduct
         );
 
+        // KITS EXCLUSIVE has priority over NEW IN.
+        const isExclusive = Boolean(
+          (fetchedProduct as CustomProduct & { exclusive?: boolean })
+            .exclusive
+        );
+
+        setBadgeLabel(
+          isExclusive ? 'KITS EXCLUSIVE' : null
+        );
+
         const initialAddOn =
           addOnResult.data;
 
@@ -581,7 +591,17 @@ export default function ProductDetail({
             )
           );
 
-        if (
+        const mainProductIsExclusive = Boolean(
+          (mainProduct as Product & { exclusive?: boolean })
+            .exclusive
+        );
+
+        // KITS EXCLUSIVE always takes priority over NEW IN.
+        if (mainProductIsExclusive) {
+          setBadgeLabel(
+            'KITS EXCLUSIVE'
+          );
+        } else if (
           isKit &&
           isNewInKits
         ) {
@@ -1742,7 +1762,9 @@ export default function ProductDetail({
                     className="px-3 py-1.5 text-xs font-black uppercase tracking-wider rounded-full shadow-xl inline-block text-neutral-950"
                     style={{
                       backgroundColor:
-                        '#D2FF00',
+                        badgeLabel === 'KITS EXCLUSIVE'
+                          ? '#007AFF'
+                          : '#D2FF00',
                     }}
                   >
                     {badgeLabel}
