@@ -110,14 +110,11 @@ html.dark {
   --ios-edge-background: #121212;
 }
 
-
 /* ProductDetail uses neutral-950 (#0a0a0a). Its iOS bottom safe-area
    must use the same surface instead of the normal page canvas (#121212). */
-
 html.product-detail-open {
   --safe-area-background: #0a0a0a;
   --browser-chrome-background: #0a0a0a;
-
   background-color: #0a0a0a;
 }
 
@@ -173,11 +170,9 @@ body.mobile-menu-open {
 
 /* Do not put touch-action:none on the body here. The menu's own
    scroll container must remain touch-scrollable on iOS and Android. */
-
 html.mobile-menu-open body {
   touch-action: auto !important;
 }
-
 
 /* =========================================================
    BODY
@@ -189,7 +184,6 @@ html.mobile-menu-open body {
  * touch-action:none; the existing cart/menu/product loading locks remain
  * responsible for the states where scrolling really must be disabled.
  */
-
 @media (pointer: coarse) {
   html,
   body {
@@ -226,7 +220,6 @@ body {
 
   /* IMPORTANT: keep body transparent so iOS Safari samples the html
      document canvas. This is the behavior of the older working build. */
-
   background-color: transparent !important;
 
   overflow-x: clip;
@@ -647,7 +640,7 @@ footer {
 
   .bg-grain {
     background-image:
-      url("data:image/svg+xml,%3Csvg viewBox='0 0 600 600' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='highQualityNoise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='matrix' values='1 0 0 0 0  1 0 0 0 0  0 0 1 0 0  0 0 0 0.16 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23highQualityNoise)'/%3E%3C/svg%3E");
+      url("data:image/svg+xml,%3Csvg viewBox='0 0 600 600' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='highQualityNoise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='matrix' values='1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 0.16 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23highQualityNoise)'/%3E%3C/svg%3E");
 
     background-repeat: repeat;
   }
@@ -655,104 +648,55 @@ footer {
 }
 
 
+
 /* =========================================================
    KITS EXCLUSIVE — PERIODIC WHITE LIGHT SWEEP
    ========================================================= */
 
-/*
- * The badge itself stays completely still.
- *
- * Every 10 seconds, the white diagonal reflection:
- *
- *     LEFT  ────────────────>  RIGHT
- *
- * crosses the entire badge continuously.
- *
- * The actual visible movement happens during roughly 1 second.
- */
-
 @keyframes kitsExclusiveSweep {
 
-  /*
-   * Waiting period.
-   *
-   * The light is completely outside the badge.
-   */
-
+  /* Waiting period */
   0%,
   90% {
-    transform: translateX(-220%) rotate(22deg);
+    left: -20%;
     opacity: 0;
   }
 
-
-  /*
-   * Enter from the left.
-   *
-   * 90% of 10 seconds = 9 seconds.
-   */
-
+  /* Start just outside the left edge of the badge */
   91% {
-    transform: translateX(-180%) rotate(22deg);
+    left: -5%;
     opacity: 0.5;
   }
 
-
-  /*
-   * Continuous movement.
-   *
-   * There is NO pause here.
-   */
-
+  /* Continuous movement across the ENTIRE badge */
   100% {
-    transform: translateX(1100%) rotate(22deg);
+    left: 120%;
     opacity: 0;
   }
 }
 
-
 .kits-exclusive-sweep {
-
-  /*
-   * Entire animation cycle = 10 seconds.
-   *
-   * linear = constant left-to-right movement,
-   * so the slash never stops in the middle.
-   */
-
   animation:
     kitsExclusiveSweep
     10s
-    linear
+    cubic-bezier(0.4, 0, 0.2, 1)
     infinite;
 
   transform-origin: center;
 
-  /*
-   * Wider diagonal slash.
-   *
-   * !important overrides the existing Tailwind
-   * w-[3px] class in ProductCard/ProductDetail.
-   */
-
+  /* This controls ONLY the white slash, not the badge width */
   width: 8px !important;
 
-  /*
-   * Soft blur around the white reflection.
-   */
-
+  /* Soft premium light */
   filter: blur(2px);
 }
-
 
 @media (prefers-reduced-motion: reduce) {
 
   .kits-exclusive-sweep {
     animation: none !important;
-
     opacity: 0 !important;
   }
-
 }
 
 
@@ -886,20 +830,16 @@ canvas {
   scrollbar-width: none;
 }
 
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
 
-/* =========================================================
-   PRODUCT DETAIL BACKGROUND
-   ========================================================= */
-
-/* Keep the document canvas behind ProductDetail identical
-   to its neutral-950 surface. */
-
+/* Keep the document canvas behind ProductDetail identical to its neutral-950 surface. */
 html.product-detail-open #app-shell,
 html.product-detail-open #app-wrapper,
 html.product-detail-open #main-content {
   background-color: #0a0a0a !important;
 }
-
 
 /* =========================================================
    MOBILE MENU — SAFARI 27 COMPOSITOR STABILITY
