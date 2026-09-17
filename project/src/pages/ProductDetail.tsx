@@ -1972,10 +1972,10 @@ export default function ProductDetail({
                             title={
                               colorObj.name
                             }
-                            className={`relative w-6 h-6 rounded-full transition-all touch-manipulation ${
+                            className={`relative w-6 h-6 rounded-full transition-all touch-manipulation border-2 ${
                               isSelected
-                                ? 'ring-2 ring-neutral-100 dark:ring-white scale-110'
-                                : 'opacity-80 hover:opacity-100 hover:scale-105'
+                                ? 'ring-2 ring-neutral-100 dark:ring-white scale-110 border-black dark:border-white'
+                                : 'border-black dark:border-white hover:scale-105'
                             }`}
                             style={{
                               backgroundColor:
@@ -1983,7 +1983,7 @@ export default function ProductDetail({
                             }}
                             aria-label={`Select ${colorObj.name}`}
                           >
-                            <span className="absolute inset-0 rounded-full border border-black/10 dark:border-white/10 pointer-events-none" />
+                            <span className="absolute inset-0 rounded-full pointer-events-none" />
                           </button>
                         );
                       }
