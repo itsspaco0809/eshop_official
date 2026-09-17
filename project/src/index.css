@@ -174,6 +174,7 @@ html.mobile-menu-open body {
   touch-action: auto !important;
 }
 
+
 /* =========================================================
    BODY
    ========================================================= */
@@ -649,41 +650,97 @@ footer {
 
 
 /* =========================================================
-   KITS EXCLUSIVE — PERIODIC LIGHT SWEEP
+   KITS EXCLUSIVE — PERIODIC WHITE LIGHT SWEEP
    ========================================================= */
 
 @keyframes kitsExclusiveSweep {
+
+  /*
+   * 0–88%:
+   * Completely invisible / waiting.
+   * This keeps the badge still for most of the 10-second cycle.
+   */
+
   0%,
   88% {
-    left: -45%;
+    transform: translateX(-180%) rotate(22deg);
     opacity: 0;
   }
 
+
+  /*
+   * Start of the 1-second sweep.
+   * 90% of 10s = 9s.
+   */
+
   90% {
-    left: -15%;
+    transform: translateX(-40%) rotate(22deg);
     opacity: 0.5;
   }
+
+
+  /*
+   * Main light movement.
+   */
 
   98% {
-    left: 125%;
+    transform: translateX(900%) rotate(22deg);
     opacity: 0.5;
   }
 
+
+  /*
+   * Finish / fade out.
+   */
+
   100% {
-    left: 145%;
+    transform: translateX(1100%) rotate(22deg);
     opacity: 0;
   }
 }
 
 .kits-exclusive-sweep {
-  animation: kitsExclusiveSweep 10s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  /*
+   * Animation repeats every 10 seconds.
+   * The visible left-to-right sweep takes approximately 1 second.
+   */
+
+  animation:
+    kitsExclusiveSweep
+    10s
+    cubic-bezier(
+      0.4,
+      0,
+      0.2,
+      1
+    )
+    infinite;
+
+  transform-origin: center;
+
+  /*
+   * Wider diagonal slash.
+   * !important overrides the existing Tailwind w-[3px]
+   * inside ProductCard/ProductDetail.
+   */
+
+  width: 8px !important;
+
+  /*
+   * Soft blurred edge so the reflection feels more like
+   * light passing over the badge rather than a hard white line.
+   */
+
+  filter: blur(2px);
 }
 
 @media (prefers-reduced-motion: reduce) {
+
   .kits-exclusive-sweep {
     animation: none !important;
     opacity: 0 !important;
   }
+
 }
 
 
@@ -821,12 +878,15 @@ canvas {
   display: none;
 }
 
+
 /* Keep the document canvas behind ProductDetail identical to its neutral-950 surface. */
+
 html.product-detail-open #app-shell,
 html.product-detail-open #app-wrapper,
 html.product-detail-open #main-content {
   background-color: #0a0a0a !important;
 }
+
 
 /* =========================================================
    MOBILE MENU — SAFARI 27 COMPOSITOR STABILITY
