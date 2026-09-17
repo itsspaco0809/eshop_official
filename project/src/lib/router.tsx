@@ -12,6 +12,7 @@ interface RouterContextType {
 
 const HISTORY_SCROLL_KEY = '__lcpScrollY';
 const HISTORY_PATH_KEY = '__lcpPath';
+const HISTORY_FROM_PATH_KEY = '__lcpFromPath';
 const BROWSER_HISTORY_SCROLL_KEY = 'lcp-browser-history-scroll';
 
 /*
@@ -212,6 +213,8 @@ export const RouterProvider: React.FC<{
       {
         [HISTORY_PATH_KEY]: targetPath,
         [HISTORY_SCROLL_KEY]: 0,
+        // Keep the exact page the user came from, including ?page=N.
+        [HISTORY_FROM_PATH_KEY]: currentPath,
       },
       '',
       targetPath
