@@ -82,12 +82,30 @@ export default function Store() {
 
   const [loading, setLoading] = useState(() => !cachedProducts);
 
-  const [category, setCategory] = useState('all');
+  const getInitialQueryParams = () =>
+    new URLSearchParams(path.split('?')[1] || '');
+
+  const initialParams = getInitialQueryParams();
+  const initialCategory = initialParams.get('category');
+
+  const [category, setCategory] = useState(
+    initialCategory && CATEGORIES.includes(initialCategory)
+      ? initialCategory
+      : 'all'
+  );
   const [theme, setTheme] = useState('all');
   const [sort, setSort] = useState('date-desc');
   const [search, setSearch] = useState('');
   const [showFilters, setShowFilters] = useState(false);
-  const [currentPage, setCurrentPage] = useState(1);
+
+  // Keep pagination in the URL so browser Back restores the exact page.
+  const initialPage = Number(initialParams.get('page'));
+  const [currentPage, setCurrentPage] = useState(
+    Number.isFinite(initialPage) && initialPage >= 1
+      ? Math.floor(initialPage)
+      : 1
+  );
+
   const [activeFeatureIndex, setActiveFeatureIndex] = useState(0);
 
   // =========================================================
@@ -125,6 +143,23 @@ export default function Store() {
   const isMountedRef = useRef(false);
   const gridRef = useRef<HTMLDivElement>(null);
   const pageScrollEffectMountedRef = useRef(false);
+  const filtersInitializedRef = useRef(false);
+
+  const updatePageInUrl = (page: number) => {
+    const url = new URL(window.location.href);
+
+    if (page <= 1) {
+      url.searchParams.delete('page');
+    } else {
+      url.searchParams.set('page', String(page));
+    }
+
+    window.history.replaceState(
+      window.history.state,
+      '',
+      `${url.pathname}${url.search}${url.hash}`
+    );
+  };
 
   // =========================================================
   // READ CATEGORY FROM URL QUERY
@@ -279,7 +314,15 @@ export default function Store() {
   // =========================================================
 
   useEffect(() => {
+    // On the first render, currentPage may have been restored from ?page=...
+    // Do not immediately overwrite it with page 1.
+    if (!filtersInitializedRef.current) {
+      filtersInitializedRef.current = true;
+      return;
+    }
+
     setCurrentPage(1);
+    updatePageInUrl(1);
   }, [category, theme, sort, search]);
 
   // =========================================================
@@ -324,6 +367,13 @@ export default function Store() {
 
   const totalPages =
     Math.ceil(filtered.length / ITEMS_PER_PAGE) || 1;
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+      updatePageInUrl(totalPages);
+    }
+  }, [currentPage, totalPages]);
 
   const paginatedProducts = useMemo(() => {
     const start =
@@ -464,6 +514,7 @@ export default function Store() {
     }
 
     setCurrentPage(newPage);
+    updatePageInUrl(newPage);
   };
 
   // =========================================================
