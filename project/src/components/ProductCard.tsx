@@ -96,6 +96,10 @@ export default function ProductCard({
           <div className="absolute top-2 left-2 sm:top-3 sm:left-3">
             <span
               className={`
+                relative
+                overflow-hidden
+                inline-flex
+                items-center
                 px-2
                 py-0.5
                 sm:px-3
@@ -113,7 +117,27 @@ export default function ProductCard({
                 backgroundColor: showExclusiveBadge ? '#007AFF' : '#D2FF00',
               }}
             >
-              {showExclusiveBadge ? 'KITS EXCLUSIVE' : 'NEW IN'}
+              <span className="relative z-10">
+                {showExclusiveBadge ? 'KITS EXCLUSIVE' : 'NEW IN'}
+              </span>
+
+              {showExclusiveBadge && (
+                <span
+                  aria-hidden="true"
+                  className="
+                    kits-exclusive-sweep
+                    pointer-events-none
+                    absolute
+                    z-20
+                    top-[-70%]
+                    bottom-[-70%]
+                    left-[-18%]
+                    w-[3px]
+                    rotate-[22deg]
+                    bg-white
+                  "
+                />
+              )}
             </span>
           </div>
         )}
