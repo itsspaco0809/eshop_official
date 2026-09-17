@@ -20,17 +20,39 @@ const BROWSER_HISTORY_SCROLL_KEY = 'lcp-browser-history-scroll';
  * Store / Instructions / Custom Parts can restore their saved positions.
  *
  * This has to run at module evaluation time, not inside useEffect: Safari and
- * Chromium can perform history scroll restoration around the same time as
- * popstate. Setting this only after the first paint is too late.
+ * Chromium can perform history scroll restoration around the same time as popstate.
  */
-if (typeof window !== 'undefined' && 'scrollRestoration' in window.history) {
+if (
+  typeof window !== 'undefined' &&
+  'scrollRestoration' in window.history
+) {
   window.history.scrollRestoration = 'manual';
 }
 
-const getPath = () =>
-  typeof window !== 'undefined'
-    ? window.location.pathname
-    : '/';
+/*
+ * IMPORTANT:
+ * Keep the query string in the router path.
+ *
+ * Before:
+ *   /store?page=3  ->  /store
+ *
+ * That meant Store / Instructions / Custom Parts could not recover their
+ * pagination state from ?page=N after Browser Back.
+ */
+const getPath = () => {
+  if (typeof window === 'undefined') {
+    return '/';
+  }
+
+  return (
+    window.location.pathname +
+    window.location.search +
+    window.location.hash
+  );
+};
+
+const getRoutePath = (route: string) =>
+  route.split('?')[0].split('#')[0];
 
 const getScrollY = () => {
   if (typeof window === 'undefined') return 0;
@@ -44,7 +66,7 @@ const getScrollY = () => {
 };
 
 const isRestorableRoute = (route: string) => {
-  const cleanRoute = route.split('?')[0];
+  const cleanRoute = getRoutePath(route);
 
   return (
     cleanRoute === '/store' ||
@@ -84,6 +106,15 @@ export const RouterProvider: React.FC<{
     initialiseHistoryEntry();
 
     const handlePopState = (event: PopStateEvent) => {
+      /*
+       * IMPORTANT:
+       * getPath() now includes ?page=N.
+       *
+       * Example:
+       *   /store?page=3
+       * remains /store?page=3
+       * instead of becoming /store.
+       */
       const targetPath = getPath();
       const targetState = event.state || {};
 
@@ -101,12 +132,6 @@ export const RouterProvider: React.FC<{
       /*
        * Home is never a scroll-restorable route.
        * Reset the native document position BEFORE React receives the new path.
-       * This closes the small window in which the browser can still expose the
-       * previous ProductDetail scroll position while <Home /> is mounting.
-       *
-       * Store / Instructions / Custom Parts are intentionally left to App.tsx
-       * because those routes may need their saved position restored after their
-       * new layout has mounted.
        */
       if (!isRestorableRoute(targetPath)) {
         window.scrollTo({
@@ -114,8 +139,11 @@ export const RouterProvider: React.FC<{
           left: 0,
           behavior: 'instant',
         });
+
         document.documentElement.scrollTop = 0;
+        document.documentElement.scrollLeft = 0;
         document.body.scrollTop = 0;
+        document.body.scrollLeft = 0;
       }
 
       try {
@@ -127,6 +155,10 @@ export const RouterProvider: React.FC<{
         // Ignore storage restrictions.
       }
 
+      /*
+       * Keep the complete route, including query parameters.
+       * This is what allows the listing page to read ?page=N.
+       */
       setPath(targetPath);
     };
 
@@ -155,26 +187,26 @@ export const RouterProvider: React.FC<{
     /*
      * Save the CURRENT history entry before creating the next one.
      *
-     * Only /store, /instructions and /custom-parts are allowed to
-     * restore their previous position. Home and every other route
-     * always start at the top when reached through browser history.
+     * The full currentPath is stored, including ?page=N.
      */
     window.history.replaceState(
       {
         ...currentState,
         [HISTORY_PATH_KEY]: currentPath,
-        [HISTORY_SCROLL_KEY]: isRestorableRoute(currentPath)
-          ? currentScroll
-          : 0,
+        [HISTORY_SCROLL_KEY]:
+          isRestorableRoute(currentPath)
+            ? currentScroll
+            : 0,
       },
       '',
       window.location.href
     );
 
     /*
-     * Every newly navigated route starts from TOP. The App route
-     * restoration layer will override this only for the dedicated
-     * ProductDetail -> Store / Instructions / Custom Parts return flow.
+     * Create the next history entry.
+     *
+     * targetPath may contain query parameters, e.g.
+     * /store?page=3
      */
     window.history.pushState(
       {
@@ -222,17 +254,28 @@ export const Route: React.FC<RouteProps> = ({
 }) => {
   const { path: currentPath } = useRouter();
 
+  /*
+   * Route matching must ignore ?query and #hash.
+   *
+   * Router path keeps query parameters so pages can use them for state,
+   * but /store?page=3 must still match <Route path="/store" />.
+   */
   const matchRoute = (
     pattern: string,
     current: string
   ) => {
-    if (pattern === current) {
+    const cleanPattern = getRoutePath(pattern);
+    const cleanCurrent = getRoutePath(current);
+
+    if (cleanPattern === cleanCurrent) {
       return true;
     }
 
-    if (pattern.includes(':')) {
-      const patternParts = pattern.split('/');
-      const currentParts = current.split('/');
+    if (cleanPattern.includes(':')) {
+      const patternParts =
+        cleanPattern.split('/');
+      const currentParts =
+        cleanCurrent.split('/');
 
       if (
         patternParts.length !==
