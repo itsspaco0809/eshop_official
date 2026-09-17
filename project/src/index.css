@@ -649,6 +649,45 @@ footer {
 
 
 /* =========================================================
+   KITS EXCLUSIVE — PERIODIC LIGHT SWEEP
+   ========================================================= */
+
+@keyframes kitsExclusiveSweep {
+  0%,
+  88% {
+    left: -45%;
+    opacity: 0;
+  }
+
+  90% {
+    left: -15%;
+    opacity: 0.5;
+  }
+
+  98% {
+    left: 125%;
+    opacity: 0.5;
+  }
+
+  100% {
+    left: 145%;
+    opacity: 0;
+  }
+}
+
+.kits-exclusive-sweep {
+  animation: kitsExclusiveSweep 10s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kits-exclusive-sweep {
+    animation: none !important;
+    opacity: 0 !important;
+  }
+}
+
+
+/* =========================================================
    BOLT / STACKBLITZ BADGE REMOVAL
    ========================================================= */
 
