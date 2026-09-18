@@ -282,17 +282,39 @@ export default function AdminPanel({ initialTab = 'analytics' }: { initialTab?: 
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Close an open digital-file action menu when clicking elsewhere.
+  // Close an open digital-file action menu when clicking elsewhere or scrolling.
+  // The menu is rendered through a portal, so it is not clipped by the table's
+  // overflow-x-auto / overflow-hidden containers.
   useEffect(() => {
+    const closeFileMenu = () => {
+      setOpenFileMenuId(null);
+      setFileMenuPosition(null);
+    };
+
     const handleFileMenuOutsideClick = (event: MouseEvent) => {
       const target = event.target as HTMLElement;
       if (!target.closest('[data-file-action-menu]')) {
-        setOpenFileMenuId(null);
+        closeFileMenu();
       }
     };
 
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') closeFileMenu();
+    };
+
+    // Capture scroll events from the window and any nested scroll container.
+    // This also works with the admin table's horizontal/vertical scrolling.
+    const handleScroll = () => closeFileMenu();
+
     document.addEventListener('mousedown', handleFileMenuOutsideClick);
-    return () => document.removeEventListener('mousedown', handleFileMenuOutsideClick);
+    document.addEventListener('keydown', handleEscape);
+    window.addEventListener('scroll', handleScroll, true);
+
+    return () => {
+      document.removeEventListener('mousedown', handleFileMenuOutsideClick);
+      document.removeEventListener('keydown', handleEscape);
+      window.removeEventListener('scroll', handleScroll, true);
+    };
   }, []);
 
   const [savedScrollPos, setSavedScrollPos] = useState<number>(0);
@@ -342,6 +364,7 @@ export default function AdminPanel({ initialTab = 'analytics' }: { initialTab?: 
   const [fileForm, setFileForm] = useState(emptyFileForm);
   const [isAddingFile, setIsAddingFile] = useState(false);
   const [openFileMenuId, setOpenFileMenuId] = useState<string | null>(null);
+  const [fileMenuPosition, setFileMenuPosition] = useState<{ top: number; left: number } | null>(null);
 
   // Integrated Orders & Order Items State
   const [orders, setOrders] = useState<Order[]>([]);
@@ -2173,19 +2196,14 @@ export default function AdminPanel({ initialTab = 'analytics' }: { initialTab?: 
                             <td className="p-4 whitespace-nowrap">
                               {f.color ? (
                                 <span
-                                  className={`inline-flex items-center gap-2 px-2.5 py-1.5 rounded-full text-xs font-semibold border ${hasHex ? '' : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 border-neutral-200 dark:border-neutral-700'}`}
+                                  className={`inline-flex items-center px-2.5 py-1.5 rounded-full text-xs font-semibold ${hasHex ? '' : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300'}`}
                                   style={hasHex
                                     ? {
                                         backgroundColor: matchedColor!.hex,
-                                        borderColor: matchedColor!.hex,
                                         color: getColorContrastText(matchedColor!.hex),
                                       }
                                     : undefined}
                                 >
-                                  <span
-                                    className="w-2.5 h-2.5 rounded-full border border-black/10 dark:border-white/20 shrink-0"
-                                    style={hasHex ? { backgroundColor: matchedColor!.hex } : undefined}
-                                  />
                                   {colorText}
                                 </span>
                               ) : (
@@ -2200,12 +2218,36 @@ export default function AdminPanel({ initialTab = 'analytics' }: { initialTab?: 
                               </span>
                             </td>
                             <td className="p-4 text-right whitespace-nowrap">
-                              <div className="relative inline-flex" data-file-action-menu>
+                              <div className="inline-flex" data-file-action-menu>
                                 <button
                                   type="button"
                                   onClick={(event) => {
                                     event.stopPropagation();
-                                    setOpenFileMenuId((current) => current === f.id ? null : f.id);
+
+                                    if (openFileMenuId === f.id) {
+                                      setOpenFileMenuId(null);
+                                      setFileMenuPosition(null);
+                                      return;
+                                    }
+
+                                    const rect = event.currentTarget.getBoundingClientRect();
+                                    const menuWidth = 176;
+                                    const menuHeight = 130;
+                                    const gap = 8;
+                                    const viewportPadding = 8;
+
+                                    const left = Math.min(
+                                      Math.max(viewportPadding, rect.right - menuWidth),
+                                      Math.max(viewportPadding, window.innerWidth - menuWidth - viewportPadding),
+                                    );
+
+                                    const spaceBelow = window.innerHeight - rect.bottom;
+                                    const top = spaceBelow >= menuHeight + gap
+                                      ? rect.bottom + gap
+                                      : Math.max(viewportPadding, rect.top - menuHeight - gap);
+
+                                    setFileMenuPosition({ top, left });
+                                    setOpenFileMenuId(f.id);
                                   }}
                                   className="w-9 h-9 flex items-center justify-center rounded-lg text-neutral-500 hover:text-neutral-900 hover:bg-neutral-100 dark:text-neutral-400 dark:hover:text-white dark:hover:bg-neutral-800 transition-colors"
                                   title="File actions"
@@ -2214,46 +2256,58 @@ export default function AdminPanel({ initialTab = 'analytics' }: { initialTab?: 
                                 >
                                   <MoreHorizontal className="w-[19px] h-[19px]" />
                                 </button>
-
-                                {openFileMenuId === f.id && (
-                                  <div className="absolute right-0 top-full mt-2 w-44 z-50 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 shadow-xl overflow-hidden text-left">
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        setOpenFileMenuId(null);
-                                        handleEditFile(f);
-                                      }}
-                                      className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-sm text-neutral-700 dark:text-neutral-200 hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors"
-                                    >
-                                      <PencilLine className="w-4 h-4" />
-                                      Edit File
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        setOpenFileMenuId(null);
-                                        handleDuplicateFile(f);
-                                      }}
-                                      className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-sm text-neutral-700 dark:text-neutral-200 hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors"
-                                    >
-                                      <Copy className="w-4 h-4" />
-                                      Duplicate File
-                                    </button>
-                                    <div className="border-t border-neutral-100 dark:border-neutral-800" />
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        setOpenFileMenuId(null);
-                                        handleDeleteFile(f.id);
-                                      }}
-                                      className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors"
-                                    >
-                                      <Trash2 className="w-4 h-4" />
-                                      Delete File
-                                    </button>
-                                  </div>
-                                )}
                               </div>
+
+                              {mounted && openFileMenuId === f.id && fileMenuPosition && createPortal(
+                                <div
+                                  data-file-action-menu
+                                  className="fixed w-44 z-[9998] rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 shadow-2xl overflow-hidden text-left"
+                                  style={{ top: fileMenuPosition.top, left: fileMenuPosition.left }}
+                                  role="menu"
+                                >
+                                  <button
+                                    type="button"
+                                    role="menuitem"
+                                    onClick={() => {
+                                      setOpenFileMenuId(null);
+                                      setFileMenuPosition(null);
+                                      handleEditFile(f);
+                                    }}
+                                    className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-sm text-neutral-700 dark:text-neutral-200 hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors"
+                                  >
+                                    <PencilLine className="w-4 h-4" />
+                                    Edit File
+                                  </button>
+                                  <button
+                                    type="button"
+                                    role="menuitem"
+                                    onClick={() => {
+                                      setOpenFileMenuId(null);
+                                      setFileMenuPosition(null);
+                                      handleDuplicateFile(f);
+                                    }}
+                                    className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-sm text-neutral-700 dark:text-neutral-200 hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors"
+                                  >
+                                    <Copy className="w-4 h-4" />
+                                    Duplicate File
+                                  </button>
+                                  <div className="border-t border-neutral-100 dark:border-neutral-800" />
+                                  <button
+                                    type="button"
+                                    role="menuitem"
+                                    onClick={() => {
+                                      setOpenFileMenuId(null);
+                                      setFileMenuPosition(null);
+                                      handleDeleteFile(f.id);
+                                    }}
+                                    className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                    Delete File
+                                  </button>
+                                </div>,
+                                document.body,
+                              )}
                             </td>
                           </tr>
                         );
