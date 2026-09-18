@@ -13,8 +13,7 @@ interface RouterContextType {
 const HISTORY_SCROLL_KEY = '__lcpScrollY';
 const HISTORY_PATH_KEY = '__lcpPath';
 const HISTORY_FROM_PATH_KEY = '__lcpFromPath';
-const BROWSER_HISTORY_SCROLL_KEY =
-  'lcp-browser-history-scroll';
+const BROWSER_HISTORY_SCROLL_KEY = 'lcp-browser-history-scroll';
 
 /*
  * Browser Back / Forward must NOT restore the browser's own scroll position.
@@ -35,14 +34,12 @@ if (
  * IMPORTANT:
  * Keep the query string in the router path.
  *
- * Example:
+ * Examples:
  *   /store?page=3
+ *   /instructions?page=2
+ *   /custom-parts?page=4
  *
- * must remain:
- *   /store?page=3
- *
- * instead of becoming:
- *   /store
+ * This allows each listing page to recover its pagination state.
  */
 const getPath = () => {
   if (typeof window === 'undefined') {
@@ -60,9 +57,7 @@ const getRoutePath = (route: string) =>
   route.split('?')[0].split('#')[0];
 
 const getScrollY = () => {
-  if (typeof window === 'undefined') {
-    return 0;
-  }
+  if (typeof window === 'undefined') return 0;
 
   return Math.max(
     window.scrollY || 0,
@@ -82,31 +77,8 @@ const isRestorableRoute = (route: string) => {
   );
 };
 
-/*
- * =========================================================
- * STORE PAGE DETECTION
- * =========================================================
- *
- * Used specifically for restoring:
- *
- * /store?page=2
- *
- * when the user clicks "Back to Store" from a product page.
- */
-const isStoreRoute = (route: string) => {
-  return getRoutePath(route) === '/store';
-};
-
-/*
- * =========================================================
- * INITIALISE HISTORY ENTRY
- * =========================================================
- */
-
 const initialiseHistoryEntry = () => {
-  if (typeof window === 'undefined') {
-    return;
-  }
+  if (typeof window === 'undefined') return;
 
   const currentPath = getPath();
   const currentState = window.history.state || {};
@@ -122,42 +94,34 @@ const initialiseHistoryEntry = () => {
   );
 };
 
-const RouterContext =
-  createContext<RouterContextType>({
-    path: getPath(),
-    navigate: () => {},
-  });
+const RouterContext = createContext<RouterContextType>({
+  path: getPath(),
+  navigate: () => {},
+});
 
 export const RouterProvider: React.FC<{
   children: React.ReactNode;
 }> = ({ children }) => {
-  const [path, setPath] =
-    useState(getPath);
+  const [path, setPath] = useState(getPath);
 
   useEffect(() => {
     initialiseHistoryEntry();
 
-    const handlePopState = (
-      event: PopStateEvent
-    ) => {
+    const handlePopState = (event: PopStateEvent) => {
       /*
        * IMPORTANT:
        * getPath() includes ?page=N.
        *
-       * Example:
+       * Examples:
        *   /store?page=3
-       *
-       * remains:
-       *   /store?page=3
+       *   /instructions?page=2
+       *   /custom-parts?page=4
        */
       const targetPath = getPath();
-      const targetState =
-        event.state || {};
+      const targetState = event.state || {};
 
       const storedScroll = Number(
-        targetState[
-          HISTORY_SCROLL_KEY
-        ]
+        targetState[HISTORY_SCROLL_KEY]
       );
 
       const targetScroll =
@@ -169,27 +133,17 @@ export const RouterProvider: React.FC<{
 
       /*
        * Home is never a scroll-restorable route.
-       *
-       * Reset native document position BEFORE React
-       * receives the new path.
+       * Reset the native document position BEFORE React receives the new path.
        */
-      if (
-        !isRestorableRoute(
-          targetPath
-        )
-      ) {
+      if (!isRestorableRoute(targetPath)) {
         window.scrollTo({
           top: 0,
           left: 0,
           behavior: 'instant',
         });
 
-        document.documentElement.scrollTop =
-          0;
-
-        document.documentElement.scrollLeft =
-          0;
-
+        document.documentElement.scrollTop = 0;
+        document.documentElement.scrollLeft = 0;
         document.body.scrollTop = 0;
         document.body.scrollLeft = 0;
       }
@@ -204,8 +158,7 @@ export const RouterProvider: React.FC<{
       }
 
       /*
-       * Keep the complete route,
-       * including query parameters.
+       * Keep the complete route, including query parameters.
        */
       setPath(targetPath);
     };
@@ -225,97 +178,84 @@ export const RouterProvider: React.FC<{
 
   const navigate = (to: string) => {
     /*
-     * =======================================================
-     * NORMALISE TARGET PATH
-     * =======================================================
+     * Start with the requested target.
      */
-
     let targetPath = to.startsWith('/')
       ? to
       : `/${to}`;
 
     const currentPath = getPath();
-    const currentState =
-      window.history.state || {};
-
-    const currentScroll =
-      getScrollY();
+    const currentState = window.history.state || {};
+    const currentScroll = getScrollY();
 
     /*
-     * =======================================================
-     * RESTORE PREVIOUS STORE PAGE
-     * =======================================================
+     * ============================================================
+     * IMPORTANT FIX:
      *
-     * THIS IS THE FIX.
+     * If the current page was opened FROM:
      *
-     * Scenario:
-     *
-     * Store:
      *   /store?page=2
+     *   /instructions?page=3
+     *   /custom-parts?page=4
      *
-     * User clicks product:
-     *   /product/abc
+     * and the app asks to navigate back to the corresponding
+     * listing route:
      *
-     * Product history state contains:
-     *   __lcpFromPath = /store?page=2
-     *
-     * If the product page has:
-     *   navigate('/store')
-     *
-     * we restore:
-     *   /store?page=2
-     *
-     * instead of:
      *   /store
+     *   /instructions
+     *   /custom-parts
      *
-     * This only happens when:
+     * restore the exact original URL instead.
      *
-     * 1. target is exactly /store
-     * 2. current page is NOT /store
-     * 3. current history entry came from /store
+     * This means:
      *
-     * So normal Store navigation is untouched.
+     *   /store?page=2
+     *      -> product
+     *      -> Back to Store
+     *      -> /store?page=2
+     *
+     *   /instructions?page=3
+     *      -> detail
+     *      -> Back to Instructions
+     *      -> /instructions?page=3
+     *
+     *   /custom-parts?page=4
+     *      -> detail
+     *      -> Back to Custom Parts
+     *      -> /custom-parts?page=4
+     *
+     * We only do this for these three restorable listing routes.
+     * Everything else behaves exactly as before.
+     * ============================================================
      */
-    if (
-      isStoreRoute(targetPath) &&
-      !isStoreRoute(currentPath)
-    ) {
-      const fromPath =
-        currentState[
-          HISTORY_FROM_PATH_KEY
-        ];
+    const storedFromPath =
+      typeof currentState[HISTORY_FROM_PATH_KEY] ===
+      'string'
+        ? currentState[HISTORY_FROM_PATH_KEY]
+        : '';
 
-      if (
-        typeof fromPath === 'string' &&
-        isStoreRoute(fromPath) &&
-        fromPath.includes('?')
-      ) {
-        targetPath = fromPath;
-      }
+    const targetRoute = getRoutePath(targetPath);
+    const storedFromRoute =
+      getRoutePath(storedFromPath);
+
+    if (
+      isRestorableRoute(storedFromPath) &&
+      targetRoute === storedFromRoute
+    ) {
+      targetPath = storedFromPath;
     }
 
     /*
-     * =======================================================
-     * SAVE CURRENT HISTORY ENTRY
-     * =======================================================
+     * Save the CURRENT history entry before creating the next one.
      *
-     * The current path keeps its query string.
-     *
-     * Example:
-     *   /store?page=2
-     *
-     * will be saved as:
-     *   /store?page=2
+     * The full currentPath is stored, including ?page=N.
      */
     window.history.replaceState(
       {
         ...currentState,
-        [HISTORY_PATH_KEY]:
-          currentPath,
+        [HISTORY_PATH_KEY]: currentPath,
         [HISTORY_SCROLL_KEY]:
-          isRestorableRoute(
-            currentPath
-          )
+          isRestorableRoute(currentPath)
             ? currentScroll
             : 0,
       },
@@ -324,34 +264,24 @@ export const RouterProvider: React.FC<{
     );
 
     /*
-     * =======================================================
-     * CREATE NEXT HISTORY ENTRY
-     * =======================================================
+     * Create the next history entry.
      *
-     * targetPath can now be:
+     * targetPath may contain query parameters, e.g.
      *
-     * /store
-     *
-     * OR:
-     *
-     * /store?page=2
-     *
-     * depending on whether we are restoring
-     * the previous Store page.
+     *   /store?page=3
+     *   /instructions?page=2
+     *   /custom-parts?page=4
      */
     window.history.pushState(
       {
-        [HISTORY_PATH_KEY]:
-          targetPath,
-
+        [HISTORY_PATH_KEY]: targetPath,
         [HISTORY_SCROLL_KEY]: 0,
 
         /*
          * Keep the exact page the user came from,
          * including ?page=N.
          */
-        [HISTORY_FROM_PATH_KEY]:
-          currentPath,
+        [HISTORY_FROM_PATH_KEY]: currentPath,
       },
       '',
       targetPath
@@ -388,47 +318,38 @@ interface RouteProps {
   element: React.ReactNode;
 }
 
-export const Route: React.FC<
-  RouteProps
-> = ({
+export const Route: React.FC<RouteProps> = ({
   path: routePath,
   element,
 }) => {
-  const {
-    path: currentPath,
-  } = useRouter();
+  const { path: currentPath } = useRouter();
 
   /*
-   * Route matching ignores:
+   * Route matching must ignore ?query and #hash.
    *
-   * ?query
-   * #hash
+   * Router path keeps query parameters so pages can use them
+   * for state, but:
    *
-   * but the actual router path still keeps them.
+   *   /store?page=3
+   *
+   * still matches:
+   *
+   *   <Route path="/store" />
    */
   const matchRoute = (
     pattern: string,
     current: string
   ) => {
-    const cleanPattern =
-      getRoutePath(pattern);
+    const cleanPattern = getRoutePath(pattern);
+    const cleanCurrent = getRoutePath(current);
 
-    const cleanCurrent =
-      getRoutePath(current);
-
-    if (
-      cleanPattern ===
-      cleanCurrent
-    ) {
+    if (cleanPattern === cleanCurrent) {
       return true;
     }
 
-    if (
-      cleanPattern.includes(':')
-    ) {
+    if (cleanPattern.includes(':')) {
       const patternParts =
         cleanPattern.split('/');
-
       const currentParts =
         cleanCurrent.split('/');
 
@@ -441,16 +362,11 @@ export const Route: React.FC<
 
       return patternParts.every(
         (part, i) => {
-          if (
-            part.startsWith(':')
-          ) {
+          if (part.startsWith(':')) {
             return true;
           }
 
-          return (
-            part ===
-            currentParts[i]
-          );
+          return part === currentParts[i];
         }
       );
     }
@@ -481,8 +397,7 @@ export const Link: React.FC<{
   className,
   onClick,
 }) => {
-  const { navigate } =
-    useRouter();
+  const { navigate } = useRouter();
 
   const handleClick = (
     e: React.MouseEvent<HTMLAnchorElement>
