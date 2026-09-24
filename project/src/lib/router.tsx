@@ -385,6 +385,52 @@ export const RouterProvider: React.FC<{
     const currentState =
       getCurrentHistoryState();
 
+    /*
+     * --------------------------------------------------------
+     * ProductDetail → Listing "Back" button
+     * --------------------------------------------------------
+     *
+     * ProductDetail stores the exact URL it came from in:
+     *
+     *   __lcpFromPath
+     *
+     * If its Back button navigates to that exact URL, do NOT
+     * create a new history entry. Use the real browser Back
+     * operation instead so we return to the original history
+     * entry with its original pagination + scroll position.
+     *
+     * Example:
+     *
+     *   /store?page=3
+     *       ↓
+     *   /product/foo
+     *       ↓ Back to Kits
+     *   history.back()
+     *       ↓
+     *   /store?page=3 + original scroll
+     *
+     * This also applies to:
+     *   /instructions?page=N
+     *   /custom-parts?page=N
+     */
+    const storedFromPath =
+      typeof currentState[HISTORY_FROM_PATH_KEY] === 'string'
+        ? currentState[HISTORY_FROM_PATH_KEY]
+        : '';
+
+    const isProductDetail =
+      getRoutePath(currentPath).startsWith('/product/');
+
+    const isReturningToOriginalListing =
+      isProductDetail &&
+      isRestorableRoute(storedFromPath) &&
+      storedFromPath === targetPath;
+
+    if (isReturningToOriginalListing) {
+      window.history.back();
+      return;
+    }
+
     const currentScroll =
       getScrollY();
 
