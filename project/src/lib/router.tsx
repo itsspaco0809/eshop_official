@@ -1,8 +1,8 @@
 import React, {
   createContext,
   useContext,
-  useState,
   useEffect,
+  useState,
 } from 'react';
 
 interface RouterContextType {
@@ -13,16 +13,23 @@ interface RouterContextType {
 const HISTORY_SCROLL_KEY = '__lcpScrollY';
 const HISTORY_PATH_KEY = '__lcpPath';
 const HISTORY_FROM_PATH_KEY = '__lcpFromPath';
-const BROWSER_HISTORY_SCROLL_KEY = 'lcp-browser-history-scroll';
+
+const BROWSER_HISTORY_SCROLL_KEY =
+  'lcp-browser-history-scroll';
 
 /*
- * Browser Back / Forward must NOT restore the browser's own scroll position.
- * App.tsx owns scroll restoration so that Home can always render at TOP while
- * Store / Instructions / Custom Parts can restore their saved positions.
+ * ============================================================
+ * Browser scroll restoration
+ * ============================================================
  *
- * This has to run at module evaluation time, not inside useEffect: Safari and
- * Chromium can perform history scroll restoration around the same time as popstate.
+ * The browser must NOT restore its own scroll position.
+ * Our application handles it instead.
+ *
+ * This is intentionally executed at module evaluation time,
+ * before React effects start running.
+ * ============================================================
  */
+
 if (
   typeof window !== 'undefined' &&
   'scrollRestoration' in window.history
@@ -31,17 +38,12 @@ if (
 }
 
 /*
- * IMPORTANT:
- * Keep the query string in the router path.
- *
- * Examples:
- *   /store?page=3
- *   /instructions?page=2
- *   /custom-parts?page=4
- *
- * This allows each listing page to recover its pagination state.
+ * ============================================================
+ * Path helpers
+ * ============================================================
  */
-const getPath = () => {
+
+const getPath = (): string => {
   if (typeof window === 'undefined') {
     return '/';
   }
@@ -53,11 +55,29 @@ const getPath = () => {
   );
 };
 
-const getRoutePath = (route: string) =>
-  route.split('?')[0].split('#')[0];
+/*
+ * Remove query string and hash.
+ *
+ * Example:
+ *
+ * /store?page=3
+ *      ↓
+ * /store
+ */
+const getRoutePath = (route: string): string => {
+  return route.split('?')[0].split('#')[0];
+};
 
-const getScrollY = () => {
-  if (typeof window === 'undefined') return 0;
+/*
+ * ============================================================
+ * Scroll helper
+ * ============================================================
+ */
+
+const getScrollY = (): number => {
+  if (typeof window === 'undefined') {
+    return 0;
+  }
 
   return Math.max(
     window.scrollY || 0,
@@ -67,7 +87,19 @@ const getScrollY = () => {
   );
 };
 
-const isRestorableRoute = (route: string) => {
+/*
+ * ============================================================
+ * Restorable listing routes
+ * ============================================================
+ *
+ * These routes are allowed to restore their previous scroll
+ * position.
+ *
+ * Home / ProductDetail / Checkout etc. always start at top.
+ * ============================================================
+ */
+
+const isRestorableRoute = (route: string): boolean => {
   const cleanRoute = getRoutePath(route);
 
   return (
@@ -77,77 +109,206 @@ const isRestorableRoute = (route: string) => {
   );
 };
 
+/*
+ * ============================================================
+ * Reset document scroll
+ * ============================================================
+ */
+
+const resetScrollToTop = () => {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  window.scrollTo({
+    top: 0,
+    left: 0,
+    behavior: 'instant',
+  });
+
+  document.documentElement.scrollTop = 0;
+  document.documentElement.scrollLeft = 0;
+
+  document.body.scrollTop = 0;
+  document.body.scrollLeft = 0;
+};
+
+/*
+ * ============================================================
+ * Safely get current history state
+ * ============================================================
+ */
+
+const getCurrentHistoryState = (): Record<
+  string,
+  unknown
+> => {
+  if (
+    typeof window === 'undefined' ||
+    !window.history.state
+  ) {
+    return {};
+  }
+
+  return window.history.state;
+};
+
+/*
+ * ============================================================
+ * Initialise the current history entry
+ * ============================================================
+ *
+ * IMPORTANT:
+ *
+ * The old implementation always did:
+ *
+ *   HISTORY_SCROLL_KEY: 0
+ *
+ * That could overwrite an existing history entry which had
+ * already been assigned a scroll position.
+ *
+ * This version ONLY initializes an entry if it has not already
+ * been initialized by our router.
+ * ============================================================
+ */
+
 const initialiseHistoryEntry = () => {
-  if (typeof window === 'undefined') return;
+  if (typeof window === 'undefined') {
+    return;
+  }
 
   const currentPath = getPath();
-  const currentState = window.history.state || {};
+  const currentState = getCurrentHistoryState();
+
+  const alreadyInitialized =
+    typeof currentState[HISTORY_PATH_KEY] ===
+      'string' &&
+    Object.prototype.hasOwnProperty.call(
+      currentState,
+      HISTORY_SCROLL_KEY
+    );
+
+  /*
+   * VERY IMPORTANT:
+   *
+   * Never overwrite an existing router-managed entry.
+   */
+  if (alreadyInitialized) {
+    return;
+  }
+
+  const initialScroll =
+    isRestorableRoute(currentPath)
+      ? getScrollY()
+      : 0;
 
   window.history.replaceState(
     {
       ...currentState,
+
       [HISTORY_PATH_KEY]: currentPath,
-      [HISTORY_SCROLL_KEY]: 0,
+
+      [HISTORY_SCROLL_KEY]: initialScroll,
     },
     '',
     window.location.href
   );
 };
 
-const RouterContext = createContext<RouterContextType>({
-  path: getPath(),
-  navigate: () => {},
-});
+/*
+ * ============================================================
+ * Router context
+ * ============================================================
+ */
+
+const RouterContext =
+  createContext<RouterContextType>({
+    path: getPath(),
+    navigate: () => {},
+  });
+
+/*
+ * ============================================================
+ * Router Provider
+ * ============================================================
+ */
 
 export const RouterProvider: React.FC<{
   children: React.ReactNode;
 }> = ({ children }) => {
-  const [path, setPath] = useState(getPath);
+  const [path, setPath] = useState<string>(
+    getPath
+  );
+
+  /*
+   * ==========================================================
+   * Browser Back / Forward
+   * ==========================================================
+   */
 
   useEffect(() => {
+    /*
+     * Initialise ONLY once.
+     *
+     * This will not overwrite an already-managed history
+     * entry.
+     */
     initialiseHistoryEntry();
 
-    const handlePopState = (event: PopStateEvent) => {
+    const handlePopState = (
+      event: PopStateEvent
+    ) => {
       /*
        * IMPORTANT:
-       * getPath() includes ?page=N.
        *
-       * Examples:
-       *   /store?page=3
-       *   /instructions?page=2
-       *   /custom-parts?page=4
+       * Do NOT reconstruct the previous URL manually.
+       *
+       * Browser history already knows exactly which entry
+       * the user returned to.
+       *
+       * Therefore:
+       *
+       * Page 3
+       *   ↓
+       * ProductDetail
+       *   ↓ browser back
+       * Page 3
+       *
+       * will naturally return:
+       *
+       * /store?page=3
        */
       const targetPath = getPath();
-      const targetState = event.state || {};
 
+      const targetState =
+        event.state || {};
+
+      /*
+       * Read the scroll position stored on the exact
+       * history entry that the browser returned to.
+       */
       const storedScroll = Number(
         targetState[HISTORY_SCROLL_KEY]
       );
 
+      const hasStoredScroll =
+        Object.prototype.hasOwnProperty.call(
+          targetState,
+          HISTORY_SCROLL_KEY
+        ) &&
+        Number.isFinite(storedScroll) &&
+        storedScroll >= 0;
+
       const targetScroll =
         isRestorableRoute(targetPath) &&
-        Number.isFinite(storedScroll) &&
-        storedScroll >= 0
+        hasStoredScroll
           ? storedScroll
           : 0;
 
       /*
-       * Home is never a scroll-restorable route.
-       * Reset the native document position BEFORE React receives the new path.
+       * Store this temporarily so App.tsx / listing pages can
+       * consume the exact target scroll if they need to.
        */
-      if (!isRestorableRoute(targetPath)) {
-        window.scrollTo({
-          top: 0,
-          left: 0,
-          behavior: 'instant',
-        });
-
-        document.documentElement.scrollTop = 0;
-        document.documentElement.scrollLeft = 0;
-        document.body.scrollTop = 0;
-        document.body.scrollLeft = 0;
-      }
-
       try {
         sessionStorage.setItem(
           BROWSER_HISTORY_SCROLL_KEY,
@@ -158,7 +319,27 @@ export const RouterProvider: React.FC<{
       }
 
       /*
-       * Keep the complete route, including query parameters.
+       * For non-restorable pages, immediately force the
+       * document to the top.
+       *
+       * This prevents browser/native restoration from leaving
+       * the old listing scroll position visible during the
+       * React route transition.
+       */
+      if (!isRestorableRoute(targetPath)) {
+        resetScrollToTop();
+      }
+
+      /*
+       * IMPORTANT:
+       *
+       * The complete path is retained, including:
+       *
+       * /store?page=3
+       *
+       * /instructions?page=2
+       *
+       * /custom-parts?page=4
        */
       setPath(targetPath);
     };
@@ -176,117 +357,123 @@ export const RouterProvider: React.FC<{
     };
   }, []);
 
+  /*
+   * ==========================================================
+   * Programmatic navigation
+   * ==========================================================
+   */
+
   const navigate = (to: string) => {
+    if (
+      typeof window === 'undefined'
+    ) {
+      return;
+    }
+
     /*
-     * Start with the requested target.
+     * --------------------------------------------------------
+     * Normalize target path
+     * --------------------------------------------------------
      */
+
     let targetPath = to.startsWith('/')
       ? to
       : `/${to}`;
 
     const currentPath = getPath();
-    const currentState = window.history.state || {};
-    const currentScroll = getScrollY();
+
+    const currentState =
+      getCurrentHistoryState();
+
+    const currentScroll =
+      getScrollY();
 
     /*
-     * ============================================================
-     * IMPORTANT FIX:
+     * --------------------------------------------------------
+     * Save the current history entry
+     * --------------------------------------------------------
      *
-     * If the current page was opened FROM:
+     * This is the most important part for:
      *
-     *   /store?page=2
-     *   /instructions?page=3
-     *   /custom-parts?page=4
+     * /store?page=3
+     *       ↓
+     * ProductDetail
      *
-     * and the app asks to navigate back to the corresponding
-     * listing route:
+     * Before leaving Page 3, save:
      *
-     *   /store
-     *   /instructions
-     *   /custom-parts
+     *   path  = /store?page=3
+     *   scroll = current scroll position
      *
-     * restore the exact original URL instead.
-     *
-     * This means:
-     *
-     *   /store?page=2
-     *      -> product
-     *      -> Back to Store
-     *      -> /store?page=2
-     *
-     *   /instructions?page=3
-     *      -> detail
-     *      -> Back to Instructions
-     *      -> /instructions?page=3
-     *
-     *   /custom-parts?page=4
-     *      -> detail
-     *      -> Back to Custom Parts
-     *      -> /custom-parts?page=4
-     *
-     * We only do this for these three restorable listing routes.
-     * Everything else behaves exactly as before.
-     * ============================================================
+     * Therefore Browser Back can return to the exact entry.
+     * --------------------------------------------------------
      */
-    const storedFromPath =
-      typeof currentState[HISTORY_FROM_PATH_KEY] ===
-      'string'
-        ? currentState[HISTORY_FROM_PATH_KEY]
-        : '';
 
-    const targetRoute = getRoutePath(targetPath);
-    const storedFromRoute =
-      getRoutePath(storedFromPath);
+    const updatedCurrentState = {
+      ...currentState,
 
-    if (
-      isRestorableRoute(storedFromPath) &&
-      targetRoute === storedFromRoute
-    ) {
-      targetPath = storedFromPath;
-    }
+      [HISTORY_PATH_KEY]:
+        currentPath,
 
-    /*
-     * Save the CURRENT history entry before creating the next one.
-     *
-     * The full currentPath is stored, including ?page=N.
-     */
+      [HISTORY_SCROLL_KEY]:
+        isRestorableRoute(currentPath)
+          ? currentScroll
+          : 0,
+    };
+
     window.history.replaceState(
-      {
-        ...currentState,
-        [HISTORY_PATH_KEY]: currentPath,
-        [HISTORY_SCROLL_KEY]:
-          isRestorableRoute(currentPath)
-            ? currentScroll
-            : 0,
-      },
+      updatedCurrentState,
       '',
       window.location.href
     );
 
     /*
-     * Create the next history entry.
-     *
-     * targetPath may contain query parameters, e.g.
-     *
-     *   /store?page=3
-     *   /instructions?page=2
-     *   /custom-parts?page=4
+     * --------------------------------------------------------
+     * Create the next history entry
+     * --------------------------------------------------------
      */
-    window.history.pushState(
-      {
-        [HISTORY_PATH_KEY]: targetPath,
-        [HISTORY_SCROLL_KEY]: 0,
 
-        /*
-         * Keep the exact page the user came from,
-         * including ?page=N.
-         */
-        [HISTORY_FROM_PATH_KEY]: currentPath,
-      },
+    const nextState = {
+      [HISTORY_PATH_KEY]:
+        targetPath,
+
+      /*
+       * New pages start at the top.
+       *
+       * If targetPath is a listing page and it contains
+       * ?page=N, the listing page itself will determine its
+       * initial position.
+       *
+       * We do NOT copy the previous scroll here.
+       */
+      [HISTORY_SCROLL_KEY]: 0,
+
+      /*
+       * Remember exactly where this page came from.
+       *
+       * Example:
+       *
+       * ProductDetail
+       *     from:
+       * /store?page=3
+       *
+       * This is useful for ProductDetail's own "Back to Store"
+       * button.
+       */
+      [HISTORY_FROM_PATH_KEY]:
+        currentPath,
+    };
+
+    window.history.pushState(
+      nextState,
       '',
       targetPath
     );
 
+    /*
+     * Clear temporary browser-back scroll data.
+     *
+     * A normal Link navigation is NOT a browser Back operation.
+     */
     try {
       sessionStorage.removeItem(
         BROWSER_HISTORY_SCROLL_KEY
@@ -295,7 +482,27 @@ export const RouterProvider: React.FC<{
       // Ignore storage restrictions.
     }
 
+    /*
+     * New route.
+     */
     setPath(targetPath);
+
+    /*
+     * IMPORTANT:
+     *
+     * Programmatic navigation to another page should start
+     * from the top.
+     *
+     * This is especially important when going:
+     *
+     * Store → ProductDetail
+     *
+     * otherwise the ProductDetail could briefly appear at the
+     * old Store scroll position.
+     */
+    if (!isRestorableRoute(targetPath)) {
+      resetScrollToTop();
+    }
   };
 
   return (
@@ -310,8 +517,20 @@ export const RouterProvider: React.FC<{
   );
 };
 
+/*
+ * ============================================================
+ * useRouter
+ * ============================================================
+ */
+
 export const useRouter = () =>
   useContext(RouterContext);
+
+/*
+ * ============================================================
+ * Route
+ * ============================================================
+ */
 
 interface RouteProps {
   path: string;
@@ -322,34 +541,67 @@ export const Route: React.FC<RouteProps> = ({
   path: routePath,
   element,
 }) => {
-  const { path: currentPath } = useRouter();
+  const {
+    path: currentPath,
+  } = useRouter();
 
   /*
-   * Route matching must ignore ?query and #hash.
+   * ----------------------------------------------------------
+   * Route matching
+   * ----------------------------------------------------------
    *
-   * Router path keeps query parameters so pages can use them
-   * for state, but:
+   * Query parameters and hashes do NOT affect route matching.
    *
-   *   /store?page=3
+   * Therefore:
    *
-   * still matches:
+   * /store
    *
-   *   <Route path="/store" />
+   * matches:
+   *
+   * /store?page=1
+   * /store?page=2
+   * /store?page=3
+   *
+   * etc.
+   * ----------------------------------------------------------
    */
+
   const matchRoute = (
     pattern: string,
     current: string
-  ) => {
-    const cleanPattern = getRoutePath(pattern);
-    const cleanCurrent = getRoutePath(current);
+  ): boolean => {
+    const cleanPattern =
+      getRoutePath(pattern);
 
-    if (cleanPattern === cleanCurrent) {
+    const cleanCurrent =
+      getRoutePath(current);
+
+    /*
+     * Exact route.
+     */
+    if (
+      cleanPattern === cleanCurrent
+    ) {
       return true;
     }
 
-    if (cleanPattern.includes(':')) {
+    /*
+     * Dynamic route.
+     *
+     * Example:
+     *
+     * /product/:id
+     *
+     * matches:
+     *
+     * /product/123
+     */
+    if (
+      cleanPattern.includes(':')
+    ) {
       const patternParts =
         cleanPattern.split('/');
+
       const currentParts =
         cleanCurrent.split('/');
 
@@ -361,12 +613,17 @@ export const Route: React.FC<RouteProps> = ({
       }
 
       return patternParts.every(
-        (part, i) => {
-          if (part.startsWith(':')) {
+        (part, index) => {
+          if (
+            part.startsWith(':')
+          ) {
             return true;
           }
 
-          return part === currentParts[i];
+          return (
+            part ===
+            currentParts[index]
+          );
         }
       );
     }
@@ -386,6 +643,12 @@ export const Route: React.FC<RouteProps> = ({
   return null;
 };
 
+/*
+ * ============================================================
+ * Link
+ * ============================================================
+ */
+
 export const Link: React.FC<{
   to: string;
   children: React.ReactNode;
@@ -397,17 +660,25 @@ export const Link: React.FC<{
   className,
   onClick,
 }) => {
-  const { navigate } = useRouter();
+  const {
+    navigate,
+  } = useRouter();
 
   const handleClick = (
     e: React.MouseEvent<HTMLAnchorElement>
   ) => {
     e.preventDefault();
 
+    /*
+     * Preserve existing Link onClick behaviour.
+     */
     if (onClick) {
       onClick();
     }
 
+    /*
+     * Use our SPA router instead of browser navigation.
+     */
     navigate(to);
   };
 
