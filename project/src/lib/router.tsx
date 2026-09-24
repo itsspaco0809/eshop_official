@@ -237,7 +237,7 @@ export const RouterProvider: React.FC<{
   children: React.ReactNode;
 }> = ({ children }) => {
   const [path, setPath] = useState<string>(
-    getPath
+    getPath()
   );
 
   /*
@@ -394,10 +394,30 @@ export const RouterProvider: React.FC<{
      *
      *   __lcpFromPath
      *
-     * If its Back button navigates to that exact URL, do NOT
-     * create a new history entry. Use the real browser Back
-     * operation instead so we return to the original history
-     * entry with its original pagination + scroll position.
+     * If its Back button navigates to the listing route, do NOT
+     * create a new history entry.
+     *
+     * IMPORTANT:
+     *
+     * The ProductDetail Back button may use:
+     *
+     *   /store
+     *
+     * while the actual original page was:
+     *
+     *   /store?page=3
+     *
+     * Therefore we compare the ROUTE PATH only:
+     *
+     *   /store?page=3 → /store
+     *
+     * becomes:
+     *
+     *   /store → /store
+     *
+     * Once confirmed, we use the browser's real history.back()
+     * so the original URL, pagination and scroll position are
+     * all preserved.
      *
      * Example:
      *
@@ -410,6 +430,7 @@ export const RouterProvider: React.FC<{
      *   /store?page=3 + original scroll
      *
      * This also applies to:
+     *
      *   /instructions?page=N
      *   /custom-parts?page=N
      */
@@ -424,9 +445,30 @@ export const RouterProvider: React.FC<{
     const isReturningToOriginalListing =
       isProductDetail &&
       isRestorableRoute(storedFromPath) &&
-      storedFromPath === targetPath;
+      getRoutePath(storedFromPath) ===
+        getRoutePath(targetPath);
 
     if (isReturningToOriginalListing) {
+      /*
+       * IMPORTANT:
+       *
+       * Do NOT use:
+       *
+       *   history.pushState('/store')
+       *
+       * because that would create:
+       *
+       *   /store
+       *
+       * and lose:
+       *
+       *   /store?page=3
+       *
+       * Instead, use the browser's real history entry.
+       *
+       * The browser will return to the exact entry that was
+       * originally saved when the user clicked the product.
+       */
       window.history.back();
       return;
     }
