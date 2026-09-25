@@ -141,6 +141,322 @@ type CheckoutStatus =
   | 'submitting'
   | 'success';
 
+
+/*
+ * =========================================================
+ * META PIXEL HELPERS
+ * =========================================================
+ *
+ * The Meta Pixel base code is installed in index.html.
+ * These helpers only send standard events after the
+ * appropriate ecommerce action has actually happened.
+ */
+
+const META_PENDING_PURCHASE_KEY =
+  '__lcp_meta_pending_purchase';
+
+const META_PURCHASE_PREFIX =
+  '__lcp_meta_purchase_';
+
+const trackMetaEvent = (
+  eventName: string,
+  params?: Record<string, unknown>,
+  eventId?: string
+) => {
+  if (
+    typeof window === 'undefined'
+  ) {
+    return false;
+  }
+
+  const fbq = (window as any).fbq;
+
+  if (
+    typeof fbq !== 'function'
+  ) {
+    console.warn(
+      `[Meta Pixel] fbq is not available. Event "${eventName}" was not sent.`
+    );
+
+    return false;
+  }
+
+  try {
+    if (eventId) {
+      fbq(
+        'track',
+        eventName,
+        params || {},
+        {
+          eventID: eventId,
+        }
+      );
+    } else if (params) {
+      fbq(
+        'track',
+        eventName,
+        params
+      );
+    } else {
+      fbq(
+        'track',
+        eventName
+      );
+    }
+
+    return true;
+  } catch (error) {
+    console.warn(
+      `[Meta Pixel] Failed to send "${eventName}":`,
+      error
+    );
+
+    return false;
+  }
+};
+
+const normalizeMetaPurchaseValue = (
+  value: number,
+  currency: string
+) => {
+  if (!Number.isFinite(value)) {
+    return 0;
+  }
+
+  const zeroDecimalCurrencies =
+    new Set([
+      'JPY',
+      'KRW',
+      'VND',
+    ]);
+
+  return Number(
+    value.toFixed(
+      zeroDecimalCurrencies.has(
+        currency
+      )
+        ? 0
+        : 2
+    )
+  );
+};
+
+const savePendingMetaPurchase = (
+  payload: {
+    orderId?: string | null;
+    value: number;
+    currency: string;
+    contentIds: string[];
+    contents: Array<{
+      id: string;
+      quantity: number;
+    }>;
+  }
+) => {
+  if (
+    typeof window === 'undefined'
+  ) {
+    return;
+  }
+
+  try {
+    sessionStorage.setItem(
+      META_PENDING_PURCHASE_KEY,
+      JSON.stringify(payload)
+    );
+  } catch (error) {
+    console.warn(
+      '[Meta Pixel] Could not save pending Purchase data:',
+      error
+    );
+  }
+};
+
+const readPendingMetaPurchase = () => {
+  if (
+    typeof window === 'undefined'
+  ) {
+    return null;
+  }
+
+  try {
+    const raw =
+      sessionStorage.getItem(
+        META_PENDING_PURCHASE_KEY
+      );
+
+    if (!raw) {
+      return null;
+    }
+
+    const parsed = JSON.parse(raw);
+
+    if (
+      !parsed ||
+      typeof parsed !== 'object'
+    ) {
+      return null;
+    }
+
+    return parsed as {
+      orderId?: string | null;
+      value?: number;
+      currency?: string;
+      contentIds?: string[];
+      contents?: Array<{
+        id: string;
+        quantity: number;
+      }>;
+    };
+  } catch (error) {
+    console.warn(
+      '[Meta Pixel] Could not read pending Purchase data:',
+      error
+    );
+
+    return null;
+  }
+};
+
+const clearPendingMetaPurchase = () => {
+  if (
+    typeof window === 'undefined'
+  ) {
+    return;
+  }
+
+  try {
+    sessionStorage.removeItem(
+      META_PENDING_PURCHASE_KEY
+    );
+  } catch (error) {
+    console.warn(
+      '[Meta Pixel] Could not clear pending Purchase data:',
+      error
+    );
+  }
+};
+
+const trackMetaPurchaseOnce = (
+  orderId: string,
+  fallbackValue: number,
+  fallbackCurrency: string
+) => {
+  if (
+    typeof window === 'undefined' ||
+    !orderId
+  ) {
+    return false;
+  }
+
+  const storageKey =
+    `${META_PURCHASE_PREFIX}${orderId}`;
+
+  try {
+    if (
+      localStorage.getItem(
+        storageKey
+      ) === '1'
+    ) {
+      console.info(
+        `[Meta Pixel] Purchase already sent for order ${orderId}.`
+      );
+
+      return false;
+    }
+  } catch (error) {
+    console.warn(
+      '[Meta Pixel] Could not read Purchase deduplication storage:',
+      error
+    );
+  }
+
+  const pending =
+    readPendingMetaPurchase();
+
+  const value =
+    normalizeMetaPurchaseValue(
+      typeof pending?.value === 'number'
+        ? pending.value
+        : fallbackValue,
+      typeof pending?.currency === 'string' &&
+        pending.currency
+        ? pending.currency
+        : fallbackCurrency
+    );
+
+  const currency =
+    typeof pending?.currency === 'string' &&
+    pending.currency
+      ? pending.currency
+      : fallbackCurrency;
+
+  const contentIds =
+    Array.isArray(
+      pending?.contentIds
+    )
+      ? pending.contentIds
+      : [];
+
+  const contents =
+    Array.isArray(
+      pending?.contents
+    )
+      ? pending.contents
+      : [];
+
+  const sent =
+    trackMetaEvent(
+      'Purchase',
+      {
+        value,
+        currency,
+        content_ids:
+          contentIds,
+        content_type:
+          'product',
+        contents,
+        num_items:
+          contents.reduce(
+            (total, item) =>
+              total +
+              (Number(item.quantity) || 0),
+            0
+          ),
+      },
+      orderId
+    );
+
+  if (!sent) {
+    return false;
+  }
+
+  try {
+    localStorage.setItem(
+      storageKey,
+      '1'
+    );
+  } catch (error) {
+    console.warn(
+      '[Meta Pixel] Could not save Purchase deduplication flag:',
+      error
+    );
+  }
+
+  clearPendingMetaPurchase();
+
+  console.info(
+    '[Meta Pixel] Purchase sent:',
+    {
+      orderId,
+      value,
+      currency,
+    }
+  );
+
+  return true;
+};
+
 export default function Checkout() {
   const { items = [], clearCart } = useCart();
 
@@ -306,6 +622,8 @@ const sessionId =
         if (paymentStatus === 'cancel') {
           if (cancelled) return;
 
+          clearPendingMetaPurchase();
+
           setStatus('idle');
 
           setErrorMessage(
@@ -359,18 +677,18 @@ const sessionId =
 
             try {
               const {
-  data,
-  error,
-} = await supabase
-  .from('orders')
-  .select(
-    'id,status'
-  )
-  .eq(
-    'stripe_session_id',
-    sessionId
-  )
-  .maybeSingle();
+                data,
+                error,
+              } = await supabase
+                .from('orders')
+                .select(
+                  'id,status,total_amount,currency'
+                )
+                .eq(
+                  'stripe_session_id',
+                  sessionId
+                )
+                .maybeSingle();
 
               if (error) {
                 console.error(
@@ -379,23 +697,103 @@ const sessionId =
                 );
               }
 
+              const normalizedOrderStatus =
+                String(
+                  data?.status || ''
+                ).toLowerCase();
+
+              /*
+               * IMPORTANT:
+               *
+               * The existence of an orders row alone does NOT
+               * prove that Stripe payment has been completed.
+               *
+               * Wait for a confirmed paid/completed status before
+               * clearing the cart, showing Order Confirmed, or
+               * sending Meta Purchase.
+               */
+              const paymentConfirmed =
+                data?.id &&
+                [
+                  'paid',
+                  'done',
+                  'completed',
+                  'processing',
+                  'shipped',
+                ].includes(
+                  normalizedOrderStatus
+                );
+
               if (
-  data?.id
-) {
+                paymentConfirmed
+              ) {
                 if (cancelled) return;
 
-                setOrderId(
-  data.id
-);
+                const confirmedOrderId =
+                  String(data.id);
 
-setDbOrderStatus(
-  data.status ||
-  'paid'
-);
+                setOrderId(
+                  confirmedOrderId
+                );
+
+                setDbOrderStatus(
+                  data.status ||
+                    'paid'
+                );
 
                 /*
-                 * Only clear cart after the
-                 * webhook-created order exists.
+                 * Send Purchase ONLY after the order has a
+                 * confirmed successful status.
+                 *
+                 * The localStorage flag inside
+                 * trackMetaPurchaseOnce() prevents duplicate
+                 * Purchase events after refresh.
+                 */
+                const fallbackValue =
+                  calculateLocalAmount(
+                    baseTotalUSD
+                  );
+
+                const fallbackCurrency =
+                  selectedCurrency;
+
+                let dbOrderTotal =
+                  fallbackValue;
+
+                let dbOrderCurrency =
+                  fallbackCurrency;
+
+                if (
+                  typeof data.total_amount ===
+                    'number' &&
+                  Number.isFinite(
+                    data.total_amount
+                  ) &&
+                  typeof data.currency ===
+                    'string' &&
+                  data.currency
+                ) {
+                  /*
+                   * orders.total_amount is stored in minor units
+                   * by the current Checkout request body.
+                   */
+                  dbOrderTotal =
+                    data.total_amount /
+                    100;
+
+                  dbOrderCurrency =
+                    data.currency;
+                }
+
+                trackMetaPurchaseOnce(
+                  confirmedOrderId,
+                  dbOrderTotal,
+                  dbOrderCurrency
+                );
+
+                /*
+                 * Only clear cart after the webhook-created order
+                 * is confirmed as successfully paid/processed.
                  */
                 clearCart();
 
@@ -1006,6 +1404,112 @@ setErrorMessage(
     discountedSubtotalUSD +
     baseShippingUSD +
     baseTaxUSD;
+
+  /*
+   * =========================================================
+   * META — INITIATE CHECKOUT
+   * =========================================================
+   *
+   * Fire once per checkout page/tab when there are cart items.
+   * This is separate from Purchase and is not used to confirm
+   * payment.
+   */
+  useEffect(() => {
+    if (
+      items.length === 0 ||
+      baseTotalUSD < 0
+    ) {
+      return;
+    }
+
+    const storageKey =
+      '__lcp_meta_initiate_checkout_sent';
+
+    try {
+      if (
+        sessionStorage.getItem(
+          storageKey
+        ) === '1'
+      ) {
+        return;
+      }
+    } catch (error) {
+      console.warn(
+        '[Meta Pixel] Could not read InitiateCheckout storage:',
+        error
+      );
+    }
+
+    const sent =
+      trackMetaEvent(
+        'InitiateCheckout',
+        {
+          value:
+            normalizeMetaPurchaseValue(
+              calculateLocalAmount(
+                baseTotalUSD
+              ),
+              selectedCurrency
+            ),
+          currency:
+            selectedCurrency,
+          content_ids:
+            items
+              .filter(
+                (item) =>
+                  item?.product?.id
+              )
+              .map(
+                (item) =>
+                  String(
+                    item.product.id
+                  )
+              ),
+          content_type:
+            'product',
+          contents:
+            items
+              .filter(
+                (item) =>
+                  item?.product?.id
+              )
+              .map(
+                (item) => ({
+                  id: String(
+                    item.product.id
+                  ),
+                  quantity:
+                    item.quantity || 1,
+                })
+              ),
+          num_items:
+            items.reduce(
+              (total, item) =>
+                total +
+                (item.quantity || 0),
+              0
+            ),
+        }
+      );
+
+    if (sent) {
+      try {
+        sessionStorage.setItem(
+          storageKey,
+          '1'
+        );
+      } catch (error) {
+        console.warn(
+          '[Meta Pixel] Could not save InitiateCheckout storage:',
+          error
+        );
+      }
+    }
+  }, [
+    items,
+    baseTotalUSD,
+    selectedCurrency,
+  ]);
 
   const wordCount =
     form.notes.trim()
@@ -1629,7 +2133,11 @@ setErrorMessage(
         setStatus('success');
 
         /*
-         * Clear cart ONLY after successful order creation.
+         * This is an internal CASH/free order path.
+         *
+         * We intentionally do NOT send Meta Purchase here because
+         * this path is not a confirmed Stripe conversion from the
+         * website ad flow.
          */
         clearCart();
 
@@ -1667,12 +2175,60 @@ setErrorMessage(
   );
 }
 
+      /*
+       * Save the exact checkout amount/currency and product IDs
+       * before leaving for Stripe.
+       *
+       * This gives Meta Purchase the same value the customer
+       * actually checked out with, even if the currency selector
+       * changes while the Stripe page is open.
+       */
+      savePendingMetaPurchase({
+        orderId:
+          data.order_id
+            ? String(
+                data.order_id
+              )
+            : null,
+        value:
+          localTotalAmount,
+        currency:
+          globalCurrency,
+        contentIds:
+          items
+            .filter(
+              (item) =>
+                item?.product?.id
+            )
+            .map(
+              (item) =>
+                String(
+                  item.product.id
+                )
+            ),
+        contents:
+          items
+            .filter(
+              (item) =>
+                item?.product?.id
+            )
+            .map(
+              (item) => ({
+                id: String(
+                  item.product.id
+                ),
+                quantity:
+                  item.quantity || 1,
+              })
+            ),
+      });
+
       // Stripe Checkout redirect
       // Use assign() instead of href so browser navigation is explicit.
       // This avoids SPA router interference and guarantees leaving the app.
       window.location.assign(
-  data.checkout_url
-);
+        data.checkout_url
+      );
     } catch (err: any) {
       console.error(
         '[Checkout] Order submission error:',
