@@ -29,7 +29,8 @@ import {
   CA,
   GB,
   AU,
-  EU,
+  DE,
+  FR,
   JP,
 } from 'country-flag-icons/react/3x2';
 
@@ -50,7 +51,6 @@ const COUNTRY_CONFIG: Record<
     taxRate: 0,
     Flag: HK,
   },
-
   'United States': {
     currency: 'USD',
     rate: 1.0,
@@ -58,7 +58,6 @@ const COUNTRY_CONFIG: Record<
     taxRate: 0.08,
     Flag: US,
   },
-
   Canada: {
     currency: 'CAD',
     rate: 1.35,
@@ -66,7 +65,6 @@ const COUNTRY_CONFIG: Record<
     taxRate: 0.08,
     Flag: CA,
   },
-
   'United Kingdom': {
     currency: 'GBP',
     rate: 0.78,
@@ -74,7 +72,6 @@ const COUNTRY_CONFIG: Record<
     taxRate: 0.08,
     Flag: GB,
   },
-
   Australia: {
     currency: 'AUD',
     rate: 1.52,
@@ -82,23 +79,20 @@ const COUNTRY_CONFIG: Record<
     taxRate: 0.08,
     Flag: AU,
   },
-
   Germany: {
     currency: 'EUR',
     rate: 0.92,
     symbol: '€',
     taxRate: 0.08,
-    Flag: EU,
+    Flag: DE,
   },
-
   France: {
     currency: 'EUR',
     rate: 0.92,
     symbol: '€',
     taxRate: 0.08,
-    Flag: EU,
+    Flag: FR,
   },
-
   Japan: {
     currency: 'JPY',
     rate: 155.0,
@@ -114,8 +108,8 @@ const COUNTRY_TO_CURRENCY: Record<string, string> = {
   Canada: 'CAD',
   'United Kingdom': 'GBP',
   Australia: 'AUD',
-  Germany: 'EUR',
-  France: 'EUR',
+  Germany: 'EUR_DE',
+  France: 'EUR_FR',
   Japan: 'JPY',
 };
 
@@ -125,7 +119,8 @@ const CURRENCY_TO_COUNTRY: Record<string, string> = {
   CAD: 'Canada',
   GBP: 'United Kingdom',
   AUD: 'Australia',
-  EUR: 'Germany',
+  EUR_DE: 'Germany',
+  EUR_FR: 'France',
   JPY: 'Japan',
 };
 
@@ -140,322 +135,6 @@ type CheckoutStatus =
   | 'idle'
   | 'submitting'
   | 'success';
-
-
-/*
- * =========================================================
- * META PIXEL HELPERS
- * =========================================================
- *
- * The Meta Pixel base code is installed in index.html.
- * These helpers only send standard events after the
- * appropriate ecommerce action has actually happened.
- */
-
-const META_PENDING_PURCHASE_KEY =
-  '__lcp_meta_pending_purchase';
-
-const META_PURCHASE_PREFIX =
-  '__lcp_meta_purchase_';
-
-const trackMetaEvent = (
-  eventName: string,
-  params?: Record<string, unknown>,
-  eventId?: string
-) => {
-  if (
-    typeof window === 'undefined'
-  ) {
-    return false;
-  }
-
-  const fbq = (window as any).fbq;
-
-  if (
-    typeof fbq !== 'function'
-  ) {
-    console.warn(
-      `[Meta Pixel] fbq is not available. Event "${eventName}" was not sent.`
-    );
-
-    return false;
-  }
-
-  try {
-    if (eventId) {
-      fbq(
-        'track',
-        eventName,
-        params || {},
-        {
-          eventID: eventId,
-        }
-      );
-    } else if (params) {
-      fbq(
-        'track',
-        eventName,
-        params
-      );
-    } else {
-      fbq(
-        'track',
-        eventName
-      );
-    }
-
-    return true;
-  } catch (error) {
-    console.warn(
-      `[Meta Pixel] Failed to send "${eventName}":`,
-      error
-    );
-
-    return false;
-  }
-};
-
-const normalizeMetaPurchaseValue = (
-  value: number,
-  currency: string
-) => {
-  if (!Number.isFinite(value)) {
-    return 0;
-  }
-
-  const zeroDecimalCurrencies =
-    new Set([
-      'JPY',
-      'KRW',
-      'VND',
-    ]);
-
-  return Number(
-    value.toFixed(
-      zeroDecimalCurrencies.has(
-        currency
-      )
-        ? 0
-        : 2
-    )
-  );
-};
-
-const savePendingMetaPurchase = (
-  payload: {
-    orderId?: string | null;
-    value: number;
-    currency: string;
-    contentIds: string[];
-    contents: Array<{
-      id: string;
-      quantity: number;
-    }>;
-  }
-) => {
-  if (
-    typeof window === 'undefined'
-  ) {
-    return;
-  }
-
-  try {
-    sessionStorage.setItem(
-      META_PENDING_PURCHASE_KEY,
-      JSON.stringify(payload)
-    );
-  } catch (error) {
-    console.warn(
-      '[Meta Pixel] Could not save pending Purchase data:',
-      error
-    );
-  }
-};
-
-const readPendingMetaPurchase = () => {
-  if (
-    typeof window === 'undefined'
-  ) {
-    return null;
-  }
-
-  try {
-    const raw =
-      sessionStorage.getItem(
-        META_PENDING_PURCHASE_KEY
-      );
-
-    if (!raw) {
-      return null;
-    }
-
-    const parsed = JSON.parse(raw);
-
-    if (
-      !parsed ||
-      typeof parsed !== 'object'
-    ) {
-      return null;
-    }
-
-    return parsed as {
-      orderId?: string | null;
-      value?: number;
-      currency?: string;
-      contentIds?: string[];
-      contents?: Array<{
-        id: string;
-        quantity: number;
-      }>;
-    };
-  } catch (error) {
-    console.warn(
-      '[Meta Pixel] Could not read pending Purchase data:',
-      error
-    );
-
-    return null;
-  }
-};
-
-const clearPendingMetaPurchase = () => {
-  if (
-    typeof window === 'undefined'
-  ) {
-    return;
-  }
-
-  try {
-    sessionStorage.removeItem(
-      META_PENDING_PURCHASE_KEY
-    );
-  } catch (error) {
-    console.warn(
-      '[Meta Pixel] Could not clear pending Purchase data:',
-      error
-    );
-  }
-};
-
-const trackMetaPurchaseOnce = (
-  orderId: string,
-  fallbackValue: number,
-  fallbackCurrency: string
-) => {
-  if (
-    typeof window === 'undefined' ||
-    !orderId
-  ) {
-    return false;
-  }
-
-  const storageKey =
-    `${META_PURCHASE_PREFIX}${orderId}`;
-
-  try {
-    if (
-      localStorage.getItem(
-        storageKey
-      ) === '1'
-    ) {
-      console.info(
-        `[Meta Pixel] Purchase already sent for order ${orderId}.`
-      );
-
-      return false;
-    }
-  } catch (error) {
-    console.warn(
-      '[Meta Pixel] Could not read Purchase deduplication storage:',
-      error
-    );
-  }
-
-  const pending =
-    readPendingMetaPurchase();
-
-  const value =
-    normalizeMetaPurchaseValue(
-      typeof pending?.value === 'number'
-        ? pending.value
-        : fallbackValue,
-      typeof pending?.currency === 'string' &&
-        pending.currency
-        ? pending.currency
-        : fallbackCurrency
-    );
-
-  const currency =
-    typeof pending?.currency === 'string' &&
-    pending.currency
-      ? pending.currency
-      : fallbackCurrency;
-
-  const contentIds =
-    Array.isArray(
-      pending?.contentIds
-    )
-      ? pending.contentIds
-      : [];
-
-  const contents =
-    Array.isArray(
-      pending?.contents
-    )
-      ? pending.contents
-      : [];
-
-  const sent =
-    trackMetaEvent(
-      'Purchase',
-      {
-        value,
-        currency,
-        content_ids:
-          contentIds,
-        content_type:
-          'product',
-        contents,
-        num_items:
-          contents.reduce(
-            (total, item) =>
-              total +
-              (Number(item.quantity) || 0),
-            0
-          ),
-      },
-      orderId
-    );
-
-  if (!sent) {
-    return false;
-  }
-
-  try {
-    localStorage.setItem(
-      storageKey,
-      '1'
-    );
-  } catch (error) {
-    console.warn(
-      '[Meta Pixel] Could not save Purchase deduplication flag:',
-      error
-    );
-  }
-
-  clearPendingMetaPurchase();
-
-  console.info(
-    '[Meta Pixel] Purchase sent:',
-    {
-      orderId,
-      value,
-      currency,
-    }
-  );
-
-  return true;
-};
 
 export default function Checkout() {
   const { items = [], clearCart } = useCart();
@@ -483,6 +162,7 @@ export default function Checkout() {
    *
    * This ref acts as a synchronous lock.
    */
+
   const submitLockRef = useRef(false);
 
   const [form, setForm] = useState({
@@ -498,9 +178,7 @@ export default function Checkout() {
     notes: '',
   });
 
-  const [couponInput, setCouponInput] =
-    useState('');
-
+  const [couponInput, setCouponInput] = useState('');
   const [appliedCoupon, setAppliedCoupon] =
     useState<AppliedCoupon | null>(null);
 
@@ -524,12 +202,67 @@ export default function Checkout() {
 
   /*
    * =========================================================
+   * STRIPE RETURN INITIAL STATE
+   * =========================================================
+   *
+   * IMPORTANT:
+   *
+   * This MUST NOT simply start as false.
+   *
+   * Stripe redirects back to:
+   *
+   * /checkout?success=true&session_id=...
+   *
+   * React can render the component once BEFORE useEffect()
+   * executes.
+   *
+   * If this state starts as false, the normal checkout UI
+   * can briefly appear before useEffect() changes it to true.
+   *
+   * We therefore inspect the URL during the INITIAL STATE
+   * calculation.
+   *
+   * This means the FIRST render after Stripe returns is already
+   * the confirmation/loading screen.
+   */
+
+  const [isConfirmingStripeReturn, setIsConfirmingStripeReturn] =
+    useState(() => {
+      if (typeof window === 'undefined') {
+        return false;
+      }
+
+      const searchParams = new URLSearchParams(
+        window.location.search
+      );
+
+      const paymentStatus =
+        searchParams.get('status');
+
+      const stripeSuccess =
+        searchParams.get('success');
+
+      const sessionId =
+        searchParams.get('session_id');
+
+      return (
+        !!sessionId &&
+        (
+          paymentStatus === 'success' ||
+          stripeSuccess === 'true'
+        )
+      );
+    });
+
+  /*
+   * =========================================================
    * ADMIN CASH PAYMENT
    * =========================================================
    *
    * Only an authenticated admin with the correct
    * app_metadata role can trigger CASH.
    */
+
   const isCashPayment =
     isAdmin &&
     form.notes
@@ -542,6 +275,7 @@ export default function Checkout() {
    * SCROLL TO TOP
    * =========================================================
    */
+
   const scrollToTop = () => {
     window.scrollTo({
       top: 0,
@@ -565,6 +299,7 @@ export default function Checkout() {
    * STRIPE WEBHOOK CONFIRMATION
    * =========================================================
    */
+
   useEffect(() => {
     let cancelled = false;
 
@@ -572,292 +307,326 @@ export default function Checkout() {
       | ReturnType<typeof setTimeout>
       | null = null;
 
-    const confirmStripeOrder =
-      async () => {
-        const searchParams =
-          new URLSearchParams(
-            window.location.search
-          );
+    const confirmStripeOrder = async () => {
+      const searchParams = new URLSearchParams(
+        window.location.search
+      );
 
-        const paymentStatus =
-  searchParams.get('status');
+      const paymentStatus =
+        searchParams.get('status');
 
-const stripeSuccess =
-  searchParams.get('success');
+      const stripeSuccess =
+        searchParams.get('success');
 
-const sessionId =
-  searchParams.get('session_id');
+      const sessionId =
+        searchParams.get('session_id');
 
-        const paramOrderId =
-          searchParams.get('order_id');
+      const paramOrderId =
+        searchParams.get('order_id');
 
-        /*
-         * -----------------------------------------------------
-         * CASH / LEGACY DIRECT ORDER
-         * -----------------------------------------------------
-         */
-        if (paramOrderId) {
-          if (cancelled) return;
+      /*
+       * -----------------------------------------------------
+       * CASH / LEGACY DIRECT ORDER
+       * -----------------------------------------------------
+       */
 
-          setOrderId(paramOrderId);
-          setStatus('success');
-
-          clearCart();
-          scrollToTop();
-
-          window.history.replaceState(
-            {},
-            document.title,
-            window.location.pathname
-          );
-
+      if (paramOrderId) {
+        if (cancelled) {
           return;
         }
 
+        setOrderId(paramOrderId);
+        setStatus('success');
+
         /*
-         * -----------------------------------------------------
-         * STRIPE CANCEL
-         * -----------------------------------------------------
+         * Fetch the actual database status so the success
+         * page can correctly show PAID or DONE.
          */
-        if (paymentStatus === 'cancel') {
-          if (cancelled) return;
 
-          clearPendingMetaPurchase();
+        const {
+          data,
+          error,
+        } = await supabase
+          .from('orders')
+          .select('status')
+          .eq('id', paramOrderId)
+          .maybeSingle();
 
-          setStatus('idle');
-
-          setErrorMessage(
-            'Payment was cancelled. No order was created.'
-          );
-
-          window.history.replaceState(
-            {},
-            document.title,
-            window.location.pathname
-          );
-
+        if (cancelled) {
           return;
         }
 
-        /*
-         * -----------------------------------------------------
-         * NOTHING TO CONFIRM
-         * -----------------------------------------------------
-         */
         if (
-  (
-    paymentStatus !== 'success' &&
-    stripeSuccess !== 'true'
-  ) ||
-  !sessionId
-) {
-  return;
-}
+          !error &&
+          data?.status
+        ) {
+          setDbOrderStatus(
+            data.status
+          );
+        } else {
+          setDbOrderStatus('paid');
+        }
 
-        if (cancelled) return;
-
-        setErrorMessage(null);
-
+        clearCart();
         scrollToTop();
 
-        /*
-         * Remove URL query parameters immediately.
-         */
         window.history.replaceState(
           {},
           document.title,
           window.location.pathname
         );
 
-        const startedAt = Date.now();
+        return;
+      }
 
-        const pollForOrder =
-          async () => {
-            if (cancelled) return;
+      /*
+       * -----------------------------------------------------
+       * STRIPE CANCEL
+       * -----------------------------------------------------
+       */
 
-            try {
-              const {
-                data,
-                error,
-              } = await supabase
-                .from('orders')
-                .select(
-                  'id,status,total_amount,currency'
-                )
-                .eq(
-                  'stripe_session_id',
-                  sessionId
-                )
-                .maybeSingle();
+      if (
+        paymentStatus === 'cancel'
+      ) {
+        if (cancelled) {
+          return;
+        }
 
-              if (error) {
-                console.error(
-                  'Stripe order confirmation query failed:',
-                  error
-                );
-              }
+        setIsConfirmingStripeReturn(false);
 
-              const normalizedOrderStatus =
-                String(
-                  data?.status || ''
-                ).toLowerCase();
+        setStatus('idle');
+
+        setErrorMessage(
+          'Payment was cancelled. No order was created.'
+        );
+
+        window.history.replaceState(
+          {},
+          document.title,
+          window.location.pathname
+        );
+
+        return;
+      }
+
+      /*
+       * -----------------------------------------------------
+       * NOTHING TO CONFIRM
+       * -----------------------------------------------------
+       */
+
+      if (
+        (
+          paymentStatus !== 'success' &&
+          stripeSuccess !== 'true'
+        ) ||
+        !sessionId
+      ) {
+        if (!cancelled) {
+          setIsConfirmingStripeReturn(false);
+        }
+
+        return;
+      }
+
+      if (cancelled) {
+        return;
+      }
+
+      /*
+       * -----------------------------------------------------
+       * STRIPE RETURN
+       * -----------------------------------------------------
+       *
+       * The initial useState() has already made the FIRST
+       * render the loading screen.
+       *
+       * This remains here as a safety net for any client-side
+       * navigation that reaches this component with Stripe
+       * parameters.
+       */
+
+      setIsConfirmingStripeReturn(true);
+      setErrorMessage(null);
+
+      scrollToTop();
+
+      /*
+       * Remove URL query parameters immediately.
+       *
+       * replaceState() does not reload the page.
+       */
+
+      window.history.replaceState(
+        {},
+        document.title,
+        window.location.pathname
+      );
+
+      const startedAt = Date.now();
+
+      const pollForOrder = async () => {
+        if (cancelled) {
+          return;
+        }
+
+        try {
+          const {
+            data,
+            error,
+          } = await supabase
+            .from('orders')
+            .select('id,status')
+            .eq(
+              'stripe_session_id',
+              sessionId
+            )
+            .maybeSingle();
+
+          if (error) {
+            console.error(
+              'Stripe order confirmation query failed:',
+              error
+            );
+          }
+
+          if (data?.id) {
+            if (cancelled) {
+              return;
+            }
+
+            setOrderId(data.id);
+
+            /*
+             * IMPORTANT:
+             *
+             * Finding the order does NOT mean payment is
+             * complete.
+             *
+             * create-order creates the order row first.
+             *
+             * Stripe webhook then changes:
+             *
+             * pending → paid
+             *
+             * OR
+             *
+             * pending → done
+             *
+             * Therefore we keep the confirmation screen
+             * visible while the status is still pending.
+             */
+
+            if (
+              data.status === 'paid' ||
+              data.status === 'done'
+            ) {
+              setDbOrderStatus(
+                data.status
+              );
+
+              clearCart();
 
               /*
                * IMPORTANT:
                *
-               * The existence of an orders row alone does NOT
-               * prove that Stripe payment has been completed.
-               *
-               * Wait for a confirmed paid/completed status before
-               * clearing the cart, showing Order Confirmed, or
-               * sending Meta Purchase.
+               * Only hide the Stripe confirmation screen
+               * AFTER the final DB status is confirmed.
                */
-              const paymentConfirmed =
-                data?.id &&
-                [
-                  'paid',
-                  'done',
-                  'completed',
-                  'processing',
-                  'shipped',
-                ].includes(
-                  normalizedOrderStatus
-                );
 
-              if (
-                paymentConfirmed
-              ) {
-                if (cancelled) return;
+              setIsConfirmingStripeReturn(false);
 
-                const confirmedOrderId =
-                  String(data.id);
+              setStatus('success');
 
-                setOrderId(
-                  confirmedOrderId
-                );
+              scrollToTop();
 
-                setDbOrderStatus(
-                  data.status ||
-                    'paid'
-                );
-
-                /*
-                 * Send Purchase ONLY after the order has a
-                 * confirmed successful status.
-                 *
-                 * The localStorage flag inside
-                 * trackMetaPurchaseOnce() prevents duplicate
-                 * Purchase events after refresh.
-                 */
-                const fallbackValue =
-                  calculateLocalAmount(
-                    baseTotalUSD
-                  );
-
-                const fallbackCurrency =
-                  selectedCurrency;
-
-                let dbOrderTotal =
-                  fallbackValue;
-
-                let dbOrderCurrency =
-                  fallbackCurrency;
-
-                if (
-                  typeof data.total_amount ===
-                    'number' &&
-                  Number.isFinite(
-                    data.total_amount
-                  ) &&
-                  typeof data.currency ===
-                    'string' &&
-                  data.currency
-                ) {
-                  /*
-                   * orders.total_amount is stored in minor units
-                   * by the current Checkout request body.
-                   */
-                  dbOrderTotal =
-                    data.total_amount /
-                    100;
-
-                  dbOrderCurrency =
-                    data.currency;
-                }
-
-                trackMetaPurchaseOnce(
-                  confirmedOrderId,
-                  dbOrderTotal,
-                  dbOrderCurrency
-                );
-
-                /*
-                 * Only clear cart after the webhook-created order
-                 * is confirmed as successfully paid/processed.
-                 */
-                clearCart();
-
-                setStatus('success');
-
-                scrollToTop();
-
-                return;
-              }
-
-              /*
-               * Continue polling for up to 60 seconds.
-               */
-              if (
-                Date.now() - startedAt <
-                60000
-              ) {
-                pollTimer =
-                  setTimeout(
-                    pollForOrder,
-                    1500
-                  );
-
-                return;
-              }
-
-              if (cancelled) return;
-
-              setStatus('idle');
-
-setErrorMessage(
-  'Payment received. Your order is still being processed. Please check your order history shortly.'
-);
-            } catch (error) {
-              console.error(
-                'Stripe order confirmation error:',
-                error
-              );
-
-              if (
-                Date.now() - startedAt <
-                60000
-              ) {
-                pollTimer =
-                  setTimeout(
-                    pollForOrder,
-                    1500
-                  );
-
-                return;
-              }
-
-              if (cancelled) return;
-
-              setStatus('idle');
-
-              setErrorMessage(
-                'We could not confirm your order yet. Please check your order history shortly.'
-              );
+              return;
             }
-          };
 
-        pollForOrder();
+            /*
+             * Order exists but webhook has not finished yet.
+             *
+             * Keep polling.
+             */
+
+            if (
+              Date.now() - startedAt <
+              60000
+            ) {
+              pollTimer = setTimeout(
+                pollForOrder,
+                1000
+              );
+
+              return;
+            }
+          }
+
+          /*
+           * Continue polling for up to 60 seconds.
+           */
+
+          if (
+            Date.now() - startedAt <
+            60000
+          ) {
+            pollTimer = setTimeout(
+              pollForOrder,
+              1500
+            );
+
+            return;
+          }
+
+          if (cancelled) {
+            return;
+          }
+
+          /*
+           * Confirmation timed out.
+           */
+
+          setIsConfirmingStripeReturn(false);
+
+          setStatus('idle');
+
+          setErrorMessage(
+            'Payment received. Your order is still being processed. Please check your order history shortly.'
+          );
+        } catch (error) {
+          console.error(
+            'Stripe order confirmation error:',
+            error
+          );
+
+          if (
+            Date.now() - startedAt <
+            60000
+          ) {
+            pollTimer = setTimeout(
+              pollForOrder,
+              1500
+            );
+
+            return;
+          }
+
+          if (cancelled) {
+            return;
+          }
+
+          setIsConfirmingStripeReturn(false);
+
+          setStatus('idle');
+
+          setErrorMessage(
+            'We could not confirm your order yet. Please check your order history shortly.'
+          );
+        }
       };
+
+      pollForOrder();
+    };
 
     confirmStripeOrder();
 
@@ -875,11 +644,10 @@ setErrorMessage(
    * CURRENCY → COUNTRY SYNC
    * =========================================================
    */
+
   useEffect(() => {
     const matchingCountry =
-      CURRENCY_TO_COUNTRY[
-        globalCurrency
-      ];
+      CURRENCY_TO_COUNTRY[globalCurrency];
 
     if (
       matchingCountry &&
@@ -914,11 +682,11 @@ setErrorMessage(
    * PRICE HELPERS
    * =========================================================
    */
+
   const calculateLocalAmount = (
     usdAmount: number
   ) => {
-    const raw =
-      usdAmount * rate;
+    const raw = usdAmount * rate;
 
     return selectedCurrency === 'HKD'
       ? Math.ceil(raw)
@@ -929,9 +697,7 @@ setErrorMessage(
     usdAmount: number
   ) => {
     const localAmount =
-      calculateLocalAmount(
-        usdAmount
-      );
+      calculateLocalAmount(usdAmount);
 
     const isHKD =
       selectedCurrency === 'HKD';
@@ -942,7 +708,6 @@ setErrorMessage(
         {
           minimumFractionDigits:
             isHKD ? 0 : 2,
-
           maximumFractionDigits:
             isHKD ? 0 : 2,
         }
@@ -956,51 +721,47 @@ setErrorMessage(
    * COUNTRY
    * =========================================================
    */
+
   const handleCountryChange = (
-    country: string
-  ) => {
-    setForm((prev) => ({
-      ...prev,
-      country,
-    }));
+  country: string
+) => {
+  setForm((prev) => ({
+    ...prev,
+    country,
+  }));
 
-    const newCurrency =
-      COUNTRY_TO_CURRENCY[country];
+  const newCurrencyKey =
+    COUNTRY_TO_CURRENCY[country];
 
-    if (
-      newCurrency &&
-      newCurrency !== globalCurrency
-    ) {
-      setGlobalCurrency(
-        newCurrency
-      );
+  if (
+    newCurrencyKey &&
+    newCurrencyKey !== globalCurrency
+  ) {
+    setGlobalCurrency(newCurrencyKey);
 
-      setAppliedCoupon(null);
-      setCouponError(null);
-    }
-  };
+    setAppliedCoupon(null);
+    setCouponError(null);
+  }
+};
 
   /*
    * =========================================================
    * NOTES
    * =========================================================
    */
+
   const handleNotesChange = (
     e: ChangeEvent<HTMLTextAreaElement>
   ) => {
-    const text =
-      e.target.value;
+    const text = e.target.value;
 
-    const words =
-      text.trim()
-        ? text.trim().split(/\s+/)
-            .length
-        : 0;
+    const words = text.trim()
+      ? text.trim().split(/\s+/).length
+      : 0;
 
     if (
       words <= 200 ||
-      text.length <
-        form.notes.length
+      text.length < form.notes.length
     ) {
       setForm((prev) => ({
         ...prev,
@@ -1014,17 +775,28 @@ setErrorMessage(
    * PRODUCT HELPERS
    * =========================================================
    */
+
   const getProductPriceUSD = (
     price?: number
   ) => {
-    if (
-      typeof price !== 'number'
-    ) {
+    if (typeof price !== 'number') {
       return 0;
     }
 
     return price / 100;
   };
+
+  /*
+   * =========================================================
+   * INSTRUCTIONS PRODUCT DETECTION
+   * =========================================================
+   *
+   * Keep this aligned with the server-side create-order
+   * and stripe-webhook logic.
+   *
+   * An item is considered an Instructions product when
+   * section, category, OR name contains "instruction".
+   */
 
   const isInstructionItem = (
     item?: (typeof items)[0]
@@ -1033,11 +805,24 @@ setErrorMessage(
       return false;
     }
 
+    const product =
+      item.product as any;
+
+    const rawSection =
+      product.section;
+
     const rawCategory =
-      item.product.category;
+      product.category;
 
     const rawName =
-      item.product.name;
+      product.name;
+
+    const sectionStr =
+      Array.isArray(rawSection)
+        ? rawSection.join(' ')
+        : String(
+            rawSection || ''
+          );
 
     const categoryStr =
       Array.isArray(rawCategory)
@@ -1053,18 +838,30 @@ setErrorMessage(
             rawName || ''
           );
 
+    const section =
+      sectionStr
+        .trim()
+        .toLowerCase();
+
     const category =
-      categoryStr.toLowerCase();
+      categoryStr
+        .trim()
+        .toLowerCase();
 
     const name =
-      nameStr.toLowerCase();
+      nameStr
+        .trim()
+        .toLowerCase();
 
     return (
+      section.includes(
+        'instruction'
+      ) ||
       category.includes(
         'instruction'
       ) ||
       name.includes(
-        '[instruction]'
+        'instruction'
       )
     );
   };
@@ -1074,6 +871,7 @@ setErrorMessage(
    * SUBTOTAL
    * =========================================================
    */
+
   const normalizedSubtotalUSD =
     items.reduce(
       (acc, item) => {
@@ -1097,6 +895,7 @@ setErrorMessage(
    * COUPON
    * =========================================================
    */
+
   const handleApplyCoupon = async (
     e: FormEvent
   ) => {
@@ -1119,20 +918,22 @@ setErrorMessage(
       const {
         data,
         error,
-      } =
-        await supabase.functions.invoke(
-          'validate-coupon',
-          {
-            body: {
-              code,
-            },
-          }
-        );
+      } = await supabase.functions.invoke(
+        'validate-coupon',
+        {
+          body: {
+            code,
+          },
+        }
+      );
 
       const coupon =
         data?.coupon ?? null;
 
-      if (error || !coupon) {
+      if (
+        error ||
+        !coupon
+      ) {
         setCouponError(
           'Invalid coupon code.'
         );
@@ -1159,8 +960,7 @@ setErrorMessage(
 
       if (
         couponCurrency !== 'ALL' &&
-        couponCurrency !==
-          selectedCurrency
+        couponCurrency !== selectedCurrency
       ) {
         setCouponError(
           `This coupon is only valid for purchases in ${couponCurrency}.`
@@ -1223,6 +1023,7 @@ setErrorMessage(
    * SUCCESS SCROLL
    * =========================================================
    */
+
   useEffect(() => {
     if (status === 'success') {
       scrollToTop();
@@ -1234,6 +1035,7 @@ setErrorMessage(
    * ORDER STATUS LISTENER
    * =========================================================
    */
+
   useEffect(() => {
     if (!orderId) {
       return;
@@ -1296,6 +1098,7 @@ setErrorMessage(
    * DISCOUNT
    * =========================================================
    */
+
   let discountAmountUSD = 0;
 
   if (appliedCoupon) {
@@ -1304,8 +1107,10 @@ setErrorMessage(
       'percentage'
     ) {
       discountAmountUSD =
-        (normalizedSubtotalUSD *
-          appliedCoupon.discountValue) /
+        (
+          normalizedSubtotalUSD *
+          appliedCoupon.discountValue
+        ) /
         100;
     } else {
       discountAmountUSD =
@@ -1329,6 +1134,7 @@ setErrorMessage(
    * PHYSICAL ITEMS
    * =========================================================
    */
+
   const basePhysicalSubtotalUSD =
     items.reduce(
       (acc, item) => {
@@ -1357,16 +1163,33 @@ setErrorMessage(
         !isInstructionItem(item)
     );
 
+  /*
+   * IMPORTANT:
+   *
+   * Only an order where EVERY item is an Instructions
+   * product is considered Instructions Only.
+   *
+   * Therefore:
+   *
+   * Instructions
+   * → done
+   *
+   * Kits
+   * → paid
+   *
+   * Custom Parts
+   * → paid
+   *
+   * Kits + Instructions
+   * → paid
+   *
+   * Kits + Instructions + Custom Parts
+   * → paid
+   */
+
   const isInstructionOnly =
     items.length > 0 &&
     items.every(
-      (item) =>
-        item?.product &&
-        isInstructionItem(item)
-    );
-
-  const hasInstructionItems =
-    items.some(
       (item) =>
         item?.product &&
         isInstructionItem(item)
@@ -1377,6 +1200,7 @@ setErrorMessage(
    * SHIPPING / TAX
    * =========================================================
    */
+
   const freeShippingThresholdUSD =
     99;
 
@@ -1387,8 +1211,7 @@ setErrorMessage(
   const baseShippingUSD =
     isHongKong ||
     !hasPhysicalItems ||
-    basePhysicalSubtotalUSD ===
-      0 ||
+    basePhysicalSubtotalUSD === 0 ||
     basePhysicalSubtotalUSD >=
       freeShippingThresholdUSD
       ? 0
@@ -1404,112 +1227,6 @@ setErrorMessage(
     discountedSubtotalUSD +
     baseShippingUSD +
     baseTaxUSD;
-
-  /*
-   * =========================================================
-   * META — INITIATE CHECKOUT
-   * =========================================================
-   *
-   * Fire once per checkout page/tab when there are cart items.
-   * This is separate from Purchase and is not used to confirm
-   * payment.
-   */
-  useEffect(() => {
-    if (
-      items.length === 0 ||
-      baseTotalUSD < 0
-    ) {
-      return;
-    }
-
-    const storageKey =
-      '__lcp_meta_initiate_checkout_sent';
-
-    try {
-      if (
-        sessionStorage.getItem(
-          storageKey
-        ) === '1'
-      ) {
-        return;
-      }
-    } catch (error) {
-      console.warn(
-        '[Meta Pixel] Could not read InitiateCheckout storage:',
-        error
-      );
-    }
-
-    const sent =
-      trackMetaEvent(
-        'InitiateCheckout',
-        {
-          value:
-            normalizeMetaPurchaseValue(
-              calculateLocalAmount(
-                baseTotalUSD
-              ),
-              selectedCurrency
-            ),
-          currency:
-            selectedCurrency,
-          content_ids:
-            items
-              .filter(
-                (item) =>
-                  item?.product?.id
-              )
-              .map(
-                (item) =>
-                  String(
-                    item.product.id
-                  )
-              ),
-          content_type:
-            'product',
-          contents:
-            items
-              .filter(
-                (item) =>
-                  item?.product?.id
-              )
-              .map(
-                (item) => ({
-                  id: String(
-                    item.product.id
-                  ),
-                  quantity:
-                    item.quantity || 1,
-                })
-              ),
-          num_items:
-            items.reduce(
-              (total, item) =>
-                total +
-                (item.quantity || 0),
-              0
-            ),
-        }
-      );
-
-    if (sent) {
-      try {
-        sessionStorage.setItem(
-          storageKey,
-          '1'
-        );
-      } catch (error) {
-        console.warn(
-          '[Meta Pixel] Could not save InitiateCheckout storage:',
-          error
-        );
-      }
-    }
-  }, [
-    items,
-    baseTotalUSD,
-    selectedCurrency,
-  ]);
 
   const wordCount =
     form.notes.trim()
@@ -1532,14 +1249,14 @@ setErrorMessage(
    * The Supabase session is checked immediately before
    * creating the order.
    */
+
   const getCheckoutSession =
     async () => {
       try {
         const {
           data,
           error,
-        } =
-          await supabase.auth.getSession();
+        } = await supabase.auth.getSession();
 
         if (error) {
           console.warn(
@@ -1569,14 +1286,13 @@ setErrorMessage(
    * Used only when Supabase tells us that the existing
    * refresh token/session is invalid.
    */
+
   const clearBrokenAuthSession =
     async () => {
       try {
-        await supabase.auth.signOut(
-          {
-            scope: 'local',
-          }
-        );
+        await supabase.auth.signOut({
+          scope: 'local',
+        });
       } catch (error) {
         console.warn(
           '[Checkout] Failed to clear broken auth session:',
@@ -1590,6 +1306,7 @@ setErrorMessage(
    * EDGE FUNCTION ERROR PARSER
    * =========================================================
    */
+
   const parseFunctionError =
     async (
       funcError: any
@@ -1608,10 +1325,11 @@ setErrorMessage(
       /*
        * Read Retry-After header if the backend provides it.
        */
+
       try {
         if (
-          funcError?.context?.headers
-            ?.get
+          funcError?.context
+            ?.headers?.get
         ) {
           retryAfter =
             funcError.context.headers.get(
@@ -1623,22 +1341,21 @@ setErrorMessage(
       /*
        * Try reading JSON error body.
        */
+
       try {
         if (
           funcError?.context &&
           typeof funcError
             .context
-            .json ===
-            'function'
+            .json === 'function'
         ) {
           const body =
-            await funcError.context.json();
+            await funcError
+              .context
+              .json();
 
-          if (
-            body?.error
-          ) {
-            message =
-              body.error;
+          if (body?.error) {
+            message = body.error;
           } else if (
             body?.message
           ) {
@@ -1653,14 +1370,11 @@ setErrorMessage(
        * RATE LIMIT
        * -----------------------------------------------------
        */
-      if (
-        statusCode === 429
-      ) {
+
+      if (statusCode === 429) {
         if (retryAfter) {
           const seconds =
-            Number(
-              retryAfter
-            );
+            Number(retryAfter);
 
           if (
             Number.isFinite(
@@ -1692,6 +1406,7 @@ setErrorMessage(
        * INVALID REFRESH TOKEN
        * -----------------------------------------------------
        */
+
       const lowerMessage =
         String(
           message || ''
@@ -1720,6 +1435,7 @@ setErrorMessage(
    * SUBMIT ORDER
    * =========================================================
    */
+
   const handleSubmit = async (
     e: FormEvent
   ) => {
@@ -1730,6 +1446,7 @@ setErrorMessage(
      * HARD DOUBLE-SUBMIT LOCK
      * -------------------------------------------------------
      */
+
     if (submitLockRef.current) {
       return;
     }
@@ -1744,9 +1461,11 @@ setErrorMessage(
      * VALIDATE CART
      * -------------------------------------------------------
      */
+
     const invalidItems =
       items.filter(
-        (item) => !item?.product
+        (item) =>
+          !item?.product
       );
 
     if (
@@ -1766,36 +1485,29 @@ setErrorMessage(
 
     /*
      * -------------------------------------------------------
-     * DIGITAL INSTRUCTIONS REQUIRE AN ACCOUNT
-     * -------------------------------------------------------
-     *
-     * Instruction purchases must belong to a real user account
-     * so the order can appear in Order History and the customer
-     * can access the downloadable files after purchase.
-     *
-     * Physical products can still use guest checkout.
-     */
-    if (hasInstructionItems && !user) {
-      submitLockRef.current =
-        false;
-
-      setStatus('idle');
-
-      setErrorMessage(
-        'Please sign in or create an account before purchasing digital instructions. Your account is required to access the downloadable files after purchase.'
-      );
-
-      return;
-    }
-
-    /*
-     * -------------------------------------------------------
      * DETERMINE ORDER STATUS
      * -------------------------------------------------------
+     *
+     * IMPORTANT:
+     *
+     * Instructions ONLY
+     * → done
+     *
+     * Cash order with physical products
+     * → paid
+     *
+     * Normal Stripe order
+     * → pending
+     *
+     * The final Stripe status is still determined by the
+     * stripe-webhook using the actual order_items/products
+     * on the server.
      */
+
     const targetStatus =
-      isCashPayment ||
       isInstructionOnly
+        ? 'done'
+        : isCashPayment
         ? 'paid'
         : 'pending';
 
@@ -1815,20 +1527,9 @@ setErrorMessage(
        * STEP 1 — VERIFY CURRENT SESSION
        * =====================================================
        */
+
       let activeSession =
         await getCheckoutSession();
-
-      /*
-       * A digital instruction order must never fall back to
-       * guest checkout. Even if React still has a stale user
-       * object, require a live Supabase session before creating
-       * the order.
-       */
-      if (hasInstructionItems && !activeSession) {
-        throw new Error(
-          'Your account session is not active. Please sign in again before purchasing digital instructions.'
-        );
-      }
 
       /*
        * If React says a user is logged in but Supabase
@@ -1838,6 +1539,7 @@ setErrorMessage(
        * - normal Stripe → clear stale local auth and
        *   continue as guest
        */
+
       if (
         user &&
         !activeSession
@@ -1857,6 +1559,7 @@ setErrorMessage(
         /*
          * Guest checkout is allowed for normal Stripe orders.
          */
+
         activeSession = null;
       }
 
@@ -1865,6 +1568,7 @@ setErrorMessage(
        * STEP 2 — CREATE ORDER / STRIPE SESSION
        * =====================================================
        */
+
       const requestBody = {
         /*
          * IMPORTANT:
@@ -1872,6 +1576,7 @@ setErrorMessage(
          * Use the CURRENT Supabase session user ID,
          * not a stale React user ID.
          */
+
         user_id:
           activeSession?.user?.id ??
           null,
@@ -1898,7 +1603,18 @@ setErrorMessage(
           form.country,
 
         currency:
-          globalCurrency,
+          selectedCurrency,
+
+        /*
+         * Instructions only:
+         * done
+         *
+         * Cash physical order:
+         * paid
+         *
+         * Stripe:
+         * pending until webhook confirmation
+         */
 
         status:
           targetStatus,
@@ -1926,48 +1642,48 @@ setErrorMessage(
             localTotalAmount * 100
           ),
 
-        items:
-          items.map(
-            (item) => {
-              const prod =
-                item.product as any;
+        items: items.map(
+          (item) => {
+            const prod =
+              item.product as any;
 
-              const colorName =
-                item.selectedColor ||
-                prod?.selectedColor ||
-                null;
+            const colorName =
+              item.selectedColor ||
+              prod?.selectedColor ||
+              null;
 
-              return {
-                product_id:
-                  prod?.id,
+            return {
+              product_id:
+                prod?.id,
 
-                product_name:
-                  prod?.name,
+              product_name:
+                prod?.name,
 
-                selected_color:
-                  colorName,
+              selected_color:
+                colorName,
 
-                quantity:
-                  item.quantity,
+              quantity:
+                item.quantity,
 
-                /*
-                 * Kept for compatibility.
-                 *
-                 * create-order should continue using
-                 * the database product price as the
-                 * authoritative price.
-                 */
-                price:
-                  Math.round(
-                    calculateLocalAmount(
-                      getProductPriceUSD(
-                        prod?.price
-                      )
-                    ) * 100
-                  ),
-              };
-            }
-          ),
+              /*
+               * Kept for compatibility.
+               *
+               * create-order should continue using
+               * the database product price as the
+               * authoritative price.
+               */
+
+              price:
+                Math.round(
+                  calculateLocalAmount(
+                    getProductPriceUSD(
+                      prod?.price
+                    )
+                  ) * 100
+                ),
+            };
+          }
+        ),
       };
 
       let data: any = null;
@@ -1978,11 +1694,13 @@ setErrorMessage(
        * FIRST ATTEMPT
        * -------------------------------------------------------
        */
+
       const firstAttempt =
         await supabase.functions.invoke(
           'create-order',
           {
-            body: requestBody,
+            body:
+              requestBody,
           }
         );
 
@@ -2003,13 +1721,9 @@ setErrorMessage(
        * 1. Clear broken local session.
        * 2. Do NOT repeat for admin CASH.
        * 3. Retry ONE time as guest for normal Stripe.
-       *
-       * This prevents an old Safari auth token from blocking
-       * a perfectly valid guest checkout.
        */
-      if (
-        funcError
-      ) {
+
+      if (funcError) {
         const parsed =
           await parseFunctionError(
             funcError
@@ -2030,15 +1744,10 @@ setErrorMessage(
             );
           }
 
-          if (hasInstructionItems) {
-            throw new Error(
-              'Your login session expired. Please sign in again before purchasing digital instructions.'
-            );
-          }
-
           /*
            * Retry exactly ONCE.
            */
+
           const retryBody = {
             ...requestBody,
             user_id: null,
@@ -2048,7 +1757,8 @@ setErrorMessage(
             await supabase.functions.invoke(
               'create-order',
               {
-                body: retryBody,
+                body:
+                  retryBody,
               }
             );
 
@@ -2065,6 +1775,7 @@ setErrorMessage(
        * FUNCTION ERROR
        * -------------------------------------------------------
        */
+
       if (funcError) {
         const parsed =
           await parseFunctionError(
@@ -2092,6 +1803,7 @@ setErrorMessage(
        * BACKEND RESPONSE VALIDATION
        * -------------------------------------------------------
        */
+
       if (
         !data?.success
       ) {
@@ -2107,10 +1819,11 @@ setErrorMessage(
        * CASH / FREE ORDER
        * =====================================================
        */
+
       if (
-  isCashPayment ||
-  baseTotalUSD === 0
-) {
+        isCashPayment ||
+        baseTotalUSD === 0
+      ) {
         if (
           !data.order_id
         ) {
@@ -2123,8 +1836,18 @@ setErrorMessage(
           data.order_id
         );
 
+        /*
+         * IMPORTANT:
+         *
+         * Use the backend status as authoritative.
+         *
+         * Instructions only → done
+         * Physical/Cash order → paid
+         */
+
         setDbOrderStatus(
           data.status ||
+            targetStatus ||
             'paid'
         );
 
@@ -2133,12 +1856,9 @@ setErrorMessage(
         setStatus('success');
 
         /*
-         * This is an internal CASH/free order path.
-         *
-         * We intentionally do NOT send Meta Purchase here because
-         * this path is not a confirmed Stripe conversion from the
-         * website ad flow.
+         * Clear cart ONLY after successful order creation.
          */
+
         clearCart();
 
         return;
@@ -2161,71 +1881,28 @@ setErrorMessage(
        *       ↓
        * orders row
        *       ↓
-       * get_checkout_status
+       * Checkout polling / order status
        *       ↓
        * success
        */
+
       if (
-  typeof data.checkout_url !==
-  'string' ||
-  !data.checkout_url
-) {
-  throw new Error(
-    'Stripe checkout URL was not returned.'
-  );
-}
+        typeof data.checkout_url !==
+          'string' ||
+        !data.checkout_url
+      ) {
+        throw new Error(
+          'Stripe checkout URL was not returned.'
+        );
+      }
 
       /*
-       * Save the exact checkout amount/currency and product IDs
-       * before leaving for Stripe.
+       * Stripe Checkout redirect
        *
-       * This gives Meta Purchase the same value the customer
-       * actually checked out with, even if the currency selector
-       * changes while the Stripe page is open.
+       * Use assign() instead of href so browser navigation
+       * is explicit and SPA router interference is avoided.
        */
-      savePendingMetaPurchase({
-        orderId:
-          data.order_id
-            ? String(
-                data.order_id
-              )
-            : null,
-        value:
-          localTotalAmount,
-        currency:
-          globalCurrency,
-        contentIds:
-          items
-            .filter(
-              (item) =>
-                item?.product?.id
-            )
-            .map(
-              (item) =>
-                String(
-                  item.product.id
-                )
-            ),
-        contents:
-          items
-            .filter(
-              (item) =>
-                item?.product?.id
-            )
-            .map(
-              (item) => ({
-                id: String(
-                  item.product.id
-                ),
-                quantity:
-                  item.quantity || 1,
-              })
-            ),
-      });
 
-      // Stripe Checkout redirect
-      // Use assign() instead of href so browser navigation is explicit.
-      // This avoids SPA router interference and guarantees leaving the app.
       window.location.assign(
         data.checkout_url
       );
@@ -2240,6 +1917,7 @@ setErrorMessage(
       /*
        * Never leave the lock active after an error.
        */
+
       submitLockRef.current =
         false;
 
@@ -2256,6 +1934,7 @@ setErrorMessage(
        * AUTH ERROR
        * -------------------------------------------------------
        */
+
       if (
         lowerMessage.includes(
           'invalid refresh token'
@@ -2281,6 +1960,7 @@ setErrorMessage(
        * RATE LIMIT
        * -------------------------------------------------------
        */
+
       if (
         lowerMessage.includes(
           'too many'
@@ -2304,6 +1984,7 @@ setErrorMessage(
        * NORMAL ERROR
        * -------------------------------------------------------
        */
+
       setErrorMessage(
         rawMessage ||
           'Failed to process order.'
@@ -2313,9 +1994,51 @@ setErrorMessage(
 
   /*
    * =========================================================
+   * STRIPE RETURN LOADING
+   * =========================================================
+   *
+   * Because isConfirmingStripeReturn is initialized from
+   * window.location.search, this screen is rendered on the
+   * FIRST render after Stripe redirects back.
+   *
+   * This prevents:
+   *
+   * Checkout UI
+   *      ↓
+   * flash
+   *      ↓
+   * Confirming payment...
+   *
+   * Instead:
+   *
+   * Confirming payment...
+   *      ↓
+   * Success
+   */
+
+  if (
+    isConfirmingStripeReturn &&
+    status !== 'success'
+  ) {
+    return (
+      <div className="bg-neutral-50 dark:bg-neutral-950 min-h-screen w-full flex items-center justify-center px-4 transition-none">
+        <div className="text-center">
+          <div className="w-12 h-12 rounded-full border-4 border-neutral-300 dark:border-neutral-700 border-t-neutral-900 dark:border-t-white animate-spin mx-auto mb-5" />
+
+          <p className="text-neutral-600 dark:text-neutral-400 text-sm">
+            Confirming payment...
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  /*
+   * =========================================================
    * SUCCESS
    * =========================================================
    */
+
   if (
     status === 'success'
   ) {
@@ -2334,11 +2057,26 @@ setErrorMessage(
           </h1>
 
           <div className="inline-flex items-center gap-2 bg-neutral-100 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 px-4 py-1.5 rounded-full text-xs font-mono uppercase tracking-wider mb-4">
-            <span className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse" />
+            <span
+              className={`w-2 h-2 rounded-full ${
+                isCompleted
+                  ? 'bg-emerald-500 animate-pulse'
+                  : 'bg-indigo-500 animate-pulse'
+              }`}
+            />
 
-            <span className="text-amber-600 dark:text-amber-400 font-bold">
+            <span
+              className={`font-bold ${
+                isCompleted
+                  ? 'text-emerald-600 dark:text-emerald-400'
+                  : 'text-indigo-600 dark:text-indigo-400'
+              }`}
+            >
               Status:{' '}
-              {String(dbOrderStatus || 'paid').toUpperCase()}
+              {String(
+                dbOrderStatus ||
+                  'paid'
+              ).toUpperCase()}
             </span>
           </div>
 
@@ -2375,6 +2113,7 @@ setErrorMessage(
    * EMPTY CART
    * =========================================================
    */
+
   if (
     items.length === 0
   ) {
@@ -2409,6 +2148,7 @@ setErrorMessage(
    * CHECKOUT UI
    * =========================================================
    */
+
   return (
     <div className="bg-neutral-50 dark:bg-neutral-950 min-h-screen transition-colors pt-20 md:pt-24">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -2420,6 +2160,7 @@ setErrorMessage(
           className="flex items-center gap-2 text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors mb-6 text-sm"
         >
           <ArrowLeft className="w-4 h-4" />
+
           Continue Shopping
         </button>
 
@@ -2444,6 +2185,7 @@ setErrorMessage(
         >
           <div className="w-full space-y-6 order-1">
             {/* CONTACT */}
+
             <div className="bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200 dark:border-neutral-800 p-6 shadow-sm dark:shadow-none">
               <h2 className="text-neutral-900 dark:text-white font-bold text-lg mb-4">
                 Contact Information
@@ -2458,8 +2200,7 @@ setErrorMessage(
                   onChange={(e) =>
                     setForm({
                       ...form,
-                      email:
-                        e.target.value,
+                      email: e.target.value,
                     })
                   }
                   style={{
@@ -2478,8 +2219,7 @@ setErrorMessage(
                   onChange={(e) =>
                     setForm({
                       ...form,
-                      phone:
-                        e.target.value,
+                      phone: e.target.value,
                     })
                   }
                   style={{
@@ -2515,6 +2255,7 @@ setErrorMessage(
             </div>
 
             {/* SHIPPING */}
+
             <div className="bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200 dark:border-neutral-800 p-6 shadow-sm dark:shadow-none">
               <h2 className="text-neutral-900 dark:text-white font-bold text-lg mb-4">
                 Shipping Address
@@ -2552,8 +2293,7 @@ setErrorMessage(
                     onChange={(e) =>
                       setForm({
                         ...form,
-                        city:
-                          e.target.value,
+                        city: e.target.value,
                       })
                     }
                     style={{
@@ -2588,9 +2328,7 @@ setErrorMessage(
                 </div>
 
                 <select
-                  value={
-                    form.country
-                  }
+                  value={form.country}
                   onChange={(e) =>
                     handleCountryChange(
                       e.target.value
@@ -2623,6 +2361,7 @@ setErrorMessage(
             </div>
 
             {/* NOTES */}
+
             <div className="bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200 dark:border-neutral-800 p-6 shadow-sm dark:shadow-none">
               <div className="flex justify-between items-center mb-4">
                 <h2 className="text-neutral-900 dark:text-white font-bold text-lg">
@@ -2630,7 +2369,8 @@ setErrorMessage(
                 </h2>
 
                 <span className="text-xs text-neutral-500 font-mono">
-                  {wordCount} / 200 words
+                  {wordCount} / 200
+                  words
                 </span>
               </div>
 
@@ -2652,6 +2392,7 @@ setErrorMessage(
             </div>
 
             {/* PAYMENT */}
+
             <div className="bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200 dark:border-neutral-800 p-6 shadow-sm dark:shadow-none">
               <div className="flex items-center gap-2 mb-4">
                 {isCashPayment ? (
@@ -2672,7 +2413,10 @@ setErrorMessage(
                   <Banknote className="w-5 h-5 text-emerald-600 dark:text-emerald-400 flex-shrink-0" />
 
                   <p className="text-emerald-700 dark:text-emerald-300 text-sm font-medium">
-                    Store Cash Payment detected. Stripe checkout will be bypassed.
+                    Store Cash Payment
+                    detected. Stripe
+                    checkout will be
+                    bypassed.
                   </p>
                 </div>
               ) : (
@@ -2680,7 +2424,8 @@ setErrorMessage(
                   <Lock className="w-5 h-5 text-neutral-500" />
 
                   <p className="text-neutral-600 dark:text-neutral-400 text-sm">
-                    Secure checkout powered by Stripe.
+                    Secure checkout
+                    powered by Stripe.
                   </p>
                 </div>
               )}
@@ -2690,7 +2435,16 @@ setErrorMessage(
           {/* =================================================
               ORDER SUMMARY
               ================================================= */}
-          <div className="w-full order-2 lg:sticky lg:top-24 self-start space-y-6">
+
+          <div
+            className="
+              w-full
+    order-2
+    lg:sticky
+    lg:top-36
+    self-start
+            "
+          >
             <div className="bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200 dark:border-neutral-800 p-6 space-y-6 shadow-sm dark:shadow-none">
               <div className="flex justify-between items-center">
                 <h2 className="text-neutral-900 dark:text-white font-bold text-lg">
@@ -2701,14 +2455,13 @@ setErrorMessage(
                   <SelectedCountryFlag className="w-4 h-3 object-cover rounded-sm" />
 
                   <span>
-                    {
-                      globalCurrency
-                    }
+                    {globalCurrency}
                   </span>
                 </div>
               </div>
 
               {/* ITEMS */}
+
               <div className="space-y-3 max-h-64 overflow-y-auto">
                 {items.map(
                   (
@@ -2723,7 +2476,10 @@ setErrorMessage(
                           key={idx}
                           className="p-3 bg-red-500/10 border border-red-500/30 rounded-xl text-red-600 dark:text-red-400 text-xs"
                         >
-                          Failed to fetch product details
+                          Failed to
+                          fetch
+                          product
+                          details
                         </div>
                       );
                     }
@@ -2744,9 +2500,7 @@ setErrorMessage(
                       (
                         prod.colors as any[]
                       )?.find(
-                        (
-                          color
-                        ) =>
+                        (color) =>
                           color.name
                             ?.toLowerCase() ===
                           displayColorName?.toLowerCase()
@@ -2777,9 +2531,7 @@ setErrorMessage(
 
                         <div className="flex-1 min-w-0">
                           <p className="text-neutral-900 dark:text-white text-sm font-semibold truncate">
-                            {
-                              prod.name
-                            }
+                            {prod.name}
                           </p>
 
                           <p className="text-neutral-500 text-xs truncate">
@@ -2809,6 +2561,7 @@ setErrorMessage(
               </div>
 
               {/* COUPON */}
+
               <div className="pt-4 border-t border-neutral-200 dark:border-neutral-800 space-y-2">
                 <label className="block text-xs text-neutral-500 dark:text-neutral-400 font-medium">
                   Coupon Code
@@ -2857,8 +2610,7 @@ setErrorMessage(
                       }
                       onChange={(e) =>
                         setCouponInput(
-                          e.target
-                            .value
+                          e.target.value
                         )
                       }
                       style={{
@@ -2896,6 +2648,7 @@ setErrorMessage(
               </div>
 
               {/* TOTALS */}
+
               <div className="space-y-2 pt-4 border-t border-neutral-200 dark:border-neutral-800">
                 <div className="flex justify-between text-sm">
                   <span className="text-neutral-600 dark:text-neutral-400">
@@ -2981,12 +2734,13 @@ setErrorMessage(
               </div>
 
               {/* SUBMIT */}
+
               <button
                 type="submit"
                 form="checkout-form"
                 disabled={
                   status ===
-                    'submitting'
+                  'submitting'
                 }
                 className={`flex items-center justify-center gap-2 w-full py-4 text-white dark:text-neutral-950 font-bold text-sm uppercase tracking-wider rounded-full transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 ${
                   isCashPayment
@@ -3021,5 +2775,6 @@ setErrorMessage(
  * INPUT STYLE
  * ===========================================================
  */
+
 const inputClass =
   'w-full px-4 py-3 bg-white dark:bg-neutral-900 border border-neutral-300 dark:border-neutral-800 rounded-xl text-neutral-900 dark:text-white placeholder:text-neutral-400 dark:placeholder:text-neutral-500 text-[16px] focus:outline-none focus:border-neutral-500 dark:focus:border-neutral-600 transition-colors';
