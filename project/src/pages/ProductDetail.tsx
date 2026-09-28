@@ -1759,7 +1759,7 @@ export default function ProductDetail({
               {badgeLabel && (
                 <div className="absolute top-4 left-4 z-20 pointer-events-none">
                   <span
-                    className={`relative overflow-hidden inline-flex items-center px-3 py-1.5 text-xs font-black uppercase tracking-wider rounded-full shadow-xl ${badgeLabel === 'KITS EXCLUSIVE' ? 'text-white' : 'text-neutral-950'}`}
+                    className={`px-3 py-1.5 text-xs font-black uppercase tracking-wider rounded-full shadow-xl inline-block ${badgeLabel === 'KITS EXCLUSIVE' ? 'text-white' : 'text-neutral-950'}`}
                     style={{
                       backgroundColor:
                         badgeLabel === 'KITS EXCLUSIVE'
@@ -1767,27 +1767,7 @@ export default function ProductDetail({
                           : '#D2FF00',
                     }}
                   >
-                    <span className="relative z-10">
-                      {badgeLabel}
-                    </span>
-
-                    {badgeLabel === 'KITS EXCLUSIVE' && (
-                      <span
-                        aria-hidden="true"
-                        className="
-                          kits-exclusive-sweep
-                          pointer-events-none
-                          absolute
-                          z-20
-                          top-[-70%]
-                          bottom-[-70%]
-                          left-[-20%]
-                          w-[8px]
-                          rotate-[22deg]
-                          bg-white
-                        "
-                      />
-                    )}
+                    {badgeLabel}
                   </span>
                 </div>
               )}
@@ -1992,18 +1972,18 @@ export default function ProductDetail({
                             title={
                               colorObj.name
                             }
-                            className={`relative w-6 h-6 rounded-full transition-all touch-manipulation border-2 ${
-  isSelected
-    ? 'scale-110 border-neutral-300 dark:border-white'
-    : 'border-neutral-300 dark:border-white hover:scale-105'
-}`}
+                            className={`relative w-6 h-6 rounded-full transition-all touch-manipulation ${
+                              isSelected
+                                ? 'ring-2 ring-neutral-100 dark:ring-white scale-110'
+                                : 'opacity-80 hover:opacity-100 hover:scale-105'
+                            }`}
                             style={{
                               backgroundColor:
                                 colorObj.hex,
                             }}
                             aria-label={`Select ${colorObj.name}`}
                           >
-                            <span className="absolute inset-0 rounded-full pointer-events-none" />
+                            <span className="absolute inset-0 rounded-full border border-black/10 dark:border-white/10 pointer-events-none" />
                           </button>
                         );
                       }
@@ -2172,33 +2152,41 @@ export default function ProductDetail({
 
                 <p
                   className={`font-bold text-sm mt-0.5 flex items-center gap-1.5 sm:gap-2 ${
-                    product.in_stock
-                      ? 'text-emerald-600 dark:text-emerald-400'
-                      : 'text-red-600 dark:text-red-400'
+                    !product.in_stock
+                      ? 'text-red-600 dark:text-red-400'
+                      : (product.stock_quantity ?? 0) <= 5
+                        ? 'text-amber-600 dark:text-amber-400'
+                        : 'text-emerald-600 dark:text-emerald-400'
                   }`}
                 >
                   <span className="relative flex h-2 w-2 shrink-0">
                     <span
                       className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${
-                        product.in_stock
-                          ? 'bg-emerald-400'
-                          : 'bg-red-400'
+                        !product.in_stock
+                          ? 'bg-red-400'
+                          : (product.stock_quantity ?? 0) <= 5
+                            ? 'bg-amber-400'
+                            : 'bg-emerald-400'
                       }`}
                     />
 
                     <span
                       className={`relative inline-flex rounded-full h-2 w-2 ${
-                        product.in_stock
-                          ? 'bg-emerald-500'
-                          : 'bg-red-500'
+                        !product.in_stock
+                          ? 'bg-red-500'
+                          : (product.stock_quantity ?? 0) <= 5
+                            ? 'bg-amber-500'
+                            : 'bg-emerald-500'
                       }`}
                     />
                   </span>
 
                   <span className="truncate">
-                    {product.in_stock
-                      ? 'In Stock'
-                      : 'Out of Stock'}
+                    {!product.in_stock
+                      ? 'Out of Stock'
+                      : (product.stock_quantity ?? 0) <= 5
+                        ? 'Low Stock'
+                        : 'In Stock'}
                   </span>
                 </p>
               </div>
