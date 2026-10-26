@@ -25,12 +25,15 @@ function CustomFlameIcon({ className = 'w-4 h-4' }: { className?: string }) {
   );
 }
 
+type HomeSection = 'new-in' | 'top-rated' | 'display' | 'categories';
+
 export default function Home() {
   const [featured, setFeatured] = useState<Product[]>([]);
   const [newIn, setNewIn] = useState<Product[]>([]);
   const [scenes, setScenes] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [isReady, setIsReady] = useState(false);
+  const [activeSection, setActiveSection] = useState<HomeSection>('new-in');
 
   const typedEl = useRef<HTMLSpanElement>(null);
   const pageRef = useRef<HTMLDivElement>(null);
@@ -190,20 +193,6 @@ export default function Home() {
         }
       );
 
-      gsap.to('.category-card', {
-        scrollTrigger: {
-          trigger: categoriesRef.current,
-          start: 'top 85%',
-          toggleActions: 'play none none none',
-        },
-        y: 0,
-        opacity: 1,
-        duration: 0.6,
-        stagger: 0.08,
-        ease: 'power1.out',
-        force3D: true,
-      });
-
       gsap.to(
         ['.cta-item-images', '.cta-item-title', '.cta-item-desc', '.cta-item-button'],
         {
@@ -282,50 +271,33 @@ export default function Home() {
     return () => ctx.revert();
   }, []);
 
-  // Product cards 動畫
+  // Product / category cards animation
   useEffect(() => {
     if (!isReady || loading) return;
 
     const ctx = gsap.context(() => {
-      const cardSelectors = [
-        '.home-product-card',
-        '.featured-product-card',
-        '.scene-product-card',
-      ];
+      const selector =
+        activeSection === 'categories'
+          ? '.category-card'
+          : '.home-product-card';
 
-      cardSelectors.forEach((selector) => {
-        const triggerRef =
-          selector === '.home-product-card'
-            ? newInRef.current
-            : selector === '.featured-product-card'
-              ? featuredRef.current
-              : scenesRef.current;
-
-        if (!triggerRef) return;
-
-        gsap.to(selector, {
-          opacity: 1,
-          y: 0,
-          duration: 0.45,
-          stagger: 0.04,
-          ease: 'power2.out',
-          scrollTrigger: {
-            trigger: triggerRef,
-            start: 'top 85%',
-            toggleActions: 'play none none none',
-          },
-          onComplete: function () {
-            const elements = pageRef.current?.querySelectorAll(selector);
-            elements?.forEach((el) =>
-              el.classList.remove('opacity-0', 'translate-y-6')
-            );
-          },
-        });
+      gsap.to(selector, {
+        opacity: 1,
+        y: 0,
+        duration: 0.45,
+        stagger: 0.04,
+        ease: 'power2.out',
+        onComplete: function () {
+          const elements = pageRef.current?.querySelectorAll(selector);
+          elements?.forEach((el) =>
+            el.classList.remove('opacity-0', 'translate-y-6')
+          );
+        },
       });
     }, pageRef);
 
     return () => ctx.revert();
-  }, [isReady, loading]);
+  }, [activeSection, isReady, loading]);
 
   return (
     <div
@@ -379,23 +351,92 @@ export default function Home() {
         </div>
       </section>
 
-      {/* NEW IN Section */}
+      {/* HOME COLLECTIONS */}
       <section
         ref={newInRef}
-        className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 pb-8"
+        className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-16 sm:pt-20 pb-8"
       >
-        <div className="flex items-end justify-between mb-10">
+        {/* Collection Buttons */}
+        <div className="mb-8 sm:mb-10">
+          <div className="flex items-center gap-2 sm:gap-3 overflow-x-auto pb-2 scrollbar-hide">
+            {[
+              { id: 'new-in', label: 'NEW IN' },
+              { id: 'top-rated', label: 'TOP RATED KITS' },
+              { id: 'display', label: 'DISPLAY' },
+              { id: 'categories', label: 'CATEGORIES' },
+            ].map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setActiveSection(tab.id as HomeSection)}
+                className={`shrink-0 px-4 sm:px-5 py-2.5 sm:py-3 rounded-xl border text-xs sm:text-sm font-bold uppercase tracking-wider transition-all duration-200 ${
+                  activeSection === tab.id
+                    ? 'bg-neutral-900 text-white border-neutral-900 dark:bg-white dark:text-neutral-950 dark:border-white'
+                    : 'bg-white text-neutral-600 border-neutral-200 hover:border-neutral-400 hover:text-neutral-900 dark:bg-neutral-900 dark:text-neutral-400 dark:border-neutral-800 dark:hover:border-neutral-600 dark:hover:text-white'
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Active Collection Header */}
+        <div className="flex items-end justify-between mb-6 sm:mb-8">
           <div>
-            <p className="text-neutral-500 dark:text-neutral-500 text-sm font-medium uppercase tracking-widest mb-2 flex items-center gap-2">
-              <CustomFlameIcon className="w-5 h-5 animate-star-pulse" /> Fresh Releases
-            </p>
-            <h2 className="text-3xl md:text-4xl font-bold text-neutral-900 dark:text-white tracking-tight">
-              New In
-            </h2>
+            {activeSection === 'new-in' && (
+              <>
+                <p className="text-neutral-500 dark:text-neutral-500 text-sm font-medium uppercase tracking-widest mb-2 flex items-center gap-2">
+                  <CustomFlameIcon className="w-5 h-5 animate-star-pulse" /> Fresh Releases
+                </p>
+                <h2 className="text-3xl md:text-4xl font-bold text-neutral-900 dark:text-white tracking-tight">
+                  New In
+                </h2>
+              </>
+            )}
+
+            {activeSection === 'top-rated' && (
+              <>
+                <p className="text-neutral-500 dark:text-neutral-500 text-sm font-medium uppercase tracking-widest mb-2 flex items-center gap-2">
+                  <Star className="w-4 h-4 text-amber-500 dark:text-amber-400 fill-amber-500 dark:fill-amber-400 animate-star-pulse" /> Featured Builds
+                </p>
+                <h2 className="text-3xl md:text-4xl font-bold text-neutral-900 dark:text-white tracking-tight">
+                  Top Rated Kits
+                </h2>
+              </>
+            )}
+
+            {activeSection === 'display' && (
+              <>
+                <p className="text-neutral-500 dark:text-neutral-500 text-sm font-medium uppercase tracking-widest mb-2 flex items-center gap-2">
+                  <House className="w-4 h-4 text-emerald-500 dark:text-emerald-400 animate-star-pulse" /> Place your builds there!
+                </p>
+                <h2 className="text-3xl md:text-4xl font-bold text-neutral-900 dark:text-white tracking-tight">
+                  Display
+                </h2>
+              </>
+            )}
+
+            {activeSection === 'categories' && (
+              <>
+                <p className="text-neutral-500 dark:text-neutral-500 text-sm font-medium uppercase tracking-widest mb-2">
+                  Browse by Theme
+                </p>
+                <h2 className="text-3xl md:text-4xl font-bold text-neutral-900 dark:text-white tracking-tight">
+                  Find Your Style
+                </h2>
+              </>
+            )}
           </div>
 
           <Link
-            to="/store?sort=date-desc"
+            to={
+              activeSection === 'new-in'
+                ? '/store?sort=date-desc'
+                : activeSection === 'display'
+                  ? '/store?category=Scene'
+                  : '/store'
+            }
             className="group hidden sm:flex items-center gap-2 text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white text-sm font-medium uppercase tracking-wider transition-colors"
           >
             View All
@@ -403,12 +444,63 @@ export default function Home() {
           </Link>
         </div>
 
-        {loading || !isReady ? (
-          <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6">
+        {/* Active Collection Content */}
+        {activeSection === 'categories' ? (
+          <div className="flex gap-3 sm:gap-6 overflow-x-auto pb-4 snap-x snap-mandatory scrollbar-hide">
+            {[
+              {
+                title: 'Concept Car',
+                img: 'https://raw.githubusercontent.com/itsspaco0809/scitem-images/main/Alpine/Alpenglow/0.webp?auto=compress&cs=tinysrgb&h=650&w=940',
+                cat: 'Concept Car',
+              },
+              {
+                title: 'Super Car',
+                img: 'https://raw.githubusercontent.com/itsspaco0809/scitem-images/main/Chevrolet/Corvette_CX/MC00002500/0.webp?auto=compress&cs=tinysrgb&h=650&w=940',
+                cat: 'Super Car',
+              },
+              {
+                title: 'Sports Car',
+                img: 'https://raw.githubusercontent.com/itsspaco0809/scitem-images/main/Hyundai/Ioniq%206%20N/0.webp?auto=compress&cs=tinysrgb&h=650&w=940',
+                cat: 'Sports Car',
+              },
+              {
+                title: 'SUV',
+                img: 'https://raw.githubusercontent.com/itsspaco0809/scitem-images/main/Mercedes-Maybach/GLS/MC00003600/0.webp?auto=compress&cs=tinysrgb&h=650&w=940',
+                cat: 'SUV',
+              },
+            ].map((cat) => (
+              <Link
+                key={cat.title}
+                to={`/store?category=${cat.cat}`}
+                className="category-card group relative rounded-2xl overflow-hidden aspect-square block shrink-0 w-[78vw] sm:w-[360px] lg:w-[390px] snap-start opacity-0 translate-y-[12px] transform-gpu"
+              >
+                <img
+                  src={cat.img}
+                  alt={cat.title}
+                  className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110 group-active:scale-110"
+                />
+
+                <div className="absolute inset-0 bg-gradient-to-t from-neutral-950/80 via-neutral-950/20 to-transparent" />
+
+                <div className="absolute bottom-0 left-0 right-0 p-4 sm:p-6">
+                  <h3 className="text-white text-xl sm:text-2xl font-bold mb-0.5 sm:mb-1">
+                    {cat.title}
+                  </h3>
+
+                  <div className="mt-2 sm:mt-3 inline-flex items-center gap-1.5 sm:gap-2 text-white text-xs sm:text-sm font-medium opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity duration-300">
+                    Explore
+                    <ArrowRight className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                  </div>
+                </div>
+              </Link>
+            ))}
+          </div>
+        ) : loading || !isReady ? (
+          <div className="flex gap-3 sm:gap-6 overflow-x-auto pb-4 snap-x snap-mandatory scrollbar-hide">
             {[1, 2, 3, 4, 5, 6].map((i) => (
               <div
                 key={i}
-                className="bg-neutral-100 dark:bg-neutral-900 rounded-2xl border border-neutral-200 dark:border-neutral-800 overflow-hidden animate-pulse"
+                className="shrink-0 w-[78vw] sm:w-[360px] lg:w-[390px] snap-start bg-neutral-100 dark:bg-neutral-900 rounded-2xl border border-neutral-200 dark:border-neutral-800 overflow-hidden animate-pulse"
               >
                 <div className="aspect-square bg-neutral-200 dark:bg-neutral-800" />
                 <div className="p-3 sm:p-5 space-y-3">
@@ -419,207 +511,50 @@ export default function Home() {
               </div>
             ))}
           </div>
-        ) : (
-          <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6">
-            {newIn.map((p) => (
+        ) : activeSection !== 'display' ? (
+          <div className="flex gap-3 sm:gap-6 overflow-x-auto pb-4 snap-x snap-mandatory scrollbar-hide">
+            {(activeSection === 'new-in' ? newIn : featured).map((p) => (
               <div
                 key={p.id}
-                className="home-product-card opacity-0 translate-y-6 will-change-transform w-full"
+                className="home-product-card shrink-0 w-[78vw] sm:w-[360px] lg:w-[390px] snap-start opacity-0 translate-y-6 will-change-transform"
               >
-                <ProductCard product={p} isNew={true} isReady={isReady} />
+                <ProductCard
+                  product={p}
+                  isNew={activeSection === 'new-in'}
+                  isReady={isReady}
+                />
               </div>
             ))}
           </div>
-        )}
-      </section>
+        ) : null}
 
-      {/* Featured Products */}
-      <section
-        ref={featuredRef}
-        className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-12 pb-8"
-      >
-        <div className="flex items-end justify-between mb-10">
-          <div>
-            <p className="text-neutral-500 dark:text-neutral-500 text-sm font-medium uppercase tracking-widest mb-2 flex items-center gap-2">
-              <Star className="w-4 h-4 text-amber-500 dark:text-amber-400 fill-amber-500 dark:fill-amber-400 animate-star-pulse" /> Featured Builds
-            </p>
+        {activeSection !== 'categories' &&
+          activeSection !== 'display' &&
+          ((activeSection === 'new-in' && newIn.length === 0) ||
+            (activeSection === 'top-rated' && featured.length === 0)) && (
+            <div className="text-neutral-500 dark:text-neutral-400 text-sm py-6">
+              No products available yet.
+            </div>
+          )}
 
-            <h2 className="text-3xl md:text-4xl font-bold text-neutral-900 dark:text-white tracking-tight">
-              Top Rated Kits
-            </h2>
-          </div>
-
-          <Link
-            to="/store"
-            className="group hidden sm:flex items-center gap-2 text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white text-sm font-medium uppercase tracking-wider transition-colors"
-          >
-            View All
-            <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
-          </Link>
-        </div>
-
-        {loading || !isReady ? (
-          <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6">
-            {[1, 2, 3, 4].map((i) => (
-              <div
-                key={i}
-                className="bg-neutral-100 dark:bg-neutral-900 rounded-2xl border border-neutral-200 dark:border-neutral-800 overflow-hidden animate-pulse"
-              >
-                <div className="aspect-square bg-neutral-200 dark:bg-neutral-800" />
-                <div className="p-3 sm:p-5 space-y-3">
-                  <div className="h-5 bg-neutral-200 dark:bg-neutral-800 rounded w-3/4" />
-                  <div className="h-4 bg-neutral-200 dark:bg-neutral-800 rounded w-1/2" />
-                  <div className="h-10 bg-neutral-200 dark:bg-neutral-800 rounded w-1/3 mt-4" />
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6">
-            {featured.map((p) => (
-              <div
-                key={p.id}
-                className="featured-product-card opacity-0 translate-y-6 will-change-transform w-full"
-              >
-                <ProductCard product={p} isReady={isReady} />
-              </div>
-            ))}
-          </div>
-        )}
-      </section>
-
-      {/* Scenes Section */}
-      <section
-        ref={scenesRef}
-        className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-12 pb-8"
-      >
-        <div className="flex items-end justify-between mb-10">
-          <div>
-            <p className="text-neutral-500 dark:text-neutral-500 text-sm font-medium uppercase tracking-widest mb-2 flex items-center gap-2">
-              <House className="w-4 h-4 text-emerald-500 dark:text-emerald-400 animate-star-pulse" /> Place your builds there!
-            </p>
-
-            <h2 className="text-3xl md:text-4xl font-bold text-neutral-900 dark:text-white tracking-tight">
-              Displays
-            </h2>
-          </div>
-
-          <Link
-            to="/store?category=Scene"
-            className="group hidden sm:flex items-center gap-2 text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white text-sm font-medium uppercase tracking-wider transition-colors"
-          >
-            View All
-            <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
-          </Link>
-        </div>
-
-        {loading || !isReady ? (
-          <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6">
-            {[1, 2, 3].map((i) => (
-              <div
-                key={i}
-                className="bg-neutral-100 dark:bg-neutral-900 rounded-2xl border border-neutral-200 dark:border-neutral-800 overflow-hidden animate-pulse"
-              >
-                <div className="aspect-square bg-neutral-200 dark:bg-neutral-800" />
-                <div className="p-3 sm:p-5 space-y-3">
-                  <div className="h-5 bg-neutral-200 dark:bg-neutral-800 rounded w-3/4" />
-                  <div className="h-4 bg-neutral-200 dark:bg-neutral-800 rounded w-1/2" />
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : scenes.length === 0 ? (
+        {activeSection === 'display' && !loading && isReady && scenes.length === 0 && (
           <div className="text-neutral-500 dark:text-neutral-400 text-sm py-6">
-            No scene products available yet.
+            No display products available yet.
           </div>
-        ) : (
-          <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6">
+        )}
+
+        {activeSection === 'display' && !loading && isReady && scenes.length > 0 && (
+          <div className="flex gap-3 sm:gap-6 overflow-x-auto pb-4 snap-x snap-mandatory scrollbar-hide">
             {scenes.map((p) => (
               <div
                 key={p.id}
-                className="scene-product-card opacity-0 translate-y-6 will-change-transform w-full"
+                className="home-product-card shrink-0 w-[78vw] sm:w-[360px] lg:w-[390px] snap-start opacity-0 translate-y-6 will-change-transform"
               >
                 <ProductCard product={p} isReady={isReady} />
               </div>
             ))}
           </div>
         )}
-      </section>
-
-      {/* Categories Showcase */}
-      <section
-        ref={categoriesRef}
-        className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 pb-20"
-      >
-        <div className="flex items-end justify-between mb-10">
-          <div>
-            <p className="text-neutral-500 text-sm font-medium uppercase tracking-widest mb-2">
-              Browse by Theme
-            </p>
-
-            <h2 className="text-3xl md:text-4xl font-bold text-neutral-900 dark:text-white tracking-tight">
-              Find Your Style
-            </h2>
-          </div>
-
-          <Link
-            to="/store"
-            className="group hidden sm:flex items-center gap-2 text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white text-sm font-medium uppercase tracking-wider transition-colors"
-          >
-            View All
-            <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
-          </Link>
-        </div>
-
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-6">
-          {[
-            {
-              title: 'Concept Car',
-              img: 'https://raw.githubusercontent.com/itsspaco0809/scitem-images/main/Alpine/Alpenglow/0.webp?auto=compress&cs=tinysrgb&h=650&w=940',
-              cat: 'Concept Car',
-            },
-            {
-              title: 'Super Car',
-              img: 'https://raw.githubusercontent.com/itsspaco0809/scitem-images/main/Chevrolet/Corvette_CX/MC00002500/0.webp?auto=compress&cs=tinysrgb&h=650&w=940',
-              cat: 'Super Car',
-            },
-            {
-              title: 'Sports Car',
-              img: 'https://raw.githubusercontent.com/itsspaco0809/scitem-images/main/Hyundai/Ioniq%206%20N/0.webp?auto=compress&cs=tinysrgb&h=650&w=940',
-              cat: 'Sports Car',
-            },
-            {
-              title: 'SUV',
-              img: 'https://raw.githubusercontent.com/itsspaco0809/scitem-images/main/Mercedes-Maybach/GLS/MC00003600/0.webp?auto=compress&cs=tinysrgb&h=650&w=940',
-              cat: 'SUV',
-            },
-          ].map((cat) => (
-            <Link
-              key={cat.title}
-              to={`/store?category=${cat.cat}`}
-              className="category-card group relative rounded-2xl overflow-hidden aspect-square block opacity-0 translate-y-[12px] transform-gpu"
-            >
-              <img
-                src={cat.img}
-                alt={cat.title}
-                className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110 group-active:scale-110"
-              />
-
-              <div className="absolute inset-0 bg-gradient-to-t from-neutral-950/80 via-neutral-950/20 to-transparent" />
-
-              <div className="absolute bottom-0 left-0 right-0 p-3 sm:p-6">
-                <h3 className="text-white text-lg sm:text-2xl font-bold mb-0.5 sm:mb-1">
-                  {cat.title}
-                </h3>
-
-                <div className="mt-2 sm:mt-3 inline-flex items-center gap-1.5 sm:gap-2 text-white text-xs sm:text-sm font-medium opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity duration-300">
-                  Explore
-                  <ArrowRight className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                </div>
-              </div>
-            </Link>
-          ))}
-        </div>
       </section>
 
       {/* CTA Banner Section */}
