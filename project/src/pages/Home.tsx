@@ -194,6 +194,20 @@ export default function Home() {
         }
       );
 
+      gsap.to('.category-card', {
+        scrollTrigger: {
+          trigger: categoriesRef.current,
+          start: 'top 85%',
+          toggleActions: 'play none none none',
+        },
+        y: 0,
+        opacity: 1,
+        duration: 0.6,
+        stagger: 0.08,
+        ease: 'power1.out',
+        force3D: true,
+      });
+
       gsap.to(
         ['.cta-item-images', '.cta-item-title', '.cta-item-desc', '.cta-item-button'],
         {
@@ -305,7 +319,6 @@ export default function Home() {
     if (!container) return;
 
     const amount = Math.max(container.clientWidth * 0.8, 280);
-
     container.scrollBy({
       left: direction === 'left' ? -amount : amount,
       behavior: 'smooth',
@@ -313,10 +326,7 @@ export default function Home() {
   };
 
   useEffect(() => {
-    carouselRef.current?.scrollTo({
-      left: 0,
-      behavior: 'auto',
-    });
+    carouselRef.current?.scrollTo({ left: 0, behavior: 'auto' });
   }, [activeSection]);
 
   return (
@@ -342,31 +352,31 @@ export default function Home() {
           <div className="max-w-4xl flex flex-col items-center text-center">
             <h1 className="hero-title opacity-0 translate-y-[11px] transform-gpu text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-bold text-neutral-900 dark:text-white leading-[0.95] tracking-tight text-center">
               <span className="block">
-                Build Your Garage From Nothing
+                <span style={{ fontFamily: "'Playfair Display', Georgia, serif" }}>
+                  From
+                </span>{' '}
+                <span className="font-bold">Nothing...</span>
               </span>
-              <span className="block">
-                <span ref={typedEl} />
+
+              <span className="block whitespace-nowrap mt-2">
+                <span style={{ fontFamily: "'Playfair Display', Georgia, serif" }}>
+                  to
+                </span>{' '}
+                <span className="bg-gradient-to-r from-emerald-600 via-lime-500 to-yellow-500 dark:from-emerald-400 dark:via-lime-300 dark:to-yellow-400 bg-clip-text text-transparent font-bold bg-[length:200%_auto] animate-gradient pr-2">
+                  <span ref={typedEl}></span>
+                </span>
               </span>
             </h1>
 
-            <p className="hero-description opacity-0 translate-y-[11px] transform-gpu mt-8 text-neutral-600 dark:text-neutral-400 text-base sm:text-lg max-w-2xl leading-relaxed">
-              Build, customize, and display your favorite automotive models.
-            </p>
-
-            <Link
-              to="/store"
-              className="hero-button opacity-0 translate-y-[11px] transform-gpu group mt-10 inline-flex items-center justify-center gap-2 px-8 py-4 bg-neutral-900 dark:bg-white text-white dark:text-neutral-950 font-bold text-sm uppercase tracking-wider rounded-full hover:bg-neutral-800 dark:hover:bg-neutral-200 transition-all hover:scale-105 active:scale-95"
-            >
-              Explore the Store
-              <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
-            </Link>
-          </div>
-
-          <div className="hero-scroll-indicator opacity-0 translate-y-[11px] absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 text-neutral-500 dark:text-neutral-500">
-            <span className="text-[10px] uppercase tracking-[0.3em]">
-              Scroll
-            </span>
-            <div className="w-px h-8 bg-neutral-300 dark:bg-neutral-700" />
+            <div className="hero-button opacity-0 translate-y-[11px] transform-gpu mt-10 flex justify-center items-center w-full">
+              <Link
+                to="/store"
+                className="group inline-flex items-center justify-center gap-2 px-8 py-4 bg-neutral-900 dark:bg-white text-white dark:text-neutral-950 font-bold text-sm uppercase tracking-wider rounded-full hover:bg-neutral-800 dark:hover:bg-neutral-200 transition-all hover:scale-105 active:scale-95"
+              >
+                Explore the Store
+                <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
+              </Link>
+            </div>
           </div>
         </div>
       </section>
@@ -460,7 +470,6 @@ export default function Home() {
                 >
                   <ChevronLeft className="w-5 h-5 mx-auto" />
                 </button>
-
                 <button
                   type="button"
                   onClick={() => scrollCarousel('right')}
@@ -490,60 +499,57 @@ export default function Home() {
 
         {/* Active Collection Content */}
         {activeSection === 'categories' ? (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-6">
-            {[
-              {
-                title: 'Concept Car',
-                img: 'https://raw.githubusercontent.com/itsspaco0809/scitem-images/main/Alpine/Alpenglow/0.webp?auto=compress&cs=tinysrgb&h=650&w=940',
-                cat: 'Concept Car',
-              },
-              {
-                title: 'Super Car',
-                img: 'https://raw.githubusercontent.com/itsspaco0809/scitem-images/main/Chevrolet/Corvette_CX/MC00002500/0.webp?auto=compress&cs=tinysrgb&h=650&w=940',
-                cat: 'Super Car',
-              },
-              {
-                title: 'Sports Car',
-                img: 'https://raw.githubusercontent.com/itsspaco0809/scitem-images/main/Hyundai/Ioniq%206%20N/0.webp?auto=compress&cs=tinysrgb&h=650&w=940',
-                cat: 'Sports Car',
-              },
-              {
-                title: 'SUV',
-                img: 'https://raw.githubusercontent.com/itsspaco0809/scitem-images/main/Mercedes-Maybach/GLS/MC00003600/0.webp?auto=compress&cs=tinysrgb&h=650&w=940',
-                cat: 'SUV',
-              },
-            ].map((cat) => (
-              <Link
-                key={cat.title}
-                to={`/store?category=${cat.cat}`}
-                className="category-card group relative rounded-2xl overflow-hidden aspect-square block opacity-0 translate-y-[12px] transform-gpu"
-              >
-                <img
-                  src={cat.img}
-                  alt={cat.title}
-                  className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110 group-active:scale-110"
-                />
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-6">
+          {[
+            {
+              title: 'Concept Car',
+              img: 'https://raw.githubusercontent.com/itsspaco0809/scitem-images/main/Alpine/Alpenglow/MC00003200/0.webp?auto=compress&cs=tinysrgb&h=650&w=940',
+              cat: 'Concept Car',
+            },
+            {
+              title: 'Super Car',
+              img: 'https://raw.githubusercontent.com/itsspaco0809/scitem-images/main/Chevrolet/Corvette_CX/MC00002500/0.webp?auto=compress&cs=tinysrgb&h=650&w=940',
+              cat: 'Super Car',
+            },
+            {
+              title: 'Sports Car',
+              img: 'https://raw.githubusercontent.com/itsspaco0809/scitem-images/main/Hyundai/Ioniq_6_N/MC00002800/0.webp?auto=compress&cs=tinysrgb&h=650&w=940',
+              cat: 'Sports Car',
+            },
+            {
+              title: 'SUV',
+              img: 'https://raw.githubusercontent.com/itsspaco0809/scitem-images/main/Mercedes-Maybach/GLS/MC00003600/0.webp?auto=compress&cs=tinysrgb&h=650&w=940',
+              cat: 'SUV',
+            },
+          ].map((cat) => (
+            <Link
+              key={cat.title}
+              to={`/store?category=${cat.cat}`}
+              className="category-card group relative rounded-2xl overflow-hidden aspect-square block opacity-0 translate-y-[12px] transform-gpu"
+            >
+              <img
+                src={cat.img}
+                alt={cat.title}
+                className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110 group-active:scale-110"
+              />
 
-                <div className="absolute inset-0 bg-gradient-to-t from-neutral-950/80 via-neutral-950/20 to-transparent" />
+              <div className="absolute inset-0 bg-gradient-to-t from-neutral-950/80 via-neutral-950/20 to-transparent" />
 
-                <div className="absolute bottom-0 left-0 right-0 p-3 sm:p-6">
-                  <h3 className="text-white text-lg sm:text-2xl font-bold mb-0.5 sm:mb-1">
-                    {cat.title}
-                  </h3>
+              <div className="absolute bottom-0 left-0 right-0 p-3 sm:p-6">
+                <h3 className="text-white text-lg sm:text-2xl font-bold mb-0.5 sm:mb-1">
+                  {cat.title}
+                </h3>
 
-                  <div className="mt-2 sm:mt-3 inline-flex items-center gap-1.5 sm:gap-2 text-white text-xs sm:text-sm font-medium opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity duration-300">
-                    Explore
-                    <ArrowRight className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                  </div>
+                <div className="mt-2 sm:mt-3 inline-flex items-center gap-1.5 sm:gap-2 text-white text-xs sm:text-sm font-medium opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity duration-300">
+                  Explore
+                  <ArrowRight className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                 </div>
-              </Link>
-            ))}
-          </div>
-        ) : loading || !isReady ? (
-          <div
-            ref={carouselRef}
-            className="flex gap-3 sm:gap-6 overflow-x-auto pb-4 snap-x snap-mandatory scrollbar-hide scroll-smooth"
-          >
+              </div>
+            </Link>
+          ))}
+        </div>
+                ) : loading || !isReady ? (
+          <div ref={carouselRef} className="flex gap-3 sm:gap-6 overflow-x-auto pb-4 snap-x snap-mandatory scrollbar-hide scroll-smooth">
             {[1, 2, 3, 4, 5, 6].map((i) => (
               <div
                 key={i}
@@ -559,10 +565,7 @@ export default function Home() {
             ))}
           </div>
         ) : activeSection !== 'display' ? (
-          <div
-            ref={carouselRef}
-            className="flex gap-3 sm:gap-6 overflow-x-auto pb-4 snap-x snap-mandatory scrollbar-hide scroll-smooth"
-          >
+          <div ref={carouselRef} className="flex gap-3 sm:gap-6 overflow-x-auto pb-4 snap-x snap-mandatory scrollbar-hide scroll-smooth">
             {(activeSection === 'new-in' ? newIn : featured).map((p) => (
               <div
                 key={p.id}
@@ -594,10 +597,7 @@ export default function Home() {
         )}
 
         {activeSection === 'display' && !loading && isReady && scenes.length > 0 && (
-          <div
-            ref={carouselRef}
-            className="flex gap-3 sm:gap-6 overflow-x-auto pb-4 snap-x snap-mandatory scrollbar-hide scroll-smooth"
-          >
+          <div ref={carouselRef} className="flex gap-3 sm:gap-6 overflow-x-auto pb-4 snap-x snap-mandatory scrollbar-hide scroll-smooth">
             {scenes.map((p) => (
               <div
                 key={p.id}
