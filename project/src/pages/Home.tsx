@@ -347,7 +347,19 @@ export default function Home() {
     }
 
     const progress = Math.min(1, Math.max(0, container.scrollLeft / maxScroll));
-    setMobileScrollIndicator(Math.round(progress * 3));
+
+    // On mobile, 2 products are visible at once, so the dots represent
+    // the number of possible scroll positions rather than every product.
+    // For example: 6 products = 5 dots, 5 products = 4 dots.
+    const itemCount = container.children.length;
+    const visibleItems = 2;
+    const dotCount = Math.max(1, itemCount - visibleItems + 1);
+    const activeIndex = Math.min(
+      dotCount - 1,
+      Math.max(0, Math.round(progress * (dotCount - 1)))
+    );
+
+    setMobileScrollIndicator(activeIndex);
   };
 
   useEffect(() => {
@@ -613,7 +625,9 @@ export default function Home() {
                 className="md:hidden flex items-center justify-center gap-1.5 mt-3"
                 aria-hidden="true"
               >
-                {[0, 1, 2, 3].map((index) => (
+                {Array.from({
+                  length: Math.max(1, (activeSection === 'new-in' ? newIn : featured).length - 2 + 1),
+                }).map((_, index) => (
                   <span
                     key={index}
                     className={`h-1.5 rounded-full transition-all duration-300 ${
@@ -661,7 +675,7 @@ export default function Home() {
                 className="md:hidden flex items-center justify-center gap-1.5 mt-3"
                 aria-hidden="true"
               >
-                {[0, 1, 2, 3].map((index) => (
+                {Array.from({ length: Math.max(1, scenes.length - 2 + 1) }).map((_, index) => (
                   <span
                     key={index}
                     className={`h-1.5 rounded-full transition-all duration-300 ${
