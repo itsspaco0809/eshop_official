@@ -37,15 +37,19 @@
     />
 
     <!-- Website title -->
-    <title>
-      Build Your Garage From Nothing To Something | LCP.works
-    </title>
+    <title>LCP.works — Build Your Garage From Nothing To Something</title>
 
     <!-- SEO Description -->
     <meta
       name="description"
-      content="Build Your Garage From Nothing To Something. Premium custom Lego kits inspired by the world's most iconic muscle cars, sports racers, and off-road machines. Built for collectors."
+      content="Build, customize, and display automotive model kits, instructions, and custom parts at LCP.works."
     />
+
+    <meta name="robots" content="index, follow" />
+    <meta name="googlebot" content="index, follow" />
+    <meta name="author" content="LCP.works" />
+    <meta name="theme-color" content="#ffffff" />
+    <link rel="canonical" href="https://lcpworks.com/" />
 
     <!-- Open Graph -->
     <meta
@@ -55,12 +59,17 @@
 
     <meta
       property="og:description"
-      content="Premium custom Lego kits inspired by iconic vehicles. Monochrome aesthetics. Built for collectors."
+      content="Automotive model kits, building instructions, and custom parts for builders and collectors."
     />
 
     <meta
       property="og:type"
       content="website"
+    />
+
+    <meta
+      property="og:site_name"
+      content="LCP.works"
     />
 
     <meta
@@ -80,6 +89,11 @@
     />
 
     <meta
+      name="twitter:url"
+      content="https://lcpworks.com/"
+    />
+
+    <meta
       name="twitter:title"
       content="Build Your Garage From Nothing To Something"
     />
@@ -93,6 +107,31 @@
       name="twitter:image"
       content="https://lcpworks.com/LCP_logo_black.webp"
     />
+
+    <!-- Structured data for the LCP.works homepage -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "Organization",
+            "@id": "https://lcpworks.com/#organization",
+            "name": "LCP.works",
+            "url": "https://lcpworks.com/",
+            "logo": "https://lcpworks.com/LCP_logo_black.webp"
+          },
+          {
+            "@type": "WebSite",
+            "@id": "https://lcpworks.com/#website",
+            "name": "LCP.works",
+            "url": "https://lcpworks.com/",
+            "publisher": {
+              "@id": "https://lcpworks.com/#organization"
+            }
+          }
+        ]
+      }
+    </script>
 
     <!-- Fonts -->
     <link
