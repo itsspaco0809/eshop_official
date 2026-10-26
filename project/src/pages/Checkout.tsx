@@ -32,6 +32,11 @@ import {
   DE,
   FR,
   JP,
+  SG,
+  MY,
+  TW,
+  RU,
+  CN,
 } from 'country-flag-icons/react/3x2';
 
 const COUNTRY_CONFIG: Record<
@@ -100,6 +105,41 @@ const COUNTRY_CONFIG: Record<
     taxRate: 0.08,
     Flag: JP,
   },
+  Singapore: {
+    currency: 'SGD',
+    rate: 1.28,
+    symbol: 'S$',
+    taxRate: 0.08,
+    Flag: SG,
+  },
+  Malaysia: {
+    currency: 'MYR',
+    rate: 4.20,
+    symbol: 'RM',
+    taxRate: 0.08,
+    Flag: MY,
+  },
+  Taiwan: {
+    currency: 'TWD',
+    rate: 32.20,
+    symbol: 'NT$',
+    taxRate: 0.08,
+    Flag: TW,
+  },
+  Russia: {
+    currency: 'RUB',
+    rate: 80.00,
+    symbol: '₽',
+    taxRate: 0.08,
+    Flag: RU,
+  },
+  China: {
+    currency: 'CNY',
+    rate: 7.10,
+    symbol: '¥',
+    taxRate: 0.08,
+    Flag: CN,
+  },
 };
 
 const COUNTRY_TO_CURRENCY: Record<string, string> = {
@@ -111,6 +151,11 @@ const COUNTRY_TO_CURRENCY: Record<string, string> = {
   Germany: 'EUR_DE',
   France: 'EUR_FR',
   Japan: 'JPY',
+  Singapore: 'SGD',
+  Malaysia: 'MYR',
+  Taiwan: 'TWD',
+  Russia: 'RUB',
+  China: 'CNY',
 };
 
 const CURRENCY_TO_COUNTRY: Record<string, string> = {
@@ -122,6 +167,11 @@ const CURRENCY_TO_COUNTRY: Record<string, string> = {
   EUR_DE: 'Germany',
   EUR_FR: 'France',
   JPY: 'Japan',
+  SGD: 'Singapore',
+  MYR: 'Malaysia',
+  TWD: 'Taiwan',
+  RUB: 'Russia',
+  CNY: 'China',
 };
 
 type AppliedCoupon = {
