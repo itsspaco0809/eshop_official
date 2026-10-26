@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
-import { HK, US, CA, GB, AU, DE, FR, JP } from 'country-flag-icons/react/3x2';
+import { HK, US, CA, GB, AU, DE, FR, JP, SG, MY, TW, RU, CN } from 'country-flag-icons/react/3x2';
 import { Globe, ChevronDown } from 'lucide-react';
 
 // ----------------------------------------------------------------------
@@ -22,6 +22,11 @@ export const CURRENCIES: Record<string, CurrencyConfig> = {
   EUR_DE: { code: 'EUR', symbol: '€', rate: 0.92, Flag: DE, name: 'Germany' },
   EUR_FR: { code: 'EUR', symbol: '€', rate: 0.92, Flag: FR, name: 'France' },
   JPY: { code: 'JPY', symbol: '¥', rate: 155.0, Flag: JP, name: 'Japan' },
+  SGD: { code: 'SGD', symbol: 'S$', rate: 1.28, Flag: SG, name: 'Singapore' },
+  MYR: { code: 'MYR', symbol: 'RM', rate: 4.20, Flag: MY, name: 'Malaysia' },
+  TWD: { code: 'TWD', symbol: 'NT$', rate: 32.20, Flag: TW, name: 'Taiwan' },
+  RUB: { code: 'RUB', symbol: '₽', rate: 80.00, Flag: RU, name: 'Russia' },
+  CNY: { code: 'CNY', symbol: '¥', rate: 7.10, Flag: CN, name: 'China' },
 };
 
 // ----------------------------------------------------------------------
