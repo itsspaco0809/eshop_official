@@ -591,39 +591,41 @@ export default function Home() {
             ))}
           </div>
         ) : activeSection !== 'display' ? (
-          <div ref={carouselRef} onScroll={handleCarouselScroll} className="flex gap-3 sm:gap-6 overflow-x-auto pb-4 snap-x snap-mandatory scrollbar-hide scroll-smooth">
-            {(activeSection === 'new-in' ? newIn : featured).map((p) => (
-              <div
-                key={p.id}
-                className="home-product-card shrink-0 w-[calc(50%-0.375rem)] sm:w-[calc(50%-0.75rem)] lg:w-[calc(33.333333%-1rem)] snap-start opacity-0 translate-y-6 will-change-transform"
-              >
-                <ProductCard
-                  product={p}
-                  isNew={activeSection === 'new-in'}
-                  isReady={isReady}
-                />
-              </div>
-            ))}
-          </div>
-
-          {((activeSection === 'new-in' && newIn.length > 2) ||
-            (activeSection === 'top-rated' && featured.length > 2)) && (
-            <div
-              className="md:hidden flex items-center justify-center gap-1.5 mt-3"
-              aria-hidden="true"
-            >
-              {[0, 1, 2, 3].map((index) => (
-                <span
-                  key={index}
-                  className={`h-1.5 rounded-full transition-all duration-300 ${
-                    mobileScrollIndicator === index
-                      ? 'w-6 bg-neutral-900 dark:bg-white'
-                      : 'w-1.5 bg-neutral-300 dark:bg-neutral-700'
-                  }`}
-                />
+          <>
+            <div ref={carouselRef} onScroll={handleCarouselScroll} className="flex gap-3 sm:gap-6 overflow-x-auto pb-4 snap-x snap-mandatory scrollbar-hide scroll-smooth">
+              {(activeSection === 'new-in' ? newIn : featured).map((p) => (
+                <div
+                  key={p.id}
+                  className="home-product-card shrink-0 w-[calc(50%-0.375rem)] sm:w-[calc(50%-0.75rem)] lg:w-[calc(33.333333%-1rem)] snap-start opacity-0 translate-y-6 will-change-transform"
+                >
+                  <ProductCard
+                    product={p}
+                    isNew={activeSection === 'new-in'}
+                    isReady={isReady}
+                  />
+                </div>
               ))}
             </div>
-          )}
+
+            {((activeSection === 'new-in' && newIn.length > 2) ||
+              (activeSection === 'top-rated' && featured.length > 2)) && (
+              <div
+                className="md:hidden flex items-center justify-center gap-1.5 mt-3"
+                aria-hidden="true"
+              >
+                {[0, 1, 2, 3].map((index) => (
+                  <span
+                    key={index}
+                    className={`h-1.5 rounded-full transition-all duration-300 ${
+                      mobileScrollIndicator === index
+                        ? 'w-6 bg-neutral-900 dark:bg-white'
+                        : 'w-1.5 bg-neutral-300 dark:bg-neutral-700'
+                    }`}
+                  />
+                ))}
+              </div>
+            )}
+          </>
         ) : null}
 
         {activeSection !== 'categories' &&
@@ -642,34 +644,36 @@ export default function Home() {
         )}
 
         {activeSection === 'display' && !loading && isReady && scenes.length > 0 && (
-          <div ref={carouselRef} onScroll={handleCarouselScroll} className="flex gap-3 sm:gap-6 overflow-x-auto pb-4 snap-x snap-mandatory scrollbar-hide scroll-smooth">
-            {scenes.map((p) => (
-              <div
-                key={p.id}
-                className="home-product-card shrink-0 w-[calc(50%-0.375rem)] sm:w-[calc(50%-0.75rem)] lg:w-[calc(33.333333%-1rem)] snap-start opacity-0 translate-y-6 will-change-transform"
-              >
-                <ProductCard product={p} isReady={isReady} />
-              </div>
-            ))}
-          </div>
-
-          {scenes.length > 2 && (
-            <div
-              className="md:hidden flex items-center justify-center gap-1.5 mt-3"
-              aria-hidden="true"
-            >
-              {[0, 1, 2, 3].map((index) => (
-                <span
-                  key={index}
-                  className={`h-1.5 rounded-full transition-all duration-300 ${
-                    mobileScrollIndicator === index
-                      ? 'w-6 bg-neutral-900 dark:bg-white'
-                      : 'w-1.5 bg-neutral-300 dark:bg-neutral-700'
-                  }`}
-                />
+          <>
+            <div ref={carouselRef} onScroll={handleCarouselScroll} className="flex gap-3 sm:gap-6 overflow-x-auto pb-4 snap-x snap-mandatory scrollbar-hide scroll-smooth">
+              {scenes.map((p) => (
+                <div
+                  key={p.id}
+                  className="home-product-card shrink-0 w-[calc(50%-0.375rem)] sm:w-[calc(50%-0.75rem)] lg:w-[calc(33.333333%-1rem)] snap-start opacity-0 translate-y-6 will-change-transform"
+                >
+                  <ProductCard product={p} isReady={isReady} />
+                </div>
               ))}
             </div>
-          )}
+
+            {scenes.length > 2 && (
+              <div
+                className="md:hidden flex items-center justify-center gap-1.5 mt-3"
+                aria-hidden="true"
+              >
+                {[0, 1, 2, 3].map((index) => (
+                  <span
+                    key={index}
+                    className={`h-1.5 rounded-full transition-all duration-300 ${
+                      mobileScrollIndicator === index
+                        ? 'w-6 bg-neutral-900 dark:bg-white'
+                        : 'w-1.5 bg-neutral-300 dark:bg-neutral-700'
+                    }`}
+                  />
+                ))}
+              </div>
+            )}
+          </>
         )}
       </section>
 
