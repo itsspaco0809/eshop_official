@@ -22,6 +22,7 @@ import Navbar from '@/components/Navbar';
 import IntroOverlay from '@/components/IntroOverlay';
 import CartDrawer from '@/components/CartDrawer';
 import Footer from '@/components/Footer';
+import SEO from '@/components/SEO';
 
 import Home from '@/pages/Home';
 import Store from '@/pages/Store';
@@ -212,6 +213,84 @@ function AppContent() {
 
   const cleanPath =
     path.split('?')[0];
+  const seoByPath: Record<string, {
+    title: string;
+    description: string;
+  }> = {
+    '/': {
+      title: 'LCP.works — Build Your Garage From Nothing To Something',
+      description:
+        'Build, customize, and display automotive model kits, instructions, and custom parts at LCP.works.',
+    },
+    '/store': {
+      title: 'Automotive Model Kits | LCP.works',
+      description:
+        'Explore automotive model kits at LCP.works, from sports cars and supercars to SUVs, concept cars, and more.',
+    },
+    '/instructions': {
+      title: 'Building Instructions | LCP.works',
+      description:
+        'Find automotive model building instructions and guides at LCP.works.',
+    },
+    '/custom-parts': {
+      title: 'Custom Parts | LCP.works',
+      description:
+        'Browse custom automotive model parts and accessories at LCP.works.',
+    },
+    '/contact': {
+      title: 'Contact LCP.works',
+      description:
+        'Contact LCP.works for custom builds, product questions, and builder support.',
+    },
+    '/shipping-info': {
+      title: 'Shipping Information | LCP.works',
+      description:
+        'Learn about shipping options and delivery information for LCP.works orders.',
+    },
+    '/privacy-policy': {
+      title: 'Privacy Policy | LCP.works',
+      description: 'Read the LCP.works Privacy Policy.',
+    },
+    '/terms-of-service': {
+      title: 'Terms of Service | LCP.works',
+      description: 'Read the LCP.works Terms of Service.',
+    },
+    '/legal-notice': {
+      title: 'Legal Notice | LCP.works',
+      description: 'Read the LCP.works Legal Notice.',
+    },
+    '/refund-policy': {
+      title: 'Refund Policy | LCP.works',
+      description: 'Read the LCP.works Refund Policy.',
+    },
+    '/cancellation-policy': {
+      title: 'Cancellation Policy | LCP.works',
+      description: 'Read the LCP.works Cancellation Policy.',
+    },
+  };
+
+  const privateRoutes = ['/checkout', '/orders', '/admin'];
+
+  const seo = seoByPath[cleanPath] || {
+    title: 'LCP.works — Automotive Model Kits',
+    description:
+      'Discover automotive model kits, instructions, and custom parts at LCP.works.',
+  };
+
+  const isPrivateRoute = privateRoutes.some(
+    (route) =>
+      cleanPath === route ||
+      cleanPath.startsWith(`${route}/`)
+  );
+
+  const seoElement = (
+    <SEO
+      title={seo.title}
+      description={seo.description}
+      noindex={isPrivateRoute}
+    />
+  );
+
 
 
   /* =======================================================
@@ -1430,6 +1509,9 @@ function AppContent() {
 
   return (
 
+    <>
+      {seoElement}
+
     <div
       id="app-shell"
       className="
@@ -1576,6 +1658,8 @@ function AppContent() {
       <CartDrawer />
 
     </div>
+
+    </>
 
   );
 }
