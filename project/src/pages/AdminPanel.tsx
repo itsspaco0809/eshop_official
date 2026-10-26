@@ -111,6 +111,16 @@ interface AnalyticsData {
   payingBuyers: number;
 }
 
+interface ItemClickAnalytics {
+  id: string;
+  name: string;
+  slug: string;
+  section: 'store' | 'instructions' | 'custom_parts';
+  image_url: string;
+  clicks: number;
+  clickRate: number;
+}
+
 interface ConfirmState {
   isOpen: boolean;
   title: string;
@@ -346,6 +356,7 @@ export default function AdminPanel({ initialTab = 'analytics' }: { initialTab?: 
     payingBuyers: 0,
   });
   const [loadingAnalytics, setLoadingAnalytics] = useState(false);
+  const [itemClickAnalytics, setItemClickAnalytics] = useState<ItemClickAnalytics[]>([]);
 
   // Products State
   const [products, setProducts] = useState<Product[]>([]);
@@ -670,33 +681,132 @@ export default function AdminPanel({ initialTab = 'analytics' }: { initialTab?: 
   const fetchAnalytics = async (range: TimeRange) => {
     setLoadingAnalytics(true);
     setActionError(null);
+
     try {
       const startDate = getStartDateISO(range);
+      const PAGE_SIZE = 1000;
 
-      const { data: pageViewRows, error: pvError } = await supabase
-        .from('page_views')
-        .select('visitor_id')
-        .gte('created_at', startDate);
+      // Supabase REST responses can be capped at 1,000 rows per request.
+      // Fetch successive pages until the final page so Analytics has no fixed total-row limit.
+      const pageViewRows: { visitor_id: string | null }[] = [];
+      let pageViewFrom = 0;
 
-      if (pvError) throw pvError;
+      while (true) {
+        const { data, error } = await supabase
+          .from('page_views')
+          .select('visitor_id')
+          .gte('created_at', startDate)
+          .order('created_at', { ascending: true })
+          .range(pageViewFrom, pageViewFrom + PAGE_SIZE - 1);
 
-      const totalPageViews = pageViewRows?.length || 0;
-      const uniqueVisitors = new Set(pageViewRows?.map((pv) => pv.visitor_id)).size;
+        if (error) throw error;
+        if (!data || data.length === 0) break;
+        pageViewRows.push(...data);
+        if (data.length < PAGE_SIZE) break;
+        pageViewFrom += PAGE_SIZE;
+      }
 
-      const { data: orderRows, error: orderError } = await supabase
-        .from('orders')
-        .select('amount, total, user_id, visitor_id')
-        .or('status.eq.paid,status.eq.done')
-        .gte('created_at', startDate);
+      const totalPageViews = pageViewRows.length;
+      const uniqueVisitors = new Set(
+        pageViewRows.map((pv) => pv.visitor_id).filter(Boolean)
+      ).size;
 
-      if (orderError) throw orderError;
+      const orderRows: {
+        amount: number | null;
+        total: number | null;
+        user_id: string | null;
+        visitor_id: string | null;
+      }[] = [];
+      let orderFrom = 0;
 
-      const totalRevenue = orderRows?.reduce((sum, o) => {
+      while (true) {
+        const { data, error } = await supabase
+          .from('orders')
+          .select('amount, total, user_id, visitor_id')
+          .or('status.eq.paid,status.eq.done')
+          .gte('created_at', startDate)
+          .order('created_at', { ascending: true })
+          .range(orderFrom, orderFrom + PAGE_SIZE - 1);
+
+        if (error) throw error;
+        if (!data || data.length === 0) break;
+        orderRows.push(...data);
+        if (data.length < PAGE_SIZE) break;
+        orderFrom += PAGE_SIZE;
+      }
+
+      const totalRevenue = orderRows.reduce((sum, o) => {
         const rawAmount = o.total ?? o.amount ?? 0;
-        return sum + (Number(rawAmount) / 100);
-      }, 0) || 0;
-      const totalOrders = orderRows?.length || 0;
-      const uniqueBuyers = new Set(orderRows?.map((o) => o.user_id || o.visitor_id).filter(Boolean)).size;
+        return sum + Number(rawAmount) / 100;
+      }, 0);
+      const totalOrders = orderRows.length;
+      const uniqueBuyers = new Set(
+        orderRows.map((o) => o.user_id || o.visitor_id).filter(Boolean)
+      ).size;
+
+      const itemClickRows: {
+        item_id: string;
+        item_type: 'store' | 'instructions' | 'custom_parts';
+        created_at: string;
+      }[] = [];
+      let clickFrom = 0;
+
+      while (true) {
+        const { data, error } = await supabase
+          .from('item_clicks')
+          .select('item_id, item_type, created_at')
+          .gte('created_at', startDate)
+          .order('created_at', { ascending: true })
+          .range(clickFrom, clickFrom + PAGE_SIZE - 1);
+
+        if (error) throw error;
+        if (!data || data.length === 0) break;
+        itemClickRows.push(...data);
+        if (data.length < PAGE_SIZE) break;
+        clickFrom += PAGE_SIZE;
+      }
+
+      const clickCounts = new Map<string, number>();
+      itemClickRows.forEach((row) => {
+        const key = `${row.item_type}:${row.item_id}`;
+        clickCounts.set(key, (clickCounts.get(key) || 0) + 1);
+      });
+
+      const { data: analyticsProducts, error: productsError } = await supabase
+        .from('products')
+        .select('id, name, slug, image_url, section')
+        .in('section', ['kits', 'instructions', 'custom_parts']);
+
+      if (productsError) throw productsError;
+
+      const sectionMap: Record<string, ItemClickAnalytics['section']> = {
+        kits: 'store',
+        kit: 'store',
+        instructions: 'instructions',
+        instruction: 'instructions',
+        custom_parts: 'custom_parts',
+      };
+
+      const itemStats = (analyticsProducts || [])
+        .map((product) => {
+          const section = sectionMap[(product.section || '').toLowerCase()];
+          if (!section) return null;
+
+          const clicks = clickCounts.get(`${section}:${product.id}`) || 0;
+          const clickRate = totalPageViews > 0 ? (clicks / totalPageViews) * 100 : 0;
+
+          return {
+            id: product.id,
+            name: product.name,
+            slug: product.slug,
+            section,
+            image_url: product.image_url,
+            clicks,
+            clickRate,
+          } satisfies ItemClickAnalytics;
+        })
+        .filter((item): item is ItemClickAnalytics => Boolean(item))
+        .sort((a, b) => b.clicks - a.clicks || a.name.localeCompare(b.name));
 
       setAnalytics({
         visitors: uniqueVisitors,
@@ -705,6 +815,7 @@ export default function AdminPanel({ initialTab = 'analytics' }: { initialTab?: 
         paidOrders: totalOrders,
         payingBuyers: uniqueBuyers,
       });
+      setItemClickAnalytics(itemStats);
     } catch (error: any) {
       setActionError(`Analytics Fetch Error: ${error.message}`);
     } finally {
@@ -1505,6 +1616,78 @@ export default function AdminPanel({ initialTab = 'analytics' }: { initialTab?: 
                   </div>
                   <div className="text-3xl font-bold">{analytics.payingBuyers.toLocaleString()}</div>
                   <p className="text-xs text-neutral-500 dark:text-neutral-400">Distinct customer accounts/visitors</p>
+                </div>
+              </div>
+
+              {/* ITEM CLICK RATE */}
+              <div className="mt-6 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-2xl shadow-sm overflow-hidden">
+                <div className="px-5 py-5 border-b border-neutral-200 dark:border-neutral-800">
+                  <div className="flex items-center justify-between gap-4">
+                    <div>
+                      <h3 className="text-lg font-bold text-neutral-900 dark:text-white">Item Click Rate</h3>
+                      <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
+                        Store, Instructions and Custom Parts clicks in the selected period
+                      </p>
+                    </div>
+                    <div className="text-xs text-neutral-500 dark:text-neutral-400 whitespace-nowrap">
+                      {itemClickAnalytics.length.toLocaleString()} items
+                    </div>
+                  </div>
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[760px] text-left">
+                    <thead className="bg-neutral-50 dark:bg-neutral-950/70 border-b border-neutral-200 dark:border-neutral-800">
+                      <tr>
+                        <th className="px-5 py-3 text-[11px] font-bold uppercase tracking-wider text-neutral-500 dark:text-neutral-400">Item</th>
+                        <th className="px-5 py-3 text-[11px] font-bold uppercase tracking-wider text-neutral-500 dark:text-neutral-400">Section</th>
+                        <th className="px-5 py-3 text-[11px] font-bold uppercase tracking-wider text-neutral-500 dark:text-neutral-400 text-right">Clicks</th>
+                        <th className="px-5 py-3 text-[11px] font-bold uppercase tracking-wider text-neutral-500 dark:text-neutral-400 text-right">Click Rate</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-neutral-200 dark:divide-neutral-800">
+                      {itemClickAnalytics.length === 0 ? (
+                        <tr>
+                          <td colSpan={4} className="px-5 py-12 text-center text-sm text-neutral-500 dark:text-neutral-400">
+                            No items found.
+                          </td>
+                        </tr>
+                      ) : (
+                        itemClickAnalytics.map((item) => (
+                          <tr key={`${item.section}-${item.id}`} className="hover:bg-neutral-50 dark:hover:bg-neutral-950/50 transition-colors">
+                            <td className="px-5 py-3.5">
+                              <div className="flex items-center gap-3 min-w-0">
+                                <div className="w-12 h-12 rounded-lg overflow-hidden bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 flex-shrink-0">
+                                  {item.image_url ? (
+                                    <img src={item.image_url} alt={item.name} className="w-full h-full object-cover" loading="lazy" />
+                                  ) : (
+                                    <div className="w-full h-full flex items-center justify-center text-neutral-400 dark:text-neutral-600">
+                                      <ImageIcon className="w-5 h-5" />
+                                    </div>
+                                  )}
+                                </div>
+                                <div className="min-w-0">
+                                  <p className="font-semibold text-sm text-neutral-900 dark:text-white truncate">{item.name}</p>
+                                  <p className="text-xs text-neutral-500 dark:text-neutral-400 truncate">/{item.slug}</p>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="px-5 py-3.5">
+                              <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300">
+                                {item.section === 'custom_parts' ? 'Custom Parts' : item.section === 'instructions' ? 'Instructions' : 'Store'}
+                              </span>
+                            </td>
+                            <td className="px-5 py-3.5 text-right font-semibold text-sm text-neutral-900 dark:text-white">
+                              {item.clicks.toLocaleString()}
+                            </td>
+                            <td className="px-5 py-3.5 text-right font-bold text-sm text-neutral-900 dark:text-white">
+                              {item.clickRate.toFixed(2)}%
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
                 </div>
               </div>
             )}
