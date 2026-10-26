@@ -3,6 +3,7 @@ import type { Product } from '@/lib/supabase';
 import { useCart } from '@/lib/cart';
 import { useCurrency } from '@/lib/currency';
 import { Link } from '@/lib/router';
+import { recordItemClick } from '@/lib/analytics';
 
 interface ProductCardProps {
   product: Product;
@@ -64,6 +65,14 @@ export default function ProductCard({
       {/* IMAGE */}
       <Link
         to={`/product/${product.slug}`}
+        onClick={() =>
+          void recordItemClick({
+            itemId: product.id,
+            itemName: product.name,
+            itemSlug: product.slug,
+            section: product.section,
+          })
+        }
         className="
           block
           relative
@@ -159,6 +168,14 @@ export default function ProductCard({
 
           <Link
             to={`/product/${product.slug}`}
+            onClick={() =>
+              void recordItemClick({
+                itemId: product.id,
+                itemName: product.name,
+                itemSlug: product.slug,
+                section: product.section,
+              })
+            }
             className="
               block
               [-webkit-tap-highlight-color:transparent]
