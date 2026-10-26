@@ -111,12 +111,12 @@ interface AnalyticsData {
   payingBuyers: number;
 }
 
-interface ItemClickAnalytics {
+interface ItemClickRate {
   id: string;
+  type: 'store' | 'instructions' | 'custom_parts';
   name: string;
   slug: string;
-  section: 'store' | 'instructions' | 'custom_parts';
-  image_url: string;
+  imageUrl: string | null;
   clicks: number;
   clickRate: number;
 }
@@ -356,7 +356,7 @@ export default function AdminPanel({ initialTab = 'analytics' }: { initialTab?: 
     payingBuyers: 0,
   });
   const [loadingAnalytics, setLoadingAnalytics] = useState(false);
-  const [itemClickAnalytics, setItemClickAnalytics] = useState<ItemClickAnalytics[]>([]);
+  const [itemClickRates, setItemClickRates] = useState<ItemClickRate[]>([]);
 
   // Products State
   const [products, setProducts] = useState<Product[]>([]);
@@ -684,10 +684,11 @@ export default function AdminPanel({ initialTab = 'analytics' }: { initialTab?: 
 
     try {
       const startDate = getStartDateISO(range);
-      const PAGE_SIZE = 1000;
+      const batchSize = 1000;
 
-      // Supabase REST responses can be capped at 1,000 rows per request.
-      // Fetch successive pages until the final page so Analytics has no fixed total-row limit.
+      // Supabase REST responses are paginated in batches. Keep requesting
+      // batches until the final partial batch is reached, so Analytics is
+      // never capped at the first 1,000 rows.
       const pageViewRows: { visitor_id: string | null }[] = [];
       let pageViewFrom = 0;
 
@@ -697,13 +698,14 @@ export default function AdminPanel({ initialTab = 'analytics' }: { initialTab?: 
           .select('visitor_id')
           .gte('created_at', startDate)
           .order('created_at', { ascending: true })
-          .range(pageViewFrom, pageViewFrom + PAGE_SIZE - 1);
+          .range(pageViewFrom, pageViewFrom + batchSize - 1);
 
         if (error) throw error;
         if (!data || data.length === 0) break;
+
         pageViewRows.push(...data);
-        if (data.length < PAGE_SIZE) break;
-        pageViewFrom += PAGE_SIZE;
+        if (data.length < batchSize) break;
+        pageViewFrom += batchSize;
       }
 
       const totalPageViews = pageViewRows.length;
@@ -726,87 +728,100 @@ export default function AdminPanel({ initialTab = 'analytics' }: { initialTab?: 
           .or('status.eq.paid,status.eq.done')
           .gte('created_at', startDate)
           .order('created_at', { ascending: true })
-          .range(orderFrom, orderFrom + PAGE_SIZE - 1);
+          .range(orderFrom, orderFrom + batchSize - 1);
 
         if (error) throw error;
         if (!data || data.length === 0) break;
+
         orderRows.push(...data);
-        if (data.length < PAGE_SIZE) break;
-        orderFrom += PAGE_SIZE;
+        if (data.length < batchSize) break;
+        orderFrom += batchSize;
       }
 
-      const totalRevenue = orderRows.reduce((sum, o) => {
-        const rawAmount = o.total ?? o.amount ?? 0;
+      const totalRevenue = orderRows.reduce((sum, order) => {
+        const rawAmount = order.total ?? order.amount ?? 0;
         return sum + Number(rawAmount) / 100;
       }, 0);
+
       const totalOrders = orderRows.length;
       const uniqueBuyers = new Set(
-        orderRows.map((o) => o.user_id || o.visitor_id).filter(Boolean)
+        orderRows
+          .map((order) => order.user_id || order.visitor_id)
+          .filter(Boolean)
       ).size;
 
-      const itemClickRows: {
+      // Read every item click in the selected period.
+      const clickRows: {
         item_id: string;
         item_type: 'store' | 'instructions' | 'custom_parts';
-        created_at: string;
+        item_name: string;
+        item_slug: string | null;
       }[] = [];
       let clickFrom = 0;
 
       while (true) {
         const { data, error } = await supabase
           .from('item_clicks')
-          .select('item_id, item_type, created_at')
+          .select('item_id, item_type, item_name, item_slug')
           .gte('created_at', startDate)
           .order('created_at', { ascending: true })
-          .range(clickFrom, clickFrom + PAGE_SIZE - 1);
+          .range(clickFrom, clickFrom + batchSize - 1);
 
         if (error) throw error;
         if (!data || data.length === 0) break;
-        itemClickRows.push(...data);
-        if (data.length < PAGE_SIZE) break;
-        clickFrom += PAGE_SIZE;
+
+        clickRows.push(...data);
+        if (data.length < batchSize) break;
+        clickFrom += batchSize;
       }
 
-      const clickCounts = new Map<string, number>();
-      itemClickRows.forEach((row) => {
-        const key = `${row.item_type}:${row.item_id}`;
-        clickCounts.set(key, (clickCounts.get(key) || 0) + 1);
-      });
-
-      const { data: analyticsProducts, error: productsError } = await supabase
+      // Use the products table for the current thumbnail/name/slug. This
+      // covers Store, Instructions and Custom Parts because all three use
+      // public.products with different section values.
+      const { data: productRows, error: productsError } = await supabase
         .from('products')
-        .select('id, name, slug, image_url, section')
-        .in('section', ['kits', 'instructions', 'custom_parts']);
+        .select('id, name, slug, image_url, section');
 
       if (productsError) throw productsError;
 
-      const sectionMap: Record<string, ItemClickAnalytics['section']> = {
-        kits: 'store',
-        kit: 'store',
-        instructions: 'instructions',
-        instruction: 'instructions',
-        custom_parts: 'custom_parts',
-      };
+      const productMap = new Map(
+        (productRows ?? []).map((product) => [String(product.id), product])
+      );
 
-      const itemStats = (analyticsProducts || [])
-        .map((product) => {
-          const section = sectionMap[(product.section || '').toLowerCase()];
-          if (!section) return null;
+      const groupedClicks = new Map<string, ItemClickRate>();
 
-          const clicks = clickCounts.get(`${section}:${product.id}`) || 0;
-          const clickRate = totalPageViews > 0 ? (clicks / totalPageViews) * 100 : 0;
+      clickRows.forEach((click) => {
+        const product = productMap.get(String(click.item_id));
+        const key = `${click.item_type}:${click.item_id}`;
+        const existing = groupedClicks.get(key);
 
-          return {
-            id: product.id,
-            name: product.name,
-            slug: product.slug,
-            section,
-            image_url: product.image_url,
-            clicks,
-            clickRate,
-          } satisfies ItemClickAnalytics;
-        })
-        .filter((item): item is ItemClickAnalytics => Boolean(item))
-        .sort((a, b) => b.clicks - a.clicks || a.name.localeCompare(b.name));
+        if (existing) {
+          existing.clicks += 1;
+          return;
+        }
+
+        groupedClicks.set(key, {
+          id: String(click.item_id),
+          type: click.item_type,
+          name: product?.name || click.item_name || 'Unknown item',
+          slug: product?.slug || click.item_slug || '',
+          imageUrl: product?.image_url || null,
+          clicks: 1,
+          clickRate: 0,
+        });
+      });
+
+      const calculatedClickRates = Array.from(groupedClicks.values())
+        .map((item) => ({
+          ...item,
+          clickRate: totalPageViews > 0
+            ? (item.clicks / totalPageViews) * 100
+            : 0,
+        }))
+        .sort((a, b) => {
+          if (b.clicks !== a.clicks) return b.clicks - a.clicks;
+          return a.name.localeCompare(b.name);
+        });
 
       setAnalytics({
         visitors: uniqueVisitors,
@@ -815,8 +830,9 @@ export default function AdminPanel({ initialTab = 'analytics' }: { initialTab?: 
         paidOrders: totalOrders,
         payingBuyers: uniqueBuyers,
       });
-      setItemClickAnalytics(itemStats);
+      setItemClickRates(calculatedClickRates);
     } catch (error: any) {
+      setItemClickRates([]);
       setActionError(`Analytics Fetch Error: ${error.message}`);
     } finally {
       setLoadingAnalytics(false);
@@ -1562,6 +1578,7 @@ export default function AdminPanel({ initialTab = 'analytics' }: { initialTab?: 
                 <Loader2 className="w-6 h-6 animate-spin mr-2" /> Loading Supabase Analytics...
               </div>
             ) : (
+              <>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 p-5 rounded-2xl space-y-3 shadow-sm">
                   <div className="flex items-center justify-between text-neutral-500 dark:text-neutral-400">
@@ -1624,63 +1641,70 @@ export default function AdminPanel({ initialTab = 'analytics' }: { initialTab?: 
                 <div className="px-5 py-5 border-b border-neutral-200 dark:border-neutral-800">
                   <div className="flex items-center justify-between gap-4">
                     <div>
-                      <h3 className="text-lg font-bold text-neutral-900 dark:text-white">Item Click Rate</h3>
+                      <h2 className="text-xl font-bold text-neutral-900 dark:text-white">Item Click Rate</h2>
                       <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
                         Store, Instructions and Custom Parts clicks in the selected period
                       </p>
                     </div>
-                    <div className="text-xs text-neutral-500 dark:text-neutral-400 whitespace-nowrap">
-                      {itemClickAnalytics.length.toLocaleString()} items
-                    </div>
+                    <span className="text-xs font-medium text-neutral-500 dark:text-neutral-400 whitespace-nowrap">
+                      {itemClickRates.length.toLocaleString()} items
+                    </span>
                   </div>
                 </div>
 
                 <div className="overflow-x-auto">
                   <table className="w-full min-w-[760px] text-left">
-                    <thead className="bg-neutral-50 dark:bg-neutral-950/70 border-b border-neutral-200 dark:border-neutral-800">
+                    <thead className="bg-neutral-50 dark:bg-neutral-950/60 border-b border-neutral-200 dark:border-neutral-800">
                       <tr>
-                        <th className="px-5 py-3 text-[11px] font-bold uppercase tracking-wider text-neutral-500 dark:text-neutral-400">Item</th>
-                        <th className="px-5 py-3 text-[11px] font-bold uppercase tracking-wider text-neutral-500 dark:text-neutral-400">Section</th>
-                        <th className="px-5 py-3 text-[11px] font-bold uppercase tracking-wider text-neutral-500 dark:text-neutral-400 text-right">Clicks</th>
-                        <th className="px-5 py-3 text-[11px] font-bold uppercase tracking-wider text-neutral-500 dark:text-neutral-400 text-right">Click Rate</th>
+                        <th className="px-5 py-3 text-xs font-semibold uppercase tracking-wider text-neutral-500 dark:text-neutral-400">Item</th>
+                        <th className="px-5 py-3 text-xs font-semibold uppercase tracking-wider text-neutral-500 dark:text-neutral-400">Section</th>
+                        <th className="px-5 py-3 text-xs font-semibold uppercase tracking-wider text-neutral-500 dark:text-neutral-400 text-right">Clicks</th>
+                        <th className="px-5 py-3 text-xs font-semibold uppercase tracking-wider text-neutral-500 dark:text-neutral-400 text-right">Click Rate</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-neutral-200 dark:divide-neutral-800">
-                      {itemClickAnalytics.length === 0 ? (
+                      {itemClickRates.length === 0 ? (
                         <tr>
                           <td colSpan={4} className="px-5 py-12 text-center text-sm text-neutral-500 dark:text-neutral-400">
-                            No items found.
+                            No item clicks recorded in this period.
                           </td>
                         </tr>
                       ) : (
-                        itemClickAnalytics.map((item) => (
-                          <tr key={`${item.section}-${item.id}`} className="hover:bg-neutral-50 dark:hover:bg-neutral-950/50 transition-colors">
-                            <td className="px-5 py-3.5">
+                        itemClickRates.map((item) => (
+                          <tr key={`${item.type}:${item.id}`} className="hover:bg-neutral-50 dark:hover:bg-neutral-950/50 transition-colors">
+                            <td className="px-5 py-4">
                               <div className="flex items-center gap-3 min-w-0">
-                                <div className="w-12 h-12 rounded-lg overflow-hidden bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 flex-shrink-0">
-                                  {item.image_url ? (
-                                    <img src={item.image_url} alt={item.name} className="w-full h-full object-cover" loading="lazy" />
+                                <div className="w-12 h-12 rounded-lg overflow-hidden bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 shrink-0">
+                                  {item.imageUrl ? (
+                                    <img
+                                      src={item.imageUrl}
+                                      alt={item.name}
+                                      className="w-full h-full object-cover"
+                                      draggable={false}
+                                    />
                                   ) : (
-                                    <div className="w-full h-full flex items-center justify-center text-neutral-400 dark:text-neutral-600">
+                                    <div className="w-full h-full flex items-center justify-center text-neutral-400 dark:text-neutral-500">
                                       <ImageIcon className="w-5 h-5" />
                                     </div>
                                   )}
                                 </div>
                                 <div className="min-w-0">
-                                  <p className="font-semibold text-sm text-neutral-900 dark:text-white truncate">{item.name}</p>
-                                  <p className="text-xs text-neutral-500 dark:text-neutral-400 truncate">/{item.slug}</p>
+                                  <div className="font-semibold text-neutral-900 dark:text-white truncate">{item.name}</div>
+                                  {item.slug && (
+                                    <div className="text-xs text-neutral-500 dark:text-neutral-400 truncate">/{item.slug}</div>
+                                  )}
                                 </div>
                               </div>
                             </td>
-                            <td className="px-5 py-3.5">
-                              <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300">
-                                {item.section === 'custom_parts' ? 'Custom Parts' : item.section === 'instructions' ? 'Instructions' : 'Store'}
+                            <td className="px-5 py-4">
+                              <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-neutral-100 dark:bg-neutral-800 text-xs font-semibold text-neutral-700 dark:text-neutral-300">
+                                {item.type === 'store' ? 'Store' : item.type === 'instructions' ? 'Instructions' : 'Custom Parts'}
                               </span>
                             </td>
-                            <td className="px-5 py-3.5 text-right font-semibold text-sm text-neutral-900 dark:text-white">
+                            <td className="px-5 py-4 text-right font-semibold text-neutral-900 dark:text-white">
                               {item.clicks.toLocaleString()}
                             </td>
-                            <td className="px-5 py-3.5 text-right font-bold text-sm text-neutral-900 dark:text-white">
+                            <td className="px-5 py-4 text-right font-semibold text-neutral-900 dark:text-white">
                               {item.clickRate.toFixed(2)}%
                             </td>
                           </tr>
@@ -1690,6 +1714,7 @@ export default function AdminPanel({ initialTab = 'analytics' }: { initialTab?: 
                   </table>
                 </div>
               </div>
+              </>
             )}
           </div>
         )}
