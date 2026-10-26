@@ -12,6 +12,17 @@ const STICKER_FILES = [
   '7.webp',
   '8.webp',
   '9.webp',
+  '10.webp',
+  '11.webp',
+  '12.webp',
+  '13.webp',
+  '14.webp',
+  '15.webp',
+  '16.webp',
+  '17.webp',
+  '18.webp',
+  '19.webp',
+  '20.webp',
 ];
 
 const BASE_RAW_URL = 'https://raw.githubusercontent.com/itsspaco0809/scitem-images/main/stroke_webp/';
