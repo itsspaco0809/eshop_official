@@ -455,7 +455,7 @@ export default function Home() {
             {activeSection === 'new-in' && (
               <>
                 <p className="text-neutral-500 dark:text-neutral-500 text-sm font-medium uppercase tracking-widest mb-2 flex items-center gap-2">
-                  <CustomFlameIcon className="w-5 h-5 animate-star-pulse" /> Fresh Releases
+                  <CustomFlameIcon className="w-4 h-4 animate-star-pulse" /> Fresh Releases
                 </p>
                 <h2 className="text-3xl md:text-4xl font-bold text-neutral-900 dark:text-white tracking-tight">
                   New In
