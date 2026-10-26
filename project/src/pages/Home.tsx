@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { ArrowRight, Star, House } from 'lucide-react';
+import { ArrowRight, ChevronLeft, ChevronRight, Star, House } from 'lucide-react';
 import { Link } from '@/lib/router';
 import { supabase, type Product } from '@/lib/supabase';
 import ProductCard from '@/components/ProductCard';
@@ -42,6 +42,7 @@ export default function Home() {
   const featuredRef = useRef<HTMLElement>(null);
   const scenesRef = useRef<HTMLElement>(null);
   const categoriesRef = useRef<HTMLElement>(null);
+  const carouselRef = useRef<HTMLDivElement>(null);
   const ctaRef = useRef<HTMLElement>(null);
   const ctaButtonRef = useRef<HTMLAnchorElement>(null);
 
@@ -299,6 +300,25 @@ export default function Home() {
     return () => ctx.revert();
   }, [activeSection, isReady, loading]);
 
+  const scrollCarousel = (direction: 'left' | 'right') => {
+    const container = carouselRef.current;
+    if (!container) return;
+
+    const amount = Math.max(container.clientWidth * 0.8, 280);
+
+    container.scrollBy({
+      left: direction === 'left' ? -amount : amount,
+      behavior: 'smooth',
+    });
+  };
+
+  useEffect(() => {
+    carouselRef.current?.scrollTo({
+      left: 0,
+      behavior: 'auto',
+    });
+  }, [activeSection]);
+
   return (
     <div
       id="home-page"
@@ -322,31 +342,31 @@ export default function Home() {
           <div className="max-w-4xl flex flex-col items-center text-center">
             <h1 className="hero-title opacity-0 translate-y-[11px] transform-gpu text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-bold text-neutral-900 dark:text-white leading-[0.95] tracking-tight text-center">
               <span className="block">
-                <span style={{ fontFamily: "'Playfair Display', Georgia, serif" }}>
-                  From
-                </span>{' '}
-                <span className="font-bold">Nothing...</span>
+                Build Your Garage From Nothing
               </span>
-
-              <span className="block whitespace-nowrap mt-2">
-                <span style={{ fontFamily: "'Playfair Display', Georgia, serif" }}>
-                  to
-                </span>{' '}
-                <span className="bg-gradient-to-r from-emerald-600 via-lime-500 to-yellow-500 dark:from-emerald-400 dark:via-lime-300 dark:to-yellow-400 bg-clip-text text-transparent font-bold bg-[length:200%_auto] animate-gradient pr-2">
-                  <span ref={typedEl}></span>
-                </span>
+              <span className="block">
+                <span ref={typedEl} />
               </span>
             </h1>
 
-            <div className="hero-button opacity-0 translate-y-[11px] transform-gpu mt-10 flex justify-center items-center w-full">
-              <Link
-                to="/store"
-                className="group inline-flex items-center justify-center gap-2 px-8 py-4 bg-neutral-900 dark:bg-white text-white dark:text-neutral-950 font-bold text-sm uppercase tracking-wider rounded-full hover:bg-neutral-800 dark:hover:bg-neutral-200 transition-all hover:scale-105 active:scale-95"
-              >
-                Explore the Store
-                <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
-              </Link>
-            </div>
+            <p className="hero-description opacity-0 translate-y-[11px] transform-gpu mt-8 text-neutral-600 dark:text-neutral-400 text-base sm:text-lg max-w-2xl leading-relaxed">
+              Build, customize, and display your favorite automotive models.
+            </p>
+
+            <Link
+              to="/store"
+              className="hero-button opacity-0 translate-y-[11px] transform-gpu group mt-10 inline-flex items-center justify-center gap-2 px-8 py-4 bg-neutral-900 dark:bg-white text-white dark:text-neutral-950 font-bold text-sm uppercase tracking-wider rounded-full hover:bg-neutral-800 dark:hover:bg-neutral-200 transition-all hover:scale-105 active:scale-95"
+            >
+              Explore the Store
+              <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
+            </Link>
+          </div>
+
+          <div className="hero-scroll-indicator opacity-0 translate-y-[11px] absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 text-neutral-500 dark:text-neutral-500">
+            <span className="text-[10px] uppercase tracking-[0.3em]">
+              Scroll
+            </span>
+            <div className="w-px h-8 bg-neutral-300 dark:bg-neutral-700" />
           </div>
         </div>
       </section>
@@ -429,24 +449,48 @@ export default function Home() {
             )}
           </div>
 
-          <Link
-            to={
-              activeSection === 'new-in'
-                ? '/store?sort=date-desc'
-                : activeSection === 'display'
-                  ? '/store?category=Scene'
-                  : '/store'
-            }
-            className="group hidden sm:flex items-center gap-2 text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white text-sm font-medium uppercase tracking-wider transition-colors"
-          >
-            View All
-            <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
-          </Link>
+          <div className="flex items-center gap-2 sm:gap-3">
+            {activeSection !== 'categories' && (
+              <div className="hidden md:flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => scrollCarousel('left')}
+                  aria-label="Scroll left"
+                  className="w-10 h-10 rounded-full border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 text-neutral-700 dark:text-neutral-300 hover:border-neutral-400 dark:hover:border-neutral-600 hover:text-neutral-950 dark:hover:text-white transition-all active:scale-95"
+                >
+                  <ChevronLeft className="w-5 h-5 mx-auto" />
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => scrollCarousel('right')}
+                  aria-label="Scroll right"
+                  className="w-10 h-10 rounded-full border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 text-neutral-700 dark:text-neutral-300 hover:border-neutral-400 dark:hover:border-neutral-600 hover:text-neutral-950 dark:hover:text-white transition-all active:scale-95"
+                >
+                  <ChevronRight className="w-5 h-5 mx-auto" />
+                </button>
+              </div>
+            )}
+
+            <Link
+              to={
+                activeSection === 'new-in'
+                  ? '/store?sort=date-desc'
+                  : activeSection === 'display'
+                    ? '/store?category=Scene'
+                    : '/store'
+              }
+              className="group hidden sm:flex items-center gap-2 text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white text-sm font-medium uppercase tracking-wider transition-colors"
+            >
+              View All
+              <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
+            </Link>
+          </div>
         </div>
 
         {/* Active Collection Content */}
         {activeSection === 'categories' ? (
-          <div className="flex gap-3 sm:gap-6 overflow-x-auto pb-4 snap-x snap-mandatory scrollbar-hide">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-6">
             {[
               {
                 title: 'Concept Car',
@@ -472,7 +516,7 @@ export default function Home() {
               <Link
                 key={cat.title}
                 to={`/store?category=${cat.cat}`}
-                className="category-card group relative rounded-2xl overflow-hidden aspect-square block shrink-0 w-[78vw] sm:w-[360px] lg:w-[390px] snap-start opacity-0 translate-y-[12px] transform-gpu"
+                className="category-card group relative rounded-2xl overflow-hidden aspect-square block opacity-0 translate-y-[12px] transform-gpu"
               >
                 <img
                   src={cat.img}
@@ -482,8 +526,8 @@ export default function Home() {
 
                 <div className="absolute inset-0 bg-gradient-to-t from-neutral-950/80 via-neutral-950/20 to-transparent" />
 
-                <div className="absolute bottom-0 left-0 right-0 p-4 sm:p-6">
-                  <h3 className="text-white text-xl sm:text-2xl font-bold mb-0.5 sm:mb-1">
+                <div className="absolute bottom-0 left-0 right-0 p-3 sm:p-6">
+                  <h3 className="text-white text-lg sm:text-2xl font-bold mb-0.5 sm:mb-1">
                     {cat.title}
                   </h3>
 
@@ -496,11 +540,14 @@ export default function Home() {
             ))}
           </div>
         ) : loading || !isReady ? (
-          <div className="flex gap-3 sm:gap-6 overflow-x-auto pb-4 snap-x snap-mandatory scrollbar-hide">
+          <div
+            ref={carouselRef}
+            className="flex gap-3 sm:gap-6 overflow-x-auto pb-4 snap-x snap-mandatory scrollbar-hide scroll-smooth"
+          >
             {[1, 2, 3, 4, 5, 6].map((i) => (
               <div
                 key={i}
-                className="shrink-0 w-[78vw] sm:w-[360px] lg:w-[390px] snap-start bg-neutral-100 dark:bg-neutral-900 rounded-2xl border border-neutral-200 dark:border-neutral-800 overflow-hidden animate-pulse"
+                className="shrink-0 w-[calc(50%-0.375rem)] sm:w-[calc(50%-0.75rem)] lg:w-[calc(33.333333%-1rem)] snap-start bg-neutral-100 dark:bg-neutral-900 rounded-2xl border border-neutral-200 dark:border-neutral-800 overflow-hidden animate-pulse"
               >
                 <div className="aspect-square bg-neutral-200 dark:bg-neutral-800" />
                 <div className="p-3 sm:p-5 space-y-3">
@@ -512,11 +559,14 @@ export default function Home() {
             ))}
           </div>
         ) : activeSection !== 'display' ? (
-          <div className="flex gap-3 sm:gap-6 overflow-x-auto pb-4 snap-x snap-mandatory scrollbar-hide">
+          <div
+            ref={carouselRef}
+            className="flex gap-3 sm:gap-6 overflow-x-auto pb-4 snap-x snap-mandatory scrollbar-hide scroll-smooth"
+          >
             {(activeSection === 'new-in' ? newIn : featured).map((p) => (
               <div
                 key={p.id}
-                className="home-product-card shrink-0 w-[78vw] sm:w-[360px] lg:w-[390px] snap-start opacity-0 translate-y-6 will-change-transform"
+                className="home-product-card shrink-0 w-[calc(50%-0.375rem)] sm:w-[calc(50%-0.75rem)] lg:w-[calc(33.333333%-1rem)] snap-start opacity-0 translate-y-6 will-change-transform"
               >
                 <ProductCard
                   product={p}
@@ -544,11 +594,14 @@ export default function Home() {
         )}
 
         {activeSection === 'display' && !loading && isReady && scenes.length > 0 && (
-          <div className="flex gap-3 sm:gap-6 overflow-x-auto pb-4 snap-x snap-mandatory scrollbar-hide">
+          <div
+            ref={carouselRef}
+            className="flex gap-3 sm:gap-6 overflow-x-auto pb-4 snap-x snap-mandatory scrollbar-hide scroll-smooth"
+          >
             {scenes.map((p) => (
               <div
                 key={p.id}
-                className="home-product-card shrink-0 w-[78vw] sm:w-[360px] lg:w-[390px] snap-start opacity-0 translate-y-6 will-change-transform"
+                className="home-product-card shrink-0 w-[calc(50%-0.375rem)] sm:w-[calc(50%-0.75rem)] lg:w-[calc(33.333333%-1rem)] snap-start opacity-0 translate-y-6 will-change-transform"
               >
                 <ProductCard product={p} isReady={isReady} />
               </div>
