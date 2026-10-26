@@ -34,6 +34,7 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [isReady, setIsReady] = useState(false);
   const [activeSection, setActiveSection] = useState<HomeSection>('new-in');
+  const [mobileScrollIndicator, setMobileScrollIndicator] = useState(0);
 
   const typedEl = useRef<HTMLSpanElement>(null);
   const pageRef = useRef<HTMLDivElement>(null);
@@ -335,8 +336,23 @@ export default function Home() {
     });
   };
 
+  const handleCarouselScroll = () => {
+    const container = carouselRef.current;
+    if (!container) return;
+
+    const maxScroll = container.scrollWidth - container.clientWidth;
+    if (maxScroll <= 0) {
+      setMobileScrollIndicator(0);
+      return;
+    }
+
+    const progress = Math.min(1, Math.max(0, container.scrollLeft / maxScroll));
+    setMobileScrollIndicator(Math.round(progress * 3));
+  };
+
   useEffect(() => {
     carouselRef.current?.scrollTo({ left: 0, behavior: 'auto' });
+    setMobileScrollIndicator(0);
   }, [activeSection]);
 
   return (
@@ -559,7 +575,7 @@ export default function Home() {
           ))}
         </div>
                 ) : loading || !isReady ? (
-          <div ref={carouselRef} className="flex gap-3 sm:gap-6 overflow-x-auto pb-4 snap-x snap-mandatory scrollbar-hide scroll-smooth">
+          <div ref={carouselRef} onScroll={handleCarouselScroll} className="flex gap-3 sm:gap-6 overflow-x-auto pb-4 snap-x snap-mandatory scrollbar-hide scroll-smooth">
             {[1, 2, 3, 4, 5, 6].map((i) => (
               <div
                 key={i}
@@ -575,7 +591,7 @@ export default function Home() {
             ))}
           </div>
         ) : activeSection !== 'display' ? (
-          <div ref={carouselRef} className="flex gap-3 sm:gap-6 overflow-x-auto pb-4 snap-x snap-mandatory scrollbar-hide scroll-smooth">
+          <div ref={carouselRef} onScroll={handleCarouselScroll} className="flex gap-3 sm:gap-6 overflow-x-auto pb-4 snap-x snap-mandatory scrollbar-hide scroll-smooth">
             {(activeSection === 'new-in' ? newIn : featured).map((p) => (
               <div
                 key={p.id}
@@ -589,6 +605,25 @@ export default function Home() {
               </div>
             ))}
           </div>
+
+          {((activeSection === 'new-in' && newIn.length > 2) ||
+            (activeSection === 'top-rated' && featured.length > 2)) && (
+            <div
+              className="md:hidden flex items-center justify-center gap-1.5 mt-3"
+              aria-hidden="true"
+            >
+              {[0, 1, 2, 3].map((index) => (
+                <span
+                  key={index}
+                  className={`h-1.5 rounded-full transition-all duration-300 ${
+                    mobileScrollIndicator === index
+                      ? 'w-6 bg-neutral-900 dark:bg-white'
+                      : 'w-1.5 bg-neutral-300 dark:bg-neutral-700'
+                  }`}
+                />
+              ))}
+            </div>
+          )}
         ) : null}
 
         {activeSection !== 'categories' &&
@@ -607,7 +642,7 @@ export default function Home() {
         )}
 
         {activeSection === 'display' && !loading && isReady && scenes.length > 0 && (
-          <div ref={carouselRef} className="flex gap-3 sm:gap-6 overflow-x-auto pb-4 snap-x snap-mandatory scrollbar-hide scroll-smooth">
+          <div ref={carouselRef} onScroll={handleCarouselScroll} className="flex gap-3 sm:gap-6 overflow-x-auto pb-4 snap-x snap-mandatory scrollbar-hide scroll-smooth">
             {scenes.map((p) => (
               <div
                 key={p.id}
@@ -617,6 +652,24 @@ export default function Home() {
               </div>
             ))}
           </div>
+
+          {scenes.length > 2 && (
+            <div
+              className="md:hidden flex items-center justify-center gap-1.5 mt-3"
+              aria-hidden="true"
+            >
+              {[0, 1, 2, 3].map((index) => (
+                <span
+                  key={index}
+                  className={`h-1.5 rounded-full transition-all duration-300 ${
+                    mobileScrollIndicator === index
+                      ? 'w-6 bg-neutral-900 dark:bg-white'
+                      : 'w-1.5 bg-neutral-300 dark:bg-neutral-700'
+                  }`}
+                />
+              ))}
+            </div>
+          )}
         )}
       </section>
 
