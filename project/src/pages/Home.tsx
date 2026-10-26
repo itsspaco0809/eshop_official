@@ -318,7 +318,17 @@ export default function Home() {
     const container = carouselRef.current;
     if (!container) return;
 
-    const amount = Math.max(container.clientWidth * 0.8, 280);
+    // On desktop, move exactly one product at a time.
+    // The card width is measured from the first visible card, and the
+    // current gap is added so the next card lines up cleanly.
+    const firstCard = container.firstElementChild as HTMLElement | null;
+    if (!firstCard) return;
+
+    const cardWidth = firstCard.getBoundingClientRect().width;
+    const styles = window.getComputedStyle(container);
+    const gap = parseFloat(styles.columnGap || styles.gap || '0');
+    const amount = cardWidth + gap;
+
     container.scrollBy({
       left: direction === 'left' ? -amount : amount,
       behavior: 'smooth',
@@ -399,7 +409,7 @@ export default function Home() {
                 key={tab.id}
                 type="button"
                 onClick={() => setActiveSection(tab.id as HomeSection)}
-                className={`shrink-0 px-4 sm:px-5 py-2.5 sm:py-3 rounded-xl border text-xs sm:text-sm font-bold uppercase tracking-wider transition-all duration-200 ${
+                className={`shrink-0 px-4 sm:px-5 py-2.5 sm:py-3 rounded-full border text-xs sm:text-sm font-bold uppercase tracking-wider transition-all duration-200 ${
                   activeSection === tab.id
                     ? 'bg-neutral-900 text-white border-neutral-900 dark:bg-white dark:text-neutral-950 dark:border-white'
                     : 'bg-white text-neutral-600 border-neutral-200 hover:border-neutral-400 hover:text-neutral-900 dark:bg-neutral-900 dark:text-neutral-400 dark:border-neutral-800 dark:hover:border-neutral-600 dark:hover:text-white'
