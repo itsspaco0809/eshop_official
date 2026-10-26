@@ -2,25 +2,16 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import gsap from 'gsap';
 
 const STICKER_FILES = [
-  'Alpine_Alpenglow_trans_w_stroke.webp',
-  'BMW_M5_G99_trans_w_stroke.webp',
-  'BMW_Speedtop_trans_w_stroke.webp',
-  'BMW_Vision_M_Next_v2_trans_w_stroke.webp',
-  'BMW_iX_trans_w_stroke.webp',
-  'Corvette_CX_Concept_trans_w_stroke.webp',
-  'Ferrari_849_Testarossa_trans_w_stroke.webp',
-  'Flos_V8_Cafe_trans_w_stroke.webp',
-  'Ford_Mustang_GTD_v2_white_w_stroke.webp',
-  'Hot_Wheels_Chevroletor_trans_w_stroke.webp',
-  'Hyundai_Ioniq_6_N_trans_w_stroke.webp',
-  'Lamborghini_Lazandor_trans_w_stroke.webp',
-  'Maserati_MCXtrema_trans_w_stroke.webp',
-  'Mercedes_GLS_Maybach_trans_w_stroke.webp',
-  'Mercedes_Vision_OneEleven_trans_w_stroke.webp',
-  'Nilu_27_trans_w_stroke.webp',
-  'Polestar_Synergy_trans_w_stroke.webp',
-  'Rexy_Porsche_911_w_stroke.webp',
-  'Volvo_XC40_trans_w_stroke.webp',
+  '0.webp',
+  '1.webp',
+  '2.webp',
+  '3.webp',
+  '4.webp',
+  '5.webp',
+  '6.webp',
+  '7.webp',
+  '8.webp',
+  '9.webp',
 ];
 
 const BASE_RAW_URL = 'https://raw.githubusercontent.com/itsspaco0809/scitem-images/main/stroke_webp/';
