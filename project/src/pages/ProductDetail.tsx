@@ -44,6 +44,7 @@ import {
 
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
+import SEO from '@/components/SEO';
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -1482,7 +1483,14 @@ export default function ProductDetail({
 
   if (!product) {
     return (
-      <div className="bg-white dark:bg-neutral-950 min-h-screen flex flex-col justify-center items-center gap-4 py-20">
+      <>
+        <SEO
+          title="Product Not Found | LCP.works"
+          description="The requested LCP.works product could not be found."
+          noindex
+        />
+
+        <div className="bg-white dark:bg-neutral-950 min-h-screen flex flex-col justify-center items-center gap-4 py-20">
         <p className="text-neutral-900 dark:text-white text-xl font-semibold">
           Product not found
         </p>
@@ -1496,9 +1504,55 @@ export default function ProductDetail({
         >
           Back to store
         </Link>
-      </div>
+        </div>
+      </>
     );
   }
+
+  const productSeoDescription =
+    product.description?.trim() ||
+    `Explore the ${product.name} automotive model at LCP.works.`;
+
+  const productSeoSchema = {
+    '@context': 'https://schema.org',
+    '@type': 'Product',
+    name: product.name,
+    description: productSeoDescription,
+    image: [
+      product.image_url,
+      ...(product.gallery || []),
+    ].filter(Boolean),
+    sku: String(product.id),
+    category: product.category,
+    brand: {
+      '@type': 'Brand',
+      name: 'LCP.works',
+    },
+    offers: {
+      '@type': 'Offer',
+      url:
+        typeof window !== 'undefined'
+          ? `${window.location.origin}/product/${encodeURIComponent(product.slug)}`
+          : `/product/${encodeURIComponent(product.slug)}`,
+      priceCurrency: 'USD',
+      price: (product.price / 100).toFixed(2),
+      availability: product.in_stock
+        ? 'https://schema.org/InStock'
+        : 'https://schema.org/OutOfStock',
+      itemCondition: 'https://schema.org/NewCondition',
+    },
+  };
+
+  const productSEO = (
+    <SEO
+      title={`${product.name} | LCP.works`}
+      description={productSeoDescription}
+      canonicalPath={`/product/${encodeURIComponent(product.slug)}`}
+      image={product.image_url}
+      type="product"
+      structuredData={productSeoSchema}
+    />
+  );
 
   /*
    * =========================================================
@@ -1722,8 +1776,11 @@ export default function ProductDetail({
    */
 
   return (
-    <div
-      ref={containerRef}
+    <>
+      {productSEO}
+
+      <div
+        ref={containerRef}
       className="bg-white dark:bg-neutral-950 min-h-screen select-none [-webkit-tap-highlight-color:transparent]"
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-24 pb-20 md:pt-28 w-full">
@@ -2893,5 +2950,6 @@ export default function ProductDetail({
         </div>
       </div>
     </div>
+    </>
   );
 }
