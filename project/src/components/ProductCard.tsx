@@ -29,9 +29,12 @@ export default function ProductCard({
   const isExclusive =
     Boolean((product as Product & { exclusive?: boolean }).exclusive);
 
-  // Exclusive has priority over NEW IN.
-  const showExclusiveBadge = isExclusive;
-  const showNewBadge = isKit && !isExclusive && rawIsNew;
+  const isFree = Number(product.price) === 0;
+
+  // Priority: FREE > KITS EXCLUSIVE > NEW IN
+  const showFreeBadge = isFree;
+  const showExclusiveBadge = !isFree && isExclusive;
+  const showNewBadge = !isFree && isKit && !isExclusive && rawIsNew;
 
   const isInstruction =
     product.section?.toLowerCase() === 'instructions' ||
@@ -101,7 +104,7 @@ export default function ProductCard({
           "
         />
 
-        {(showExclusiveBadge || showNewBadge) && (
+        {(showFreeBadge || showExclusiveBadge || showNewBadge) && (
           <div className="absolute top-2 left-2 sm:top-3 sm:left-3">
             <span
               className={`
@@ -113,7 +116,7 @@ export default function ProductCard({
                 py-0.5
                 sm:px-3
                 sm:py-1
-                ${showExclusiveBadge ? 'text-white' : 'text-neutral-950'}
+                ${showFreeBadge || showExclusiveBadge ? 'text-white' : 'text-neutral-950'}
                 text-[10px]
                 sm:text-xs
                 font-black
@@ -123,11 +126,19 @@ export default function ProductCard({
                 shadow-md
               `}
               style={{
-                backgroundColor: showExclusiveBadge ? '#007AFF' : '#D2FF00',
+                backgroundColor: showFreeBadge
+                  ? '#F97316'
+                  : showExclusiveBadge
+                    ? '#007AFF'
+                    : '#D2FF00',
               }}
             >
               <span className="relative z-10">
-                {showExclusiveBadge ? 'KITS EXCLUSIVE' : 'NEW IN'}
+                {showFreeBadge
+                  ? 'FREE'
+                  : showExclusiveBadge
+                    ? 'KITS EXCLUSIVE'
+                    : 'NEW IN'}
               </span>
 
               {showExclusiveBadge && (
