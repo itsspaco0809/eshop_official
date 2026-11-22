@@ -3,7 +3,7 @@ import { HK, US, CA, GB, AU, DE, FR, JP, SG, MY, TW, RU, CN } from 'country-flag
 import { Globe, ChevronDown } from 'lucide-react';
 
 // ----------------------------------------------------------------------
-// 1. Types & Data Configuration
+// 1. Types & Data Configuration (Sorted A-Z by Country Name)
 // ----------------------------------------------------------------------
 export interface CurrencyConfig {
   code: string;
@@ -14,20 +14,22 @@ export interface CurrencyConfig {
 }
 
 export const CURRENCIES: Record<string, CurrencyConfig> = {
-  HKD: { code: 'HKD', symbol: 'HK$', rate: 7.8, Flag: HK, name: 'Hong Kong' },
-  USD: { code: 'USD', symbol: '$', rate: 1.0, Flag: US, name: 'United States' },
-  CAD: { code: 'CAD', symbol: 'CA$', rate: 1.35, Flag: CA, name: 'Canada' },
-  GBP: { code: 'GBP', symbol: '£', rate: 0.78, Flag: GB, name: 'United Kingdom' },
   AUD: { code: 'AUD', symbol: 'A$', rate: 1.52, Flag: AU, name: 'Australia' },
-  EUR_DE: { code: 'EUR', symbol: '€', rate: 0.92, Flag: DE, name: 'Germany' },
-  EUR_FR: { code: 'EUR', symbol: '€', rate: 0.92, Flag: FR, name: 'France' },
-  JPY: { code: 'JPY', symbol: '¥', rate: 155.0, Flag: JP, name: 'Japan' },
-  SGD: { code: 'SGD', symbol: 'S$', rate: 1.28, Flag: SG, name: 'Singapore' },
-  MYR: { code: 'MYR', symbol: 'RM', rate: 4.20, Flag: MY, name: 'Malaysia' },
-  TWD: { code: 'TWD', symbol: 'NT$', rate: 32.20, Flag: TW, name: 'Taiwan' },
-  RUB: { code: 'RUB', symbol: '₽', rate: 80.00, Flag: RU, name: 'Russia' },
+  CAD: { code: 'CAD', symbol: 'CA$', rate: 1.35, Flag: CA, name: 'Canada' },
   CNY: { code: 'CNY', symbol: '¥', rate: 7.10, Flag: CN, name: 'China' },
+  EUR_FR: { code: 'EUR', symbol: '€', rate: 0.92, Flag: FR, name: 'France' },
+  EUR_DE: { code: 'EUR', symbol: '€', rate: 0.92, Flag: DE, name: 'Germany' },
+  HKD: { code: 'HKD', symbol: 'HK$', rate: 7.8, Flag: HK, name: 'Hong Kong' },
+  JPY: { code: 'JPY', symbol: '¥', rate: 155.0, Flag: JP, name: 'Japan' },
+  MYR: { code: 'MYR', symbol: 'RM', rate: 4.20, Flag: MY, name: 'Malaysia' },
+  RUB: { code: 'RUB', symbol: '₽', rate: 80.00, Flag: RU, name: 'Russia' },
+  SGD: { code: 'SGD', symbol: 'S$', rate: 1.28, Flag: SG, name: 'Singapore' },
+  TWD: { code: 'TWD', symbol: 'NT$', rate: 32.20, Flag: TW, name: 'Taiwan' },
+  GBP: { code: 'GBP', symbol: '£', rate: 0.78, Flag: GB, name: 'United Kingdom' },
+  USD: { code: 'USD', symbol: '$', rate: 1.0, Flag: US, name: 'United States' },
 };
+
+const CURRENCY_STORAGE_KEY = 'app_currency_v2';
 
 // ----------------------------------------------------------------------
 // 2. Context & Provider
@@ -43,14 +45,15 @@ const CurrencyContext = createContext<CurrencyContextType | undefined>(undefined
 
 export const CurrencyProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [currency, setCurrency] = useState<string>(() => {
-    return localStorage.getItem('app_currency') || 'HKD';
+    const saved = localStorage.getItem(CURRENCY_STORAGE_KEY);
+    return saved && CURRENCIES[saved] ? saved : 'USD';
   });
 
   useEffect(() => {
-    localStorage.setItem('app_currency', currency);
+    localStorage.setItem(CURRENCY_STORAGE_KEY, currency);
   }, [currency]);
 
-  const currencyConfig = CURRENCIES[currency] || CURRENCIES.HKD;
+  const currencyConfig = CURRENCIES[currency] || CURRENCIES.USD;
 
   const normalizeToDollars = (price: number) => {
     if (price >= 100 || price % 1 !== 0) {
