@@ -75,7 +75,7 @@ let cachedInstructions: Product[] | null = null;
 export default function Instructions() {
   const { path } = useRouter();
 
-  // Restore category + page from the current URL when returning with Back.
+  /* Restore category + page from the current URL when returning with Back. */
   const initialParams = new URLSearchParams(
     path.split('?')[1] || ''
   );
@@ -94,7 +94,7 @@ export default function Instructions() {
       ? initialCategory
       : 'all'
   );
-  const [sort, setSort] = useState('rating');
+  const [sort, setSort] = useState('date-desc');
   const [search, setSearch] = useState('');
   const [showFilters, setShowFilters] = useState(false);
 
@@ -140,8 +140,7 @@ export default function Instructions() {
   const pageScrollEffectMountedRef = useRef(false);
   const filtersInitializedRef = useRef(false);
 
-  // Keep the current pagination page in the URL.
-  // This does NOT change the browser history entry, so Back still works normally.
+  /* Keep the current pagination page in the URL. */
   const updatePageInUrl = (page: number) => {
     const url = new URL(window.location.href);
 
@@ -286,8 +285,7 @@ export default function Instructions() {
     return result;
   }, [products, category, sort, search]);
 
-  // Reset to page 1 only after the user actually changes a filter/sort/search.
-  // The first render is excluded so ?page=3 can be restored correctly.
+  /* Reset to page 1 only after the user actually changes a filter/sort/search. */
   useEffect(() => {
     if (!filtersInitializedRef.current) {
       filtersInitializedRef.current = true;
@@ -330,7 +328,7 @@ export default function Instructions() {
   const totalPages =
     Math.ceil(filtered.length / ITEMS_PER_PAGE) || 1;
 
-  // Prevent an invalid restored page after filtering/data changes.
+  /* Prevent an invalid restored page after filtering/data changes. */
   useEffect(() => {
     if (currentPage > totalPages) {
       setCurrentPage(totalPages);
