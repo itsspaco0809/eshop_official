@@ -1,358 +1,794 @@
-import { Plus } from 'lucide-react';
-import type { Product } from '@/lib/supabase';
-import { useCart } from '@/lib/cart';
-import { useCurrency } from '@/lib/currency';
-import { Link } from '@/lib/router';
-import { recordItemClick } from '@/lib/analytics';
+import { useEffect, useState, useMemo, useRef } from 'react';
+import {
+  Search,
+  SlidersHorizontal,
+  X,
+  FileText,
+  Download,
+  ChevronDown,
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  MessageSquare,
+  ShieldCheck,
+  Box,
+  UserCheck,
+} from 'lucide-react';
+import { supabase, type Product } from '@/lib/supabase';
+import ProductCard from '@/components/ProductCard';
+import { useRouter } from '@/lib/router';
+import gsap from 'gsap';
+import { globalLenis } from '@/lib/lenis';
 
-type ExtendedProduct = Product & {
-  exclusive?: boolean;
-  compare_at_price?: number | null;
-  badge_text?: string | null;
-};
+const CATEGORIES = [
+  'all',
+  'City Car',
+  'Concept Car',
+  'Coupe',
+  'EV',
+  'Sedan',
+  'Sports Car',
+  'Super Car',
+  'SUV',
+  'Track Car',
+  'Truck',
+  'Wagon',
+  'Scene',
+];
 
-interface ProductCardProps {
-  product: ExtendedProduct;
-  isNew?: boolean;
-  isReady?: boolean;
-}
+const SORTS = [
+  { label: 'Latest Release', value: 'date-desc' },
+  { label: 'Name: A to Z', value: 'name-asc' },
+  { label: 'Name: Z to A', value: 'name-desc' },
+  { label: 'Price: Low to High', value: 'price-asc' },
+  { label: 'Price: High to Low', value: 'price-desc' },
+  { label: 'Top Rated', value: 'rating' },
+];
 
-export default function ProductCard({
-  product,
-  isNew,
-}: ProductCardProps) {
-  const { addItem } = useCart();
-  const { formatPrice } = useCurrency();
+const FEATURES = [
+  {
+    icon: MessageSquare,
+    title: 'Free Replacement Parts',
+    description: "Lost a building piece? We'll replace them",
+  },
+  {
+    icon: Box,
+    title: 'International Shipping',
+    description: 'Worldwide shipping',
+  },
+  {
+    icon: UserCheck,
+    title: 'Builder Support',
+    description: 'Tutorial guide and building process support',
+  },
+  {
+    icon: ShieldCheck,
+    title: 'Secure payment',
+    description: 'Your payment information is processed securely',
+  },
+];
 
-  const isKit =
-    product.section?.toLowerCase() === 'kits' ||
-    product.section?.toLowerCase() === 'kit';
+const ITEMS_PER_PAGE = 16;
 
-  const rawIsNew =
-    isNew ??
-    (product.is_new || product.isNew || false);
+let cachedInstructions: Product[] | null = null;
 
-  const isExclusive = Boolean(product.exclusive);
-  const price = Number(product.price);
-  const compareAtPrice = product.compare_at_price ? Number(product.compare_at_price) : null;
-  const customBadgeText = product.badge_text?.trim() || null;
+export default function Instructions() {
+  const { path } = useRouter();
 
-  const isFree = price === 0;
-  const hasDiscount = Boolean(!isFree && compareAtPrice && compareAtPrice > price);
-  const discountPercent = hasDiscount && compareAtPrice
-    ? Math.round(((compareAtPrice - price) / compareAtPrice) * 100)
-    : 0;
+  // Restore category + page from the current URL when returning with Back.
+  const initialParams = new URLSearchParams(
+    path.split('?')[1] || ''
+  );
 
-  const promoBadgeLabel = !isFree
-    ? customBadgeText || (discountPercent > 0 ? `SAVE ${discountPercent}%` : null)
-    : null;
+  const initialCategory = initialParams.get('category');
+  const initialPage = Number(initialParams.get('page'));
 
-  /* Priority: FREE > PROMO (Purple) > KITS EXCLUSIVE > NEW IN */
-  const showFreeBadge = isFree;
-  const showPromoBadge = !isFree && Boolean(promoBadgeLabel);
-  const showExclusiveBadge = !isFree && !showPromoBadge && isExclusive;
-  const showNewBadge = !isFree && !showPromoBadge && isKit && !isExclusive && rawIsNew;
+  const [products, setProducts] = useState<Product[]>(
+    () => cachedInstructions || []
+  );
 
-  const isInstruction =
-    product.section?.toLowerCase() === 'instructions' ||
-    product.section?.toLowerCase() === 'instruction';
+  const [loading, setLoading] = useState(() => !cachedInstructions);
+
+  const [category, setCategory] = useState(
+    initialCategory && CATEGORIES.includes(initialCategory)
+      ? initialCategory
+      : 'all'
+  );
+  const [sort, setSort] = useState('rating');
+  const [search, setSearch] = useState('');
+  const [showFilters, setShowFilters] = useState(false);
+
+  const [currentPage, setCurrentPage] = useState(
+    Number.isFinite(initialPage) && initialPage >= 1
+      ? Math.floor(initialPage)
+      : 1
+  );
+
+  const [activeFeatureIndex, setActiveFeatureIndex] = useState(0);
+
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target as Node)
+      ) {
+        setIsDropdownOpen(false);
+      }
+    };
+
+    const handleScroll = () => {
+      setIsDropdownOpen(false);
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    window.addEventListener('scroll', handleScroll, true);
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      window.removeEventListener('scroll', handleScroll, true);
+    };
+  }, []);
+
+  const [isReady, setIsReady] = useState(() => !!cachedInstructions);
+
+  const isMountedRef = useRef(false);
+  const gridRef = useRef<HTMLDivElement>(null);
+  const pageScrollEffectMountedRef = useRef(false);
+  const filtersInitializedRef = useRef(false);
+
+  // Keep the current pagination page in the URL.
+  // This does NOT change the browser history entry, so Back still works normally.
+  const updatePageInUrl = (page: number) => {
+    const url = new URL(window.location.href);
+
+    if (page <= 1) {
+      url.searchParams.delete('page');
+    } else {
+      url.searchParams.set('page', String(page));
+    }
+
+    window.history.replaceState(
+      window.history.state,
+      '',
+      `${url.pathname}${url.search}${url.hash}`
+    );
+  };
+
+  useEffect(() => {
+    const params = new URLSearchParams(path.split('?')[1] || '');
+    const cat = params.get('category');
+
+    if (cat && CATEGORIES.includes(cat)) {
+      setCategory(cat);
+    } else if (!cat) {
+      setCategory('all');
+    }
+
+    const page = Number(params.get('page'));
+
+    if (Number.isFinite(page) && page >= 1) {
+      setCurrentPage(Math.floor(page));
+    }
+  }, [path]);
+
+  useEffect(() => {
+    let isCurrent = true;
+
+    (async () => {
+      if (!cachedInstructions) {
+        setLoading(true);
+      }
+
+      const { data } = await supabase
+        .from('products')
+        .select('*')
+        .eq('section', 'instructions');
+
+      if (isCurrent && data) {
+        cachedInstructions = data;
+        setProducts(data);
+        setLoading(false);
+      }
+    })();
+
+    return () => {
+      isCurrent = false;
+    };
+  }, []);
+
+  const filtered = useMemo(() => {
+    const newestProductIds = new Set(
+      [...products]
+        .sort(
+          (a, b) =>
+            new Date(
+              b.created_at || b.createdAt || 0
+            ).getTime() -
+            new Date(
+              a.created_at || a.createdAt || 0
+            ).getTime()
+        )
+        .slice(0, 6)
+        .map((p) => p.id)
+    );
+
+    let result = products.map((p) => {
+      const isTop6Newest = newestProductIds.has(p.id);
+
+      return {
+        ...p,
+        is_new: isTop6Newest,
+        isNew: isTop6Newest,
+      };
+    });
+
+    if (category !== 'all') {
+      result = result.filter((p) => {
+        if (Array.isArray(p.category)) {
+          return p.category.includes(category);
+        }
+
+        return p.category === category;
+      });
+    }
+
+    if (search) {
+      const q = search.toLowerCase();
+
+      result = result.filter(
+        (p) =>
+          p.name.toLowerCase().includes(q) ||
+          p.description?.toLowerCase().includes(q)
+      );
+    }
+
+    switch (sort) {
+      case 'date-desc':
+        result.sort(
+          (a, b) =>
+            new Date(
+              b.created_at || b.createdAt || 0
+            ).getTime() -
+            new Date(
+              a.created_at || a.createdAt || 0
+            ).getTime()
+        );
+        break;
+
+      case 'name-asc':
+        result.sort((a, b) => a.name.localeCompare(b.name));
+        break;
+
+      case 'name-desc':
+        result.sort((a, b) => b.name.localeCompare(a.name));
+        break;
+
+      case 'price-asc':
+        result.sort((a, b) => a.price - b.price);
+        break;
+
+      case 'price-desc':
+        result.sort((a, b) => b.price - a.price);
+        break;
+
+      case 'rating':
+        result.sort((a, b) => b.rating - a.rating);
+        break;
+
+      default:
+        result.sort((a, b) => a.name.localeCompare(b.name));
+    }
+
+    return result;
+  }, [products, category, sort, search]);
+
+  // Reset to page 1 only after the user actually changes a filter/sort/search.
+  // The first render is excluded so ?page=3 can be restored correctly.
+  useEffect(() => {
+    if (!filtersInitializedRef.current) {
+      filtersInitializedRef.current = true;
+      return;
+    }
+
+    setCurrentPage(1);
+    updatePageInUrl(1);
+  }, [category, sort, search]);
+
+  useEffect(() => {
+    if (!pageScrollEffectMountedRef.current) {
+      pageScrollEffectMountedRef.current = true;
+      return;
+    }
+
+    if (globalLenis) {
+      globalLenis.stop();
+      globalLenis.scrollTo(0, { immediate: true });
+    }
+
+    window.scrollTo({
+      top: 0,
+      left: 0,
+      behavior: 'auto',
+    });
+
+    document.documentElement.scrollTop = 0;
+    document.documentElement.scrollLeft = 0;
+    document.body.scrollTop = 0;
+    document.body.scrollLeft = 0;
+
+    if (globalLenis) {
+      globalLenis.resize();
+      globalLenis.scrollTo(0, { immediate: true });
+      globalLenis.start();
+    }
+  }, [currentPage]);
+
+  const totalPages =
+    Math.ceil(filtered.length / ITEMS_PER_PAGE) || 1;
+
+  // Prevent an invalid restored page after filtering/data changes.
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+      updatePageInUrl(totalPages);
+    }
+  }, [currentPage, totalPages]);
+
+  const paginatedProducts = useMemo(() => {
+    const start = (currentPage - 1) * ITEMS_PER_PAGE;
+
+    return filtered.slice(
+      start,
+      start + ITEMS_PER_PAGE
+    );
+  }, [filtered, currentPage]);
+
+  const filteredIds = useMemo(
+    () => paginatedProducts.map((p) => p.id).join(','),
+    [paginatedProducts]
+  );
+
+  useEffect(() => {
+    if (loading) return;
+
+    if (
+      paginatedProducts.length === 0 ||
+      isMountedRef.current
+    ) {
+      setIsReady(true);
+      return;
+    }
+
+    let isActive = true;
+
+    const imagePromises = paginatedProducts.map(
+      (product) => {
+        return new Promise<void>((resolve) => {
+          if (!product.image_url) {
+            resolve();
+            return;
+          }
+
+          const img = new Image();
+
+          img.src = product.image_url;
+
+          if (img.complete) {
+            resolve();
+          } else {
+            img.onload = () => resolve();
+            img.onerror = () => resolve();
+          }
+        });
+      }
+    );
+
+    const maxFallbackTimer = new Promise((resolve) =>
+      setTimeout(resolve, 800)
+    );
+
+    Promise.race([
+      Promise.all(imagePromises),
+      maxFallbackTimer,
+    ]).then(() => {
+      if (isActive) {
+        setIsReady(true);
+        isMountedRef.current = true;
+      }
+    });
+
+    return () => {
+      isActive = false;
+    };
+  }, [
+    filteredIds,
+    loading,
+    paginatedProducts,
+  ]);
+
+  useEffect(() => {
+    if (
+      loading ||
+      !isReady ||
+      paginatedProducts.length === 0
+    ) {
+      return;
+    }
+
+    const ctx = gsap.context(() => {
+      gsap.to('.instruction-product-card', {
+        opacity: 1,
+        y: 0,
+        duration: 0.45,
+        stagger: 0.04,
+        ease: 'power2.out',
+
+        onComplete: function () {
+          const elements =
+            gridRef.current?.querySelectorAll(
+              '.instruction-product-card'
+            );
+
+          elements?.forEach((el) =>
+            el.classList.remove(
+              'opacity-0',
+              'translate-y-6'
+            )
+          );
+        },
+      });
+    }, gridRef);
+
+    return () => ctx.revert();
+  }, [
+    loading,
+    isReady,
+    filteredIds,
+    paginatedProducts.length,
+  ]);
+
+  const handlePageChange = (newPage: number) => {
+    if (
+      newPage < 1 ||
+      newPage > totalPages ||
+      newPage === currentPage
+    ) {
+      return;
+    }
+
+    setCurrentPage(newPage);
+    updatePageInUrl(newPage);
+  };
+
+  const currentSortLabel =
+    SORTS.find((s) => s.value === sort)?.label ||
+    'Sort By';
+
+  const CurrentFeatureIcon =
+    FEATURES[activeFeatureIndex].icon;
 
   return (
-    <div
-      className="
-        group
-        relative
-        bg-neutral-100
-        dark:bg-[#111112]
-        rounded-2xl
-        overflow-hidden
-        border
-        border-neutral-200
-        dark:border-neutral-800
-        transition-all
-        duration-400
-        [@media(hover:hover)]:hover:border-neutral-300
-        dark:[@media(hover:hover)]:hover:border-neutral-700
-        [@media(hover:hover)]:hover:-translate-y-1
-        shadow-none
-        select-none
-        flex
-        flex-col
-        h-full
-      "
-    >
-      {/* IMAGE */}
-      <Link
-        to={`/product/${product.slug}`}
-        onClick={() =>
-          void recordItemClick({
-            itemId: product.id,
-            itemName: product.name,
-            itemSlug: product.slug,
-            section: product.section,
-          })
-        }
-        className="
-          block
-          relative
-          overflow-hidden
-          aspect-square
-          bg-neutral-200
-          dark:bg-neutral-800
-          [-webkit-touch-callout:none]
-          [-webkit-tap-highlight-color:transparent]
-        "
-      >
-        <img
-          src={product.image_url}
-          alt={product.name}
-          draggable={false}
-          className="
-            w-full
-            h-full
-            object-cover
-            transition-transform
-            duration-700
-            [@media(hover:hover)]:[.group:hover_&]:scale-110
-            pointer-events-none
-            select-none
-          "
-        />
-
-        {(showFreeBadge || showPromoBadge || showExclusiveBadge || showNewBadge) && (
-          <div className="absolute top-2 left-2 sm:top-3 sm:left-3">
-            <span
-              className={`
-                relative
-                overflow-hidden
-                inline-flex
-                items-center
-                px-2
-                py-0.5
-                sm:px-3
-                sm:py-1
-                ${showFreeBadge || showPromoBadge || showExclusiveBadge ? 'text-white' : 'text-neutral-950'}
-                text-[10px]
-                sm:text-xs
-                font-black
-                uppercase
-                tracking-wider
-                rounded-full
-                shadow-md
-              `}
-              style={{
-                backgroundColor: showFreeBadge
-                  ? '#F97316'
-                  : showPromoBadge
-                    ? '#9333EA'
-                    : showExclusiveBadge
-                      ? '#007AFF'
-                      : '#D2FF00',
-              }}
-            >
-              <span className="relative z-10">
-                {showFreeBadge
-                  ? 'FREE'
-                  : showPromoBadge
-                    ? promoBadgeLabel
-                    : showExclusiveBadge
-                      ? 'KITS EXCLUSIVE'
-                      : 'NEW IN'}
-              </span>
-
-              {showExclusiveBadge && (
-                <span
-                  aria-hidden="true"
-                  className="
-                    kits-exclusive-sweep
-                    pointer-events-none
-                    absolute
-                    z-20
-                    top-[-70%]
-                    bottom-[-70%]
-                    left-[-20%]
-                    w-[8px]
-                    rotate-[22deg]
-                    bg-white
-                  "
-                />
-              )}
-            </span>
+    <div className="bg-white dark:bg-neutral-950 min-h-screen text-neutral-900 dark:text-neutral-100 transition-colors duration-200">
+      <div className="pt-16 md:pt-20 border-b border-neutral-200 dark:border-neutral-800 bg-neutral-50/50 dark:bg-neutral-900/30">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-12 pb-8 md:pt-16 md:pb-10">
+          <div className="flex items-center gap-3 mb-2">
+            <FileText className="w-7 h-7 text-neutral-900 dark:text-white" />
+            <h1 className="text-4xl md:text-5xl font-bold text-neutral-900 dark:text-white tracking-tight">
+              Instructions
+            </h1>
           </div>
-        )}
-      </Link>
 
-      {/* CONTENT */}
-      <div
-        className="
-          p-3
-          sm:p-5
-          flex
-          flex-col
-          flex-1
-        "
-      >
-        <div>
-          <Link
-            to={`/product/${product.slug}`}
-            onClick={() =>
-              void recordItemClick({
-                itemId: product.id,
-                itemName: product.name,
-                itemSlug: product.slug,
-                section: product.section,
-              })
-            }
-            className="
-              block
-              [-webkit-tap-highlight-color:transparent]
-            "
-          >
-            <div
-              className="
-                h-12
-                sm:h-16
-                flex
-                items-start
-              "
-            >
-              <h3
-                className="
-                  text-neutral-900
-                  dark:text-white
-                  font-bold
-                  text-base
-                  sm:text-xl
-                  leading-tight
-                  line-clamp-2
-                "
-              >
-                {product.name}
-              </h3>
-            </div>
-          </Link>
+          <p className="text-neutral-500 dark:text-neutral-400">
+            {filtered.length}{' '}
+            {filtered.length === 1
+              ? 'instruction'
+              : 'instructions'}{' '}
+            available
+          </p>
+        </div>
+      </div>
 
-          <p
-            className="
-              hidden
-              sm:block
-              text-neutral-500
-              dark:text-neutral-400
-              text-xs
-              sm:text-sm
-              mt-1
-              truncate
-            "
-          >
-            {isInstruction
-              ? product.theme
-              : `${product.piece_count} Pieces · ${product.theme}`}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="flex items-center gap-3 p-4 bg-neutral-100 dark:bg-neutral-900 rounded-xl border border-neutral-200 dark:border-neutral-800 mb-6">
+          <Download className="w-5 h-5 text-neutral-500 dark:text-neutral-400 flex-shrink-0" />
+
+          <p className="text-neutral-600 dark:text-neutral-400 text-sm">
+            All instructions are digital downloads.
+            Downloads will be available immediately in
+            the order history after checkout.
           </p>
         </div>
 
-        {/* PRICE + BUTTON */}
-        <div
-          className="
-            flex
-            items-center
-            justify-between
-            pt-2
-            sm:pt-4
-            gap-1.5
-            sm:gap-2
-            mt-auto
-            min-h-[42px]
-          "
-        >
-          <div className="relative min-w-0 flex items-baseline sm:gap-1.5">
-            <span
-              className="
-                text-neutral-900
-                dark:text-white
-                text-sm
-                sm:text-lg
-                font-bold
-                whitespace-nowrap
-              "
-            >
-              {formatPrice(product.price)}
-            </span>
+        <div className="flex flex-col sm:flex-row items-stretch gap-3 sm:gap-4 mb-6">
+          <div className="relative flex-1">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400 dark:text-neutral-500" />
 
-            {hasDiscount && compareAtPrice && (
-              <span
-                className="
-                  absolute
-                  left-0
-                  top-full
-                  mt-0.5
-                  sm:static
-                  sm:mt-0
-                  text-neutral-400
-                  dark:text-neutral-500
-                  text-[10px]
-                  sm:text-sm
-                  leading-none
-                  line-through
-                  font-medium
-                  whitespace-nowrap
-                "
-              >
-                {formatPrice(compareAtPrice)}
-              </span>
-            )}
+            <input
+              type="text"
+              placeholder="Search instructions..."
+              value={search}
+              onChange={(e) =>
+                setSearch(e.target.value)
+              }
+              className="w-full h-12 pl-11 pr-4 bg-neutral-100 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl text-neutral-900 dark:text-white placeholder:text-neutral-400 dark:placeholder:text-neutral-500 focus:outline-none focus:border-neutral-400 dark:focus:border-neutral-600 transition-colors"
+            />
           </div>
 
-          <div
-            className="
-              w-[68px]
-              h-[40px]
-              flex
-              items-center
-              justify-center
-              flex-shrink-0
-            "
-          >
-            {product.in_stock && (
+          <div className="grid grid-cols-2 sm:flex items-center gap-3 w-full sm:w-auto">
+            <button
+              onClick={() =>
+                setShowFilters(!showFilters)
+              }
+              className="sm:hidden flex items-center justify-center gap-2 h-12 px-4 bg-neutral-100 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl text-neutral-900 dark:text-white hover:bg-neutral-200 dark:hover:bg-neutral-800 transition-colors w-full"
+            >
+              <SlidersHorizontal className="w-4 h-4" />
+              Filters
+            </button>
+
+            <div
+              className="relative h-12 w-full sm:w-auto"
+              ref={dropdownRef}
+            >
               <button
-                onClick={() => addItem(product)}
-                className="
-                  flex
-                  items-center
-                  justify-center
-                  gap-1.5
-                  px-3
-                  py-2
-                  sm:px-4
-                  sm:py-2.5
-                  bg-neutral-900
-                  text-white
-                  dark:bg-white
-                  dark:text-neutral-950
-                  text-xs
-                  sm:text-sm
-                  font-bold
-                  rounded-lg
-                  [@media(hover:hover)]:hover:bg-neutral-800
-                  dark:[@media(hover:hover)]:hover:bg-neutral-200
-                  transition-all
-                  [@media(hover:hover)]:hover:scale-105
-                  active:scale-95
-                  whitespace-nowrap
-                  [-webkit-tap-highlight-color:transparent]
-                "
+                type="button"
+                onClick={() =>
+                  setIsDropdownOpen(
+                    (prev) => !prev
+                  )
+                }
+                className="w-full flex items-center justify-between gap-3 h-full sm:min-w-[200px] px-4 bg-neutral-100 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl text-neutral-900 dark:text-white hover:bg-neutral-200 dark:hover:bg-neutral-800 focus:outline-none transition-colors cursor-pointer"
               >
-                <Plus
-                  className="
-                    w-3.5
-                    h-3.5
-                    sm:w-4
-                    sm:h-4
-                    flex-shrink-0
-                  "
+                <span className="font-medium text-sm truncate">
+                  {currentSortLabel}
+                </span>
+
+                <ChevronDown
+                  className={`w-4 h-4 text-neutral-400 flex-shrink-0 transition-transform duration-200 ${
+                    isDropdownOpen
+                      ? 'rotate-180'
+                      : ''
+                  }`}
                 />
-                Add
+              </button>
+
+              {isDropdownOpen && (
+                <div className="absolute right-0 mt-2 w-56 py-1.5 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl shadow-xl z-50 overflow-hidden">
+                  {SORTS.map((s) => {
+                    const isSelected =
+                      sort === s.value;
+
+                    return (
+                      <button
+                        key={s.value}
+                        type="button"
+                        onClick={() => {
+                          setSort(s.value);
+                          setIsDropdownOpen(false);
+                        }}
+                        className={`w-full text-left px-4 py-2.5 text-sm flex items-center justify-between transition-colors ${
+                          isSelected
+                            ? 'bg-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-white font-semibold'
+                            : 'text-neutral-600 dark:text-neutral-400 hover:bg-neutral-50 dark:hover:bg-neutral-800/50 hover:text-neutral-900 dark:hover:text-white'
+                        }`}
+                      >
+                        <span>{s.label}</span>
+
+                        {isSelected && (
+                          <Check className="w-4 h-4 text-neutral-900 dark:text-white flex-shrink-0" />
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div
+          className={`space-y-4 mb-6 ${
+            showFilters
+              ? 'block'
+              : 'hidden sm:block'
+          }`}
+        >
+          <div className="flex flex-wrap gap-2">
+            {CATEGORIES.map((cat) => (
+              <button
+                key={cat}
+                onClick={() =>
+                  setCategory(cat)
+                }
+                className={`px-4 py-2 rounded-full text-sm font-medium uppercase tracking-wider transition-all ${
+                  category === cat
+                    ? 'bg-neutral-900 text-white dark:bg-white dark:text-neutral-950'
+                    : 'bg-neutral-100 text-neutral-600 dark:bg-neutral-900 dark:text-neutral-400 border border-neutral-200 dark:border-neutral-800 hover:text-neutral-900 dark:hover:text-white hover:border-neutral-300 dark:hover:border-neutral-700'
+                }`}
+              >
+                {cat}
+              </button>
+            ))}
+
+            {(category !== 'all' || search) && (
+              <button
+                onClick={() => {
+                  setCategory('all');
+                  setSearch('');
+                }}
+                className="px-4 py-2 rounded-full text-sm font-medium text-neutral-500 hover:text-neutral-900 dark:hover:text-white transition-colors flex items-center gap-1"
+              >
+                <X className="w-3.5 h-3.5" />
+                Clear
               </button>
             )}
+          </div>
+        </div>
+
+        {loading ? (
+          <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-6 min-h-[600px] items-start">
+            {[1, 2, 3, 4, 5, 6, 7, 8].map(
+              (i) => (
+                <div
+                  key={i}
+                  className="w-full max-w-[320px] mx-auto sm:mx-0 bg-neutral-100 dark:bg-neutral-900 rounded-2xl border border-neutral-200 dark:border-neutral-800 overflow-hidden animate-pulse aspect-[3/4]"
+                />
+              )
+            )}
+          </div>
+        ) : filtered.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-20 text-center min-h-[400px]">
+            <div className="w-20 h-20 rounded-full bg-neutral-100 dark:bg-neutral-900 flex items-center justify-center mb-4">
+              <Search className="w-8 h-8 text-neutral-400 dark:text-neutral-600" />
+            </div>
+
+            <p className="text-neutral-900 dark:text-white font-semibold text-lg">
+              No instructions found
+            </p>
+
+            <p className="text-neutral-500 dark:text-neutral-400 mt-1">
+              Try adjusting your filters or search.
+            </p>
+          </div>
+        ) : (
+          <>
+            <div
+              ref={gridRef}
+              className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-6 min-h-[600px] items-start"
+            >
+              {paginatedProducts.map((p) => (
+                <div
+                  key={p.id}
+                  className="instruction-product-card opacity-0 translate-y-6 will-change-transform w-full max-w-[320px] mx-auto sm:mx-0"
+                >
+                  <ProductCard
+                    product={p}
+                    isNew={p.is_new}
+                    isReady={isReady}
+                  />
+                </div>
+              ))}
+            </div>
+
+            {totalPages > 1 && (
+              <div className="flex items-center justify-center gap-2 mt-12 pt-6">
+                <button
+                  onClick={() =>
+                    handlePageChange(
+                      currentPage - 1
+                    )
+                  }
+                  disabled={currentPage === 1}
+                  className="p-2.5 rounded-full hover:bg-neutral-100 dark:hover:bg-neutral-900 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                  aria-label="Previous Page"
+                >
+                  <ChevronLeft className="w-5 h-5 text-neutral-700 dark:text-neutral-300" />
+                </button>
+
+                <div className="flex items-center gap-1.5 px-2">
+                  {Array.from(
+                    {
+                      length: totalPages,
+                    },
+                    (_, i) => i + 1
+                  ).map((page) => (
+                    <button
+                      key={page}
+                      onClick={() =>
+                        handlePageChange(page)
+                      }
+                      className={`w-10 h-10 rounded-full text-sm font-medium transition-colors ${
+                        currentPage === page
+                          ? 'bg-neutral-900 text-white dark:bg-white dark:text-neutral-950 font-semibold'
+                          : 'text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-900'
+                      }`}
+                    >
+                      {page}
+                    </button>
+                  ))}
+                </div>
+
+                <button
+                  onClick={() =>
+                    handlePageChange(
+                      currentPage + 1
+                    )
+                  }
+                  disabled={
+                    currentPage === totalPages
+                  }
+                  className="p-2.5 rounded-full hover:bg-neutral-100 dark:hover:bg-neutral-900 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                  aria-label="Next Page"
+                >
+                  <ChevronRight className="w-5 h-5 text-neutral-700 dark:text-neutral-300" />
+                </button>
+              </div>
+            )}
+          </>
+        )}
+
+        <div className="mt-20 pt-12 border-t border-neutral-200 dark:border-neutral-800">
+          <div className="block md:hidden flex flex-col items-center justify-center text-center max-w-lg mx-auto py-8">
+            <CurrentFeatureIcon className="w-8 h-8 text-neutral-900 dark:text-white mb-3 transition-all duration-300" />
+
+            <h3 className="text-lg font-bold text-neutral-900 dark:text-white mb-1 tracking-tight">
+              {FEATURES[activeFeatureIndex].title}
+            </h3>
+
+            <p className="text-neutral-500 dark:text-neutral-400 text-sm">
+              {FEATURES[activeFeatureIndex].description}
+            </p>
+
+            <div className="flex items-center justify-center gap-1.5 mt-6">
+              {FEATURES.map((_, idx) => (
+                <button
+                  key={idx}
+                  onClick={() =>
+                    setActiveFeatureIndex(idx)
+                  }
+                  className={`h-1.5 rounded-full transition-all duration-300 ${
+                    activeFeatureIndex === idx
+                      ? 'w-6 bg-neutral-900 dark:bg-white'
+                      : 'w-1.5 bg-neutral-400 dark:bg-neutral-700'
+                  }`}
+                  aria-label={`Go to feature ${
+                    idx + 1
+                  }`}
+                />
+              ))}
+            </div>
+          </div>
+
+          <div className="hidden md:grid md:grid-cols-4 py-6">
+            {FEATURES.map((feature, idx) => {
+              const Icon = feature.icon;
+
+              return (
+                <div
+                  key={feature.title}
+                  className={`flex items-start gap-4 px-6 ${
+                    idx !== 0
+                      ? 'border-l border-neutral-200 dark:border-neutral-800'
+                      : ''
+                  }`}
+                >
+                  <Icon className="w-6 h-6 text-neutral-900 dark:text-white flex-shrink-0 mt-1" />
+
+                  <div>
+                    <h3 className="text-sm font-bold text-neutral-900 dark:text-white tracking-tight mb-1">
+                      {feature.title}
+                    </h3>
+
+                    <p className="text-xs text-neutral-500 dark:text-neutral-400 leading-relaxed">
+                      {feature.description}
+                    </p>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       </div>
