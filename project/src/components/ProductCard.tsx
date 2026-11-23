@@ -43,9 +43,47 @@ export default function ProductCard({
     ? Math.round(((compareAtPrice - price) / compareAtPrice) * 100)
     : 0;
 
-  // Dynamic promo label: Custom text takes priority over auto-calculated SAVE XX%
   const promoBadgeLabel = !isFree
-    ? customBadgeText || (discountPercent > 0 ? `SAVE ${discountPercent}\%` : null) : null;  // Priority: FREE > PROMO (Purple Custom / SAVE XX\%) > KITS EXCLUSIVE > NEW IN const showFreeBadge = isFree; const showPromoBadge = !isFree && Boolean(promoBadgeLabel); const showExclusiveBadge = !isFree && !showPromoBadge && isExclusive; const showNewBadge = !isFree && !showPromoBadge && isKit && !isExclusive && rawIsNew;  const isInstruction = product.section?.toLowerCase() === 'instructions' \vert{}\vert{} product.section?.toLowerCase() === 'instruction';  return ( <div className=" group relative bg-neutral-100 dark:bg-[#111112] rounded-2xl overflow-hidden border border-neutral-200 dark:border-neutral-800 transition-all duration-400 [@media(hover:hover)]:hover:border-neutral-300 dark:[@media(hover:hover)]:hover:border-neutral-700 [@media(hover:hover)]:hover:-translate-y-1 shadow-none select-none flex flex-col h-full " > {/* IMAGE */} <Link to={`/product/${product.slug}`}
+    ? customBadgeText || (discountPercent > 0 ? `SAVE ${discountPercent}%` : null)
+    : null;
+
+  /* Priority: FREE > PROMO (Purple) > KITS EXCLUSIVE > NEW IN */
+  const showFreeBadge = isFree;
+  const showPromoBadge = !isFree && Boolean(promoBadgeLabel);
+  const showExclusiveBadge = !isFree && !showPromoBadge && isExclusive;
+  const showNewBadge = !isFree && !showPromoBadge && isKit && !isExclusive && rawIsNew;
+
+  const isInstruction =
+    product.section?.toLowerCase() === 'instructions' ||
+    product.section?.toLowerCase() === 'instruction';
+
+  return (
+    <div
+      className="
+        group
+        relative
+        bg-neutral-100
+        dark:bg-[#111112]
+        rounded-2xl
+        overflow-hidden
+        border
+        border-neutral-200
+        dark:border-neutral-800
+        transition-all
+        duration-400
+        [@media(hover:hover)]:hover:border-neutral-300
+        dark:[@media(hover:hover)]:hover:border-neutral-700
+        [@media(hover:hover)]:hover:-translate-y-1
+        shadow-none
+        select-none
+        flex
+        flex-col
+        h-full
+      "
+    >
+      {/* IMAGE */}
+      <Link
+        to={`/product/${product.slug}`}
         onClick={() =>
           void recordItemClick({
             itemId: product.id,
