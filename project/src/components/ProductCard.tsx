@@ -234,6 +234,8 @@ export default function ProductCard({
 
           <p
             className="
+              hidden
+              sm:block
               text-neutral-500
               dark:text-neutral-400
               text-xs
@@ -254,7 +256,7 @@ export default function ProductCard({
             flex
             items-center
             justify-between
-            pt-3
+            pt-2
             sm:pt-4
             gap-1.5
             sm:gap-2
