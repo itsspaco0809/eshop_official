@@ -5,8 +5,14 @@ import { useCurrency } from '@/lib/currency';
 import { Link } from '@/lib/router';
 import { recordItemClick } from '@/lib/analytics';
 
+type ExtendedProduct = Product & {
+  exclusive?: boolean;
+  compare_at_price?: number | null;
+  badge_text?: string | null;
+};
+
 interface ProductCardProps {
-  product: Product;
+  product: ExtendedProduct;
   isNew?: boolean;
   isReady?: boolean;
 }
@@ -26,15 +32,27 @@ export default function ProductCard({
     isNew ??
     (product.is_new || product.isNew || false);
 
-  const isExclusive =
-    Boolean((product as Product & { exclusive?: boolean }).exclusive);
+  const isExclusive = Boolean(product.exclusive);
+  const price = Number(product.price);
+  const compareAtPrice = product.compare_at_price ? Number(product.compare_at_price) : null;
+  const customBadgeText = product.badge_text?.trim() || null;
 
-  const isFree = Number(product.price) === 0;
+  const isFree = price === 0;
+  const hasDiscount = Boolean(!isFree && compareAtPrice && compareAtPrice > price);
+  const discountPercent = hasDiscount && compareAtPrice
+    ? Math.round(((compareAtPrice - price) / compareAtPrice) * 100)
+    : 0;
 
-  // Priority: FREE > KITS EXCLUSIVE > NEW IN
+  // Dynamic promo label: Custom text takes priority over auto-calculated SAVE XX%
+  const promoBadgeLabel = !isFree
+    ? customBadgeText || (discountPercent > 0 ? `SAVE ${discountPercent}%` : null)
+    : null;
+
+  // Priority: FREE > PROMO (Custom / SAVE XX%) > KITS EXCLUSIVE > NEW IN
   const showFreeBadge = isFree;
-  const showExclusiveBadge = !isFree && isExclusive;
-  const showNewBadge = !isFree && isKit && !isExclusive && rawIsNew;
+  const showPromoBadge = !isFree && Boolean(promoBadgeLabel);
+  const showExclusiveBadge = !isFree && !showPromoBadge && isExclusive;
+  const showNewBadge = !isFree && !showPromoBadge && isKit && !isExclusive && rawIsNew;
 
   const isInstruction =
     product.section?.toLowerCase() === 'instructions' ||
@@ -64,7 +82,6 @@ export default function ProductCard({
         h-full
       "
     >
-
       {/* IMAGE */}
       <Link
         to={`/product/${product.slug}`}
@@ -87,7 +104,6 @@ export default function ProductCard({
           [-webkit-tap-highlight-color:transparent]
         "
       >
-
         <img
           src={product.image_url}
           alt={product.name}
@@ -104,7 +120,7 @@ export default function ProductCard({
           "
         />
 
-        {(showFreeBadge || showExclusiveBadge || showNewBadge) && (
+        {(showFreeBadge || showPromoBadge || showExclusiveBadge || showNewBadge) && (
           <div className="absolute top-2 left-2 sm:top-3 sm:left-3">
             <span
               className={`
@@ -116,7 +132,7 @@ export default function ProductCard({
                 py-0.5
                 sm:px-3
                 sm:py-1
-                ${showFreeBadge || showExclusiveBadge ? 'text-white' : 'text-neutral-950'}
+                ${showFreeBadge || showPromoBadge || showExclusiveBadge ? 'text-white' : 'text-neutral-950'}
                 text-[10px]
                 sm:text-xs
                 font-black
@@ -128,17 +144,21 @@ export default function ProductCard({
               style={{
                 backgroundColor: showFreeBadge
                   ? '#F97316'
-                  : showExclusiveBadge
-                    ? '#007AFF'
-                    : '#D2FF00',
+                  : showPromoBadge
+                    ? '#16A34A'
+                    : showExclusiveBadge
+                      ? '#007AFF'
+                      : '#D2FF00',
               }}
             >
               <span className="relative z-10">
                 {showFreeBadge
                   ? 'FREE'
-                  : showExclusiveBadge
-                    ? 'KITS EXCLUSIVE'
-                    : 'NEW IN'}
+                  : showPromoBadge
+                    ? promoBadgeLabel
+                    : showExclusiveBadge
+                      ? 'KITS EXCLUSIVE'
+                      : 'NEW IN'}
               </span>
 
               {showExclusiveBadge && (
@@ -161,7 +181,6 @@ export default function ProductCard({
             </span>
           </div>
         )}
-
       </Link>
 
       {/* CONTENT */}
@@ -174,9 +193,7 @@ export default function ProductCard({
           flex-1
         "
       >
-
         <div>
-
           <Link
             to={`/product/${product.slug}`}
             onClick={() =>
@@ -192,7 +209,6 @@ export default function ProductCard({
               [-webkit-tap-highlight-color:transparent]
             "
           >
-
             <div
               className="
                 h-12
@@ -201,7 +217,6 @@ export default function ProductCard({
                 items-start
               "
             >
-
               <h3
                 className="
                   text-neutral-900
@@ -215,9 +230,7 @@ export default function ProductCard({
               >
                 {product.name}
               </h3>
-
             </div>
-
           </Link>
 
           <p
@@ -230,13 +243,10 @@ export default function ProductCard({
               truncate
             "
           >
-            {
-              isInstruction
-                ? product.theme
-                : `${product.piece_count} Pieces · ${product.theme}`
-            }
+            {isInstruction
+              ? product.theme
+              : `${product.piece_count} Pieces · ${product.theme}`}
           </p>
-
         </div>
 
         {/* PRICE + BUTTON */}
@@ -252,19 +262,34 @@ export default function ProductCard({
             min-h-[42px]
           "
         >
+          <div className="flex items-baseline gap-1.5 whitespace-nowrap">
+            <span
+              className="
+                text-neutral-900
+                dark:text-white
+                text-sm
+                sm:text-lg
+                font-bold
+              "
+            >
+              {formatPrice(product.price)}
+            </span>
 
-          <span
-            className="
-              text-neutral-900
-              dark:text-white
-              text-sm
-              sm:text-lg
-              font-bold
-              whitespace-nowrap
-            "
-          >
-            {formatPrice(product.price)}
-          </span>
+            {hasDiscount && compareAtPrice && (
+              <span
+                className="
+                  text-neutral-400
+                  dark:text-neutral-500
+                  text-xs
+                  sm:text-sm
+                  line-through
+                  font-medium
+                "
+              >
+                {formatPrice(compareAtPrice)}
+              </span>
+            )}
+          </div>
 
           {/*
             Keep the same space even when sold out.
@@ -280,12 +305,9 @@ export default function ProductCard({
               flex-shrink-0
             "
           >
-
             {product.in_stock && (
               <button
-                onClick={() =>
-                  addItem(product)
-                }
+                onClick={() => addItem(product)}
                 className="
                   flex
                   items-center
@@ -321,18 +343,12 @@ export default function ProductCard({
                     flex-shrink-0
                   "
                 />
-
                 Add
-
               </button>
             )}
-
           </div>
-
         </div>
-
       </div>
-
     </div>
   );
 }
