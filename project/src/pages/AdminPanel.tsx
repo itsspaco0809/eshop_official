@@ -20,6 +20,8 @@ export interface Product {
   slug: string;
   description: string;
   price: number | null;
+  compare_at_price?: number | null;
+  badge_text?: string | null;
   category: string | string[];
   theme: string;
   piece_count: number | null;
@@ -140,6 +142,8 @@ interface ProductFormState {
   slug: string;
   description: string;
   price: number | '';
+  compare_at_price: number | '';
+  badge_text: string;
   category: string;
   theme: string;
   piece_count: number | '';
@@ -180,6 +184,8 @@ const emptyProductForm: ProductFormState = {
   slug: '',
   description: '',
   price: '',
+  compare_at_price: '',
+  badge_text: '',
   category: 'Kits',
   theme: 'Custom',
   piece_count: '',
@@ -292,9 +298,6 @@ export default function AdminPanel({ initialTab = 'analytics' }: { initialTab?: 
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Close an open digital-file action menu when clicking elsewhere or scrolling.
-  // The menu is rendered through a portal, so it is not clipped by the table's
-  // overflow-x-auto / overflow-hidden containers.
   useEffect(() => {
     const closeFileMenu = () => {
       setOpenFileMenuId(null);
@@ -312,8 +315,6 @@ export default function AdminPanel({ initialTab = 'analytics' }: { initialTab?: 
       if (event.key === 'Escape') closeFileMenu();
     };
 
-    // Capture scroll events from the window and any nested scroll container.
-    // This also works with the admin table's horizontal/vertical scrolling.
     const handleScroll = () => closeFileMenu();
 
     document.addEventListener('mousedown', handleFileMenuOutsideClick);
@@ -406,10 +407,6 @@ export default function AdminPanel({ initialTab = 'analytics' }: { initialTab?: 
     onConfirm: () => {},
   });
 
-  // Admin entry scroll reset
-  // Always start AdminPanel at the top when entering this route.
-  // Synchronize Lenis and the native document scroller so the previous page's
-  // scroll position cannot leak into the admin page.
   useEffect(() => {
     if (globalLenis) {
       globalLenis.resize();
@@ -423,14 +420,12 @@ export default function AdminPanel({ initialTab = 'analytics' }: { initialTab?: 
     document.body.scrollTop = 0;
   }, []);
 
-  // Jump to top directly without smooth scrolling
   useEffect(() => {
     if (editingProductId || isAddingProduct || editingFileId || isAddingFile || editingOrderId || isAddingOrder) {
       window.scrollTo(0, 0);
     }
   }, [editingProductId, isAddingProduct, editingFileId, isAddingFile, editingOrderId, isAddingOrder]);
 
-  // Helper Function for Matching Item Thumbnail and Color
   const getItemImage = (item: OrderItem) => {
     const prod = item.products;
     const itemColor = item.color || item.selected_color;
@@ -447,8 +442,6 @@ export default function AdminPanel({ initialTab = 'analytics' }: { initialTab?: 
     return prod?.image_url || item.thumbnail || item.image_url || null;
   };
 
-  // Digital-file presentation helpers. products.colors is the source of truth
-  // for the color hex, thumbnail and gallery used by each digital-file row.
   const getDigitalFileColor = (product: Product | undefined, colorName: string | null) => {
     if (!product || !colorName) return null;
 
@@ -476,9 +469,6 @@ export default function AdminPanel({ initialTab = 'analytics' }: { initialTab?: 
     return color?.thumbnail || color?.gallery?.[0] || product?.image_url || null;
   };
 
-  // Multiple files for one product/color remain separate digital_files rows.
-  // This keeps the existing database/download structure intact and lets the
-  // admin UI show how many files belong to the same product/color combination.
   const digitalFileGroupCounts = useMemo(() => {
     const counts: Record<string, number> = {};
     files.forEach((file) => {
@@ -488,7 +478,6 @@ export default function AdminPanel({ initialTab = 'analytics' }: { initialTab?: 
     return counts;
   }, [files]);
 
-  // Tab Item Config
   const tabItems = [
     { id: 'analytics', label: 'Analytics', icon: BarChart3, count: null },
     { id: 'products', label: 'Products', icon: Package, count: products?.length ?? 0 },
@@ -537,7 +526,6 @@ export default function AdminPanel({ initialTab = 'analytics' }: { initialTab?: 
     }));
   };
 
-  // Sorting
   const handleProductSort = (field: ProductSortField) => {
     setProductSort((prev) => ({
       field,
@@ -657,7 +645,6 @@ export default function AdminPanel({ initialTab = 'analytics' }: { initialTab?: 
     });
   }, [filteredMessages, messageSort]);
 
-  // Map order items by order ID
   const orderItemsByOrderId = useMemo(() => {
     const map: Record<string, OrderItem[]> = {};
     orderItems.forEach((item) => {
@@ -667,7 +654,6 @@ export default function AdminPanel({ initialTab = 'analytics' }: { initialTab?: 
     return map;
   }, [orderItems]);
 
-  // Supabase Fetch Methods
   const getStartDateISO = (range: TimeRange): string => {
     const now = new Date();
     if (range === 'realtime') now.setHours(now.getHours() - 1);
@@ -686,9 +672,6 @@ export default function AdminPanel({ initialTab = 'analytics' }: { initialTab?: 
       const startDate = getStartDateISO(range);
       const batchSize = 1000;
 
-      // Supabase REST responses are paginated in batches. Keep requesting
-      // batches until the final partial batch is reached, so Analytics is
-      // never capped at the first 1,000 rows.
       const pageViewRows: { visitor_id: string | null }[] = [];
       let pageViewFrom = 0;
 
@@ -750,7 +733,6 @@ export default function AdminPanel({ initialTab = 'analytics' }: { initialTab?: 
           .filter(Boolean)
       ).size;
 
-      // Read every item click in the selected period.
       const clickRows: {
         item_id: string;
         item_type: 'store' | 'instructions' | 'custom_parts';
@@ -775,9 +757,6 @@ export default function AdminPanel({ initialTab = 'analytics' }: { initialTab?: 
         clickFrom += batchSize;
       }
 
-      // Use the products table for the current thumbnail/name/slug. This
-      // covers Store, Instructions and Custom Parts because all three use
-      // public.products with different section values.
       const { data: productRows, error: productsError } = await supabase
         .from('products')
         .select('id, name, slug, image_url, section');
@@ -910,6 +889,8 @@ export default function AdminPanel({ initialTab = 'analytics' }: { initialTab?: 
       slug: product.slug,
       description: product.description || '',
       price: product.price ?? '',
+      compare_at_price: product.compare_at_price ?? '',
+      badge_text: product.badge_text || '',
       category: Array.isArray(product.category) ? product.category.join(', ') : (product.category || ''),
       theme: product.theme || '',
       piece_count: product.piece_count ?? '',
@@ -966,6 +947,8 @@ export default function AdminPanel({ initialTab = 'analytics' }: { initialTab?: 
       slug: `${product.slug}-copy-${Date.now().toString().slice(-4)}`,
       description: product.description,
       price: product.price,
+      compare_at_price: product.compare_at_price ?? null,
+      badge_text: product.badge_text ?? null,
       category: product.category,
       theme: product.theme,
       piece_count: product.piece_count,
@@ -1015,6 +998,8 @@ export default function AdminPanel({ initialTab = 'analytics' }: { initialTab?: 
           ...editableProductFields,
           category: categoryArray,
           price: productForm.price === '' ? null : Number(productForm.price),
+          compare_at_price: productForm.compare_at_price === '' ? null : Number(productForm.compare_at_price),
+          badge_text: productForm.badge_text.trim() || null,
           piece_count: productForm.piece_count === '' ? null : Number(productForm.piece_count),
           stock_quantity: productForm.stock_quantity === '' ? null : Number(productForm.stock_quantity),
           gallery: galleryArray,
@@ -1801,9 +1786,31 @@ export default function AdminPanel({ initialTab = 'analytics' }: { initialTab?: 
                     <label className="block text-xs uppercase text-neutral-500 dark:text-neutral-400 mb-1">price</label>
                     <input
                       type="number"
+                      step="any"
                       placeholder="NULL"
                       value={productForm.price ?? ''}
                       onChange={(e) => setProductForm({ ...productForm, price: e.target.value === '' ? '' : Number(e.target.value) })}
+                      className="w-full bg-neutral-50 dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 rounded-lg px-3 py-2 text-base sm:text-sm text-neutral-900 dark:text-white focus:outline-none focus:border-neutral-400 dark:focus:border-neutral-700"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs uppercase text-neutral-500 dark:text-neutral-400 mb-1">compare_at_price (auto save %)</label>
+                    <input
+                      type="number"
+                      step="any"
+                      placeholder="Optional (e.g. 8.70)"
+                      value={productForm.compare_at_price ?? ''}
+                      onChange={(e) => setProductForm({ ...productForm, compare_at_price: e.target.value === '' ? '' : Number(e.target.value) })}
+                      className="w-full bg-neutral-50 dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 rounded-lg px-3 py-2 text-base sm:text-sm text-neutral-900 dark:text-white focus:outline-none focus:border-neutral-400 dark:focus:border-neutral-700"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs uppercase text-neutral-500 dark:text-neutral-400 mb-1">badge_text (purple badge override)</label>
+                    <input
+                      type="text"
+                      placeholder="Optional (e.g. 4-PACK BUNDLE)"
+                      value={productForm.badge_text || ''}
+                      onChange={(e) => setProductForm({ ...productForm, badge_text: e.target.value })}
                       className="w-full bg-neutral-50 dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 rounded-lg px-3 py-2 text-base sm:text-sm text-neutral-900 dark:text-white focus:outline-none focus:border-neutral-400 dark:focus:border-neutral-700"
                     />
                   </div>
@@ -2718,20 +2725,20 @@ export default function AdminPanel({ initialTab = 'analytics' }: { initialTab?: 
                               </td>
 
                               <td className="p-4 whitespace-nowrap">
-  <span className={`inline-flex px-2.5 py-1 rounded-full text-xs font-semibold uppercase tracking-wider ${
-    order.status === 'paid'
-      ? 'bg-indigo-100 dark:bg-indigo-950/80 text-indigo-700 dark:text-indigo-400'
-      : order.status === 'done'
-      ? 'bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-400'
-      : order.status === 'shipped'
-      ? 'bg-blue-100 dark:bg-blue-950/80 text-blue-700 dark:text-blue-400'
-      : order.status === 'cancelled'
-      ? 'bg-red-100 dark:bg-red-950/80 text-red-700 dark:text-red-400'
-      : 'bg-amber-100 dark:bg-amber-950/80 text-amber-700 dark:text-amber-400'
-  }`}>
-    {order.status}
-  </span>
-</td>
+                                <span className={`inline-flex px-2.5 py-1 rounded-full text-xs font-semibold uppercase tracking-wider ${
+                                  order.status === 'paid'
+                                    ? 'bg-indigo-100 dark:bg-indigo-950/80 text-indigo-700 dark:text-indigo-400'
+                                    : order.status === 'done'
+                                    ? 'bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-400'
+                                    : order.status === 'shipped'
+                                    ? 'bg-blue-100 dark:bg-blue-950/80 text-blue-700 dark:text-blue-400'
+                                    : order.status === 'cancelled'
+                                    ? 'bg-red-100 dark:bg-red-950/80 text-red-700 dark:text-red-400'
+                                    : 'bg-amber-100 dark:bg-amber-950/80 text-amber-700 dark:text-amber-400'
+                                }`}>
+                                  {order.status}
+                                </span>
+                              </td>
 
                               <td className="p-4 font-mono font-semibold text-neutral-900 dark:text-white whitespace-nowrap">
                                 ${((order.total ?? order.amount ?? 0) / 100).toFixed(2)}
