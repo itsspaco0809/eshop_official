@@ -262,10 +262,29 @@ export default function ProductCard({
             min-h-[42px]
           "
         >
-          <div className="min-w-0 flex flex-col sm:flex-row sm:items-baseline sm:gap-1.5">
+          <div className="relative min-w-0 flex items-baseline sm:gap-1.5">
+            <span
+              className="
+                text-neutral-900
+                dark:text-white
+                text-sm
+                sm:text-lg
+                font-bold
+                whitespace-nowrap
+              "
+            >
+              {formatPrice(product.price)}
+            </span>
+
             {hasDiscount && compareAtPrice && (
               <span
                 className="
+                  absolute
+                  left-0
+                  top-full
+                  mt-0.5
+                  sm:static
+                  sm:mt-0
                   text-neutral-400
                   dark:text-neutral-500
                   text-[10px]
@@ -273,26 +292,12 @@ export default function ProductCard({
                   leading-none
                   line-through
                   font-medium
-                  truncate
+                  whitespace-nowrap
                 "
               >
                 {formatPrice(compareAtPrice)}
               </span>
             )}
-
-            <span
-              className="
-                text-neutral-900
-                dark:text-white
-                text-sm
-                sm:text-lg
-                leading-tight
-                font-bold
-                whitespace-nowrap
-              "
-            >
-              {formatPrice(product.price)}
-            </span>
           </div>
 
           <div
