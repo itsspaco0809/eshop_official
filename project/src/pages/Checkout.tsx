@@ -15,6 +15,7 @@ import {
   AlertCircle,
   Tag,
   Banknote,
+  Download,
 } from 'lucide-react';
 
 import { useCart } from '@/lib/cart';
@@ -201,18 +202,6 @@ export default function Checkout() {
     setCurrency: setGlobalCurrency,
   } = useCurrency();
 
-  /*
-   * =========================================================
-   * SUBMIT LOCK
-   * =========================================================
-   *
-   * React state alone is not enough to prevent two very fast
-   * taps/clicks from entering handleSubmit before React has
-   * re-rendered.
-   *
-   * This ref acts as a synchronous lock.
-   */
-
   const submitLockRef = useRef(false);
 
   const [form, setForm] = useState({
@@ -250,31 +239,11 @@ export default function Checkout() {
   const [dbOrderStatus, setDbOrderStatus] =
     useState<string>('pending');
 
-  /*
-   * =========================================================
-   * STRIPE RETURN INITIAL STATE
-   * =========================================================
-   *
-   * IMPORTANT:
-   *
-   * This MUST NOT simply start as false.
-   *
-   * Stripe redirects back to:
-   *
-   * /checkout?success=true&session_id=...
-   *
-   * React can render the component once BEFORE useEffect()
-   * executes.
-   *
-   * If this state starts as false, the normal checkout UI
-   * can briefly appear before useEffect() changes it to true.
-   *
-   * We therefore inspect the URL during the INITIAL STATE
-   * calculation.
-   *
-   * This means the FIRST render after Stripe returns is already
-   * the confirmation/loading screen.
-   */
+  const [isDownloadingInstruction, setIsDownloadingInstruction] =
+    useState(false);
+
+  const [downloadError, setDownloadError] =
+    useState<string | null>(null);
 
   const [isConfirmingStripeReturn, setIsConfirmingStripeReturn] =
     useState(() => {
@@ -304,27 +273,12 @@ export default function Checkout() {
       );
     });
 
-  /*
-   * =========================================================
-   * ADMIN CASH PAYMENT
-   * =========================================================
-   *
-   * Only an authenticated admin with the correct
-   * app_metadata role can trigger CASH.
-   */
-
   const isCashPayment =
     isAdmin &&
     form.notes
       .trim()
       .toUpperCase()
       .includes('CASH');
-
-  /*
-   * =========================================================
-   * SCROLL TO TOP
-   * =========================================================
-   */
 
   const scrollToTop = () => {
     window.scrollTo({
@@ -341,6 +295,75 @@ export default function Checkout() {
 
     if (mainContainer) {
       mainContainer.scrollTop = 0;
+    }
+  };
+
+  /*
+   * =========================================================
+   * DOWNLOAD INSTRUCTION (GUEST & REGISTERED USERS)
+   * =========================================================
+   */
+
+  const handleDownloadInstruction = async () => {
+    if (!orderId || isDownloadingInstruction) {
+      return;
+    }
+
+    setIsDownloadingInstruction(true);
+    setDownloadError(null);
+
+    try {
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token;
+
+      const authToken = accessToken || supabaseAnonKey;
+
+      const response = await fetch(
+        `${supabaseUrl}/functions/v1/download-instruction`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            apikey: supabaseAnonKey,
+            Authorization: `Bearer ${authToken}`,
+          },
+          body: JSON.stringify({
+            orderId,
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        let errMessage = 'Failed to download instruction manual.';
+        try {
+          const err = await response.json();
+          if (err?.error) {
+            errMessage = err.error;
+          }
+        } catch {
+          // Ignore JSON parse error.
+        }
+        setDownloadError(errMessage);
+        return;
+      }
+
+      const blob = await response.blob();
+      const downloadUrl = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = downloadUrl;
+      a.download = 'Instruction_Manual.zip';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(downloadUrl);
+    } catch (error) {
+      console.error('Download error:', error);
+      setDownloadError('Download failed. Please check your connection and try again.');
+    } finally {
+      setIsDownloadingInstruction(false);
     }
   };
 
@@ -374,12 +397,6 @@ export default function Checkout() {
       const paramOrderId =
         searchParams.get('order_id');
 
-      /*
-       * -----------------------------------------------------
-       * CASH / LEGACY DIRECT ORDER
-       * -----------------------------------------------------
-       */
-
       if (paramOrderId) {
         if (cancelled) {
           return;
@@ -387,11 +404,6 @@ export default function Checkout() {
 
         setOrderId(paramOrderId);
         setStatus('success');
-
-        /*
-         * Fetch the actual database status so the success
-         * page can correctly show PAID or DONE.
-         */
 
         const {
           data,
@@ -429,12 +441,6 @@ export default function Checkout() {
         return;
       }
 
-      /*
-       * -----------------------------------------------------
-       * STRIPE CANCEL
-       * -----------------------------------------------------
-       */
-
       if (
         paymentStatus === 'cancel'
       ) {
@@ -459,12 +465,6 @@ export default function Checkout() {
         return;
       }
 
-      /*
-       * -----------------------------------------------------
-       * NOTHING TO CONFIRM
-       * -----------------------------------------------------
-       */
-
       if (
         (
           paymentStatus !== 'success' &&
@@ -483,29 +483,10 @@ export default function Checkout() {
         return;
       }
 
-      /*
-       * -----------------------------------------------------
-       * STRIPE RETURN
-       * -----------------------------------------------------
-       *
-       * The initial useState() has already made the FIRST
-       * render the loading screen.
-       *
-       * This remains here as a safety net for any client-side
-       * navigation that reaches this component with Stripe
-       * parameters.
-       */
-
       setIsConfirmingStripeReturn(true);
       setErrorMessage(null);
 
       scrollToTop();
-
-      /*
-       * Remove URL query parameters immediately.
-       *
-       * replaceState() does not reload the page.
-       */
 
       window.history.replaceState(
         {},
@@ -547,26 +528,6 @@ export default function Checkout() {
 
             setOrderId(data.id);
 
-            /*
-             * IMPORTANT:
-             *
-             * Finding the order does NOT mean payment is
-             * complete.
-             *
-             * create-order creates the order row first.
-             *
-             * Stripe webhook then changes:
-             *
-             * pending → paid
-             *
-             * OR
-             *
-             * pending → done
-             *
-             * Therefore we keep the confirmation screen
-             * visible while the status is still pending.
-             */
-
             if (
               data.status === 'paid' ||
               data.status === 'done'
@@ -577,13 +538,6 @@ export default function Checkout() {
 
               clearCart();
 
-              /*
-               * IMPORTANT:
-               *
-               * Only hide the Stripe confirmation screen
-               * AFTER the final DB status is confirmed.
-               */
-
               setIsConfirmingStripeReturn(false);
 
               setStatus('success');
@@ -592,12 +546,6 @@ export default function Checkout() {
 
               return;
             }
-
-            /*
-             * Order exists but webhook has not finished yet.
-             *
-             * Keep polling.
-             */
 
             if (
               Date.now() - startedAt <
@@ -611,10 +559,6 @@ export default function Checkout() {
               return;
             }
           }
-
-          /*
-           * Continue polling for up to 60 seconds.
-           */
 
           if (
             Date.now() - startedAt <
@@ -631,10 +575,6 @@ export default function Checkout() {
           if (cancelled) {
             return;
           }
-
-          /*
-           * Confirmation timed out.
-           */
 
           setIsConfirmingStripeReturn(false);
 
@@ -773,26 +713,26 @@ export default function Checkout() {
    */
 
   const handleCountryChange = (
-  country: string
-) => {
-  setForm((prev) => ({
-    ...prev,
-    country,
-  }));
+    country: string
+  ) => {
+    setForm((prev) => ({
+      ...prev,
+      country,
+    }));
 
-  const newCurrencyKey =
-    COUNTRY_TO_CURRENCY[country];
+    const newCurrencyKey =
+      COUNTRY_TO_CURRENCY[country];
 
-  if (
-    newCurrencyKey &&
-    newCurrencyKey !== globalCurrency
-  ) {
-    setGlobalCurrency(newCurrencyKey);
+    if (
+      newCurrencyKey &&
+      newCurrencyKey !== globalCurrency
+    ) {
+      setGlobalCurrency(newCurrencyKey);
 
-    setAppliedCoupon(null);
-    setCouponError(null);
-  }
-};
+      setAppliedCoupon(null);
+      setCouponError(null);
+    }
+  };
 
   /*
    * =========================================================
@@ -835,18 +775,6 @@ export default function Checkout() {
 
     return price / 100;
   };
-
-  /*
-   * =========================================================
-   * INSTRUCTIONS PRODUCT DETECTION
-   * =========================================================
-   *
-   * Keep this aligned with the server-side create-order
-   * and stripe-webhook logic.
-   *
-   * An item is considered an Instructions product when
-   * section, category, OR name contains "instruction".
-   */
 
   const isInstructionItem = (
     item?: (typeof items)[0]
@@ -1213,30 +1141,6 @@ export default function Checkout() {
         !isInstructionItem(item)
     );
 
-  /*
-   * IMPORTANT:
-   *
-   * Only an order where EVERY item is an Instructions
-   * product is considered Instructions Only.
-   *
-   * Therefore:
-   *
-   * Instructions
-   * → done
-   *
-   * Kits
-   * → paid
-   *
-   * Custom Parts
-   * → paid
-   *
-   * Kits + Instructions
-   * → paid
-   *
-   * Kits + Instructions + Custom Parts
-   * → paid
-   */
-
   const isInstructionOnly =
     items.length > 0 &&
     items.every(
@@ -1286,20 +1190,6 @@ export default function Checkout() {
           .length
       : 0;
 
-  /*
-   * =========================================================
-   * READ CURRENT AUTH SESSION
-   * =========================================================
-   *
-   * This is the important part for your current
-   * "Invalid Refresh Token" problem.
-   *
-   * We do NOT blindly trust the React `user` state.
-   *
-   * The Supabase session is checked immediately before
-   * creating the order.
-   */
-
   const getCheckoutSession =
     async () => {
       try {
@@ -1328,15 +1218,6 @@ export default function Checkout() {
       }
     };
 
-  /*
-   * =========================================================
-   * LOCAL SESSION CLEANUP
-   * =========================================================
-   *
-   * Used only when Supabase tells us that the existing
-   * refresh token/session is invalid.
-   */
-
   const clearBrokenAuthSession =
     async () => {
       try {
@@ -1350,12 +1231,6 @@ export default function Checkout() {
         );
       }
     };
-
-  /*
-   * =========================================================
-   * EDGE FUNCTION ERROR PARSER
-   * =========================================================
-   */
 
   const parseFunctionError =
     async (
@@ -1372,10 +1247,6 @@ export default function Checkout() {
         | string
         | null = null;
 
-      /*
-       * Read Retry-After header if the backend provides it.
-       */
-
       try {
         if (
           funcError?.context
@@ -1387,10 +1258,6 @@ export default function Checkout() {
             );
         }
       } catch (_) {}
-
-      /*
-       * Try reading JSON error body.
-       */
 
       try {
         if (
@@ -1414,12 +1281,6 @@ export default function Checkout() {
           }
         }
       } catch (_) {}
-
-      /*
-       * -----------------------------------------------------
-       * RATE LIMIT
-       * -----------------------------------------------------
-       */
 
       if (statusCode === 429) {
         if (retryAfter) {
@@ -1450,12 +1311,6 @@ export default function Checkout() {
             'Too many checkout attempts. Please wait a few minutes and try again.';
         }
       }
-
-      /*
-       * -----------------------------------------------------
-       * INVALID REFRESH TOKEN
-       * -----------------------------------------------------
-       */
 
       const lowerMessage =
         String(
@@ -1491,12 +1346,6 @@ export default function Checkout() {
   ) => {
     e.preventDefault();
 
-    /*
-     * -------------------------------------------------------
-     * HARD DOUBLE-SUBMIT LOCK
-     * -------------------------------------------------------
-     */
-
     if (submitLockRef.current) {
       return;
     }
@@ -1505,12 +1354,6 @@ export default function Checkout() {
 
     setStatus('submitting');
     setErrorMessage(null);
-
-    /*
-     * -------------------------------------------------------
-     * VALIDATE CART
-     * -------------------------------------------------------
-     */
 
     const invalidItems =
       items.filter(
@@ -1533,27 +1376,6 @@ export default function Checkout() {
       return;
     }
 
-    /*
-     * -------------------------------------------------------
-     * DETERMINE ORDER STATUS
-     * -------------------------------------------------------
-     *
-     * IMPORTANT:
-     *
-     * Instructions ONLY
-     * → done
-     *
-     * Cash order with physical products
-     * → paid
-     *
-     * Normal Stripe order
-     * → pending
-     *
-     * The final Stripe status is still determined by the
-     * stripe-webhook using the actual order_items/products
-     * on the server.
-     */
-
     const targetStatus =
       isInstructionOnly
         ? 'done'
@@ -1572,23 +1394,8 @@ export default function Checkout() {
       );
 
     try {
-      /*
-       * =====================================================
-       * STEP 1 — VERIFY CURRENT SESSION
-       * =====================================================
-       */
-
       let activeSession =
         await getCheckoutSession();
-
-      /*
-       * If React says a user is logged in but Supabase
-       * currently has no valid session:
-       *
-       * - CASH/admin → stop and ask admin to sign in
-       * - normal Stripe → clear stale local auth and
-       *   continue as guest
-       */
 
       if (
         user &&
@@ -1606,27 +1413,10 @@ export default function Checkout() {
           );
         }
 
-        /*
-         * Guest checkout is allowed for normal Stripe orders.
-         */
-
         activeSession = null;
       }
 
-      /*
-       * =====================================================
-       * STEP 2 — CREATE ORDER / STRIPE SESSION
-       * =====================================================
-       */
-
       const requestBody = {
-        /*
-         * IMPORTANT:
-         *
-         * Use the CURRENT Supabase session user ID,
-         * not a stale React user ID.
-         */
-
         user_id:
           activeSession?.user?.id ??
           null,
@@ -1654,17 +1444,6 @@ export default function Checkout() {
 
         currency:
           selectedCurrency,
-
-        /*
-         * Instructions only:
-         * done
-         *
-         * Cash physical order:
-         * paid
-         *
-         * Stripe:
-         * pending until webhook confirmation
-         */
 
         status:
           targetStatus,
@@ -1715,14 +1494,6 @@ export default function Checkout() {
               quantity:
                 item.quantity,
 
-              /*
-               * Kept for compatibility.
-               *
-               * create-order should continue using
-               * the database product price as the
-               * authoritative price.
-               */
-
               price:
                 Math.round(
                   calculateLocalAmount(
@@ -1739,12 +1510,6 @@ export default function Checkout() {
       let data: any = null;
       let funcError: any = null;
 
-      /*
-       * -------------------------------------------------------
-       * FIRST ATTEMPT
-       * -------------------------------------------------------
-       */
-
       const firstAttempt =
         await supabase.functions.invoke(
           'create-order',
@@ -1759,19 +1524,6 @@ export default function Checkout() {
 
       funcError =
         firstAttempt.error;
-
-      /*
-       * -------------------------------------------------------
-       * INVALID REFRESH TOKEN RECOVERY
-       * -------------------------------------------------------
-       *
-       * If Supabase tried to use an old refresh token and
-       * the function call failed because of it:
-       *
-       * 1. Clear broken local session.
-       * 2. Do NOT repeat for admin CASH.
-       * 3. Retry ONE time as guest for normal Stripe.
-       */
 
       if (funcError) {
         const parsed =
@@ -1793,10 +1545,6 @@ export default function Checkout() {
               'Your admin session has expired. Please sign in again before creating a cash order.'
             );
           }
-
-          /*
-           * Retry exactly ONCE.
-           */
 
           const retryBody = {
             ...requestBody,
@@ -1820,12 +1568,6 @@ export default function Checkout() {
         }
       }
 
-      /*
-       * -------------------------------------------------------
-       * FUNCTION ERROR
-       * -------------------------------------------------------
-       */
-
       if (funcError) {
         const parsed =
           await parseFunctionError(
@@ -1848,12 +1590,6 @@ export default function Checkout() {
         );
       }
 
-      /*
-       * -------------------------------------------------------
-       * BACKEND RESPONSE VALIDATION
-       * -------------------------------------------------------
-       */
-
       if (
         !data?.success
       ) {
@@ -1863,12 +1599,6 @@ export default function Checkout() {
             'Order creation failed.'
         );
       }
-
-      /*
-       * =====================================================
-       * CASH / FREE ORDER
-       * =====================================================
-       */
 
       if (
         isCashPayment ||
@@ -1886,15 +1616,6 @@ export default function Checkout() {
           data.order_id
         );
 
-        /*
-         * IMPORTANT:
-         *
-         * Use the backend status as authoritative.
-         *
-         * Instructions only → done
-         * Physical/Cash order → paid
-         */
-
         setDbOrderStatus(
           data.status ||
             targetStatus ||
@@ -1905,36 +1626,10 @@ export default function Checkout() {
 
         setStatus('success');
 
-        /*
-         * Clear cart ONLY after successful order creation.
-         */
-
         clearCart();
 
         return;
       }
-
-      /*
-       * =====================================================
-       * STRIPE
-       * =====================================================
-       *
-       * create-order returns the Stripe Checkout URL.
-       *
-       * We DO NOT clear the cart here.
-       *
-       * Cart is cleared only after:
-       *
-       * Stripe payment
-       *       ↓
-       * stripe-webhook
-       *       ↓
-       * orders row
-       *       ↓
-       * Checkout polling / order status
-       *       ↓
-       * success
-       */
 
       if (
         typeof data.checkout_url !==
@@ -1945,13 +1640,6 @@ export default function Checkout() {
           'Stripe checkout URL was not returned.'
         );
       }
-
-      /*
-       * Stripe Checkout redirect
-       *
-       * Use assign() instead of href so browser navigation
-       * is explicit and SPA router interference is avoided.
-       */
 
       window.location.assign(
         data.checkout_url
@@ -1964,10 +1652,6 @@ export default function Checkout() {
 
       setStatus('idle');
 
-      /*
-       * Never leave the lock active after an error.
-       */
-
       submitLockRef.current =
         false;
 
@@ -1978,12 +1662,6 @@ export default function Checkout() {
 
       const lowerMessage =
         rawMessage.toLowerCase();
-
-      /*
-       * -------------------------------------------------------
-       * AUTH ERROR
-       * -------------------------------------------------------
-       */
 
       if (
         lowerMessage.includes(
@@ -2005,12 +1683,6 @@ export default function Checkout() {
         return;
       }
 
-      /*
-       * -------------------------------------------------------
-       * RATE LIMIT
-       * -------------------------------------------------------
-       */
-
       if (
         lowerMessage.includes(
           'too many'
@@ -2029,12 +1701,6 @@ export default function Checkout() {
         return;
       }
 
-      /*
-       * -------------------------------------------------------
-       * NORMAL ERROR
-       * -------------------------------------------------------
-       */
-
       setErrorMessage(
         rawMessage ||
           'Failed to process order.'
@@ -2046,24 +1712,6 @@ export default function Checkout() {
    * =========================================================
    * STRIPE RETURN LOADING
    * =========================================================
-   *
-   * Because isConfirmingStripeReturn is initialized from
-   * window.location.search, this screen is rendered on the
-   * FIRST render after Stripe redirects back.
-   *
-   * This prevents:
-   *
-   * Checkout UI
-   *      ↓
-   * flash
-   *      ↓
-   * Confirming payment...
-   *
-   * Instead:
-   *
-   * Confirming payment...
-   *      ↓
-   * Success
    */
 
   if (
@@ -2097,7 +1745,7 @@ export default function Checkout() {
 
     return (
       <div className="bg-neutral-50 dark:bg-neutral-950 min-h-screen flex flex-col justify-start items-center px-4 pb-12 pt-[calc(5rem+env(safe-area-inset-top)+2rem)] md:pt-[calc(7rem+env(safe-area-inset-top)+2rem)] transition-colors">
-        <div className="max-w-md text-center pt-8 md:pt-12">
+        <div className="max-w-md w-full text-center pt-8 md:pt-12">
           <div className="w-20 h-20 rounded-full bg-neutral-900 dark:bg-white flex items-center justify-center mx-auto mb-6">
             <Check className="w-10 h-10 text-white dark:text-neutral-950" />
           </div>
@@ -2137,7 +1785,7 @@ export default function Checkout() {
           </p>
 
           {orderId && (
-            <p className="text-neutral-500 text-sm mb-8">
+            <p className="text-neutral-500 text-sm mb-6">
               Order reference:{' '}
               <span className="text-neutral-800 dark:text-neutral-300 font-mono">
                 {orderId
@@ -2145,6 +1793,34 @@ export default function Checkout() {
                   .toUpperCase()}
               </span>
             </p>
+          )}
+
+          {isCompleted && orderId && (
+            <div className="mb-6 p-4 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-2xl space-y-3">
+              <button
+                type="button"
+                onClick={handleDownloadInstruction}
+                disabled={isDownloadingInstruction}
+                className="w-full inline-flex items-center justify-center gap-2 px-6 py-3.5 bg-emerald-600 hover:bg-emerald-700 dark:bg-emerald-500 dark:hover:bg-emerald-400 text-white dark:text-neutral-950 font-bold text-sm uppercase tracking-wider rounded-full transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50"
+              >
+                <Download className="w-4 h-4" />
+                {isDownloadingInstruction
+                  ? 'Downloading...'
+                  : 'Download Instruction Manual'}
+              </button>
+
+              {!user && (
+                <p className="text-xs text-neutral-500 dark:text-neutral-400">
+                  Please download and save your file now before leaving this page.
+                </p>
+              )}
+
+              {downloadError && (
+                <p className="text-xs text-red-600 dark:text-red-400">
+                  {downloadError}
+                </p>
+              )}
+            </div>
           )}
 
           <Link
@@ -2489,10 +2165,10 @@ export default function Checkout() {
           <div
             className="
               w-full
-    order-2
-    lg:sticky
-    lg:top-36
-    self-start
+              order-2
+              lg:sticky
+              lg:top-36
+              self-start
             "
           >
             <div className="bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200 dark:border-neutral-800 p-6 space-y-6 shadow-sm dark:shadow-none">
