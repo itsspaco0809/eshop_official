@@ -256,38 +256,43 @@ export default function ProductCard({
             justify-between
             pt-3
             sm:pt-4
-            gap-2
+            gap-1.5
+            sm:gap-2
             mt-auto
             min-h-[42px]
           "
         >
-          <div className="flex items-baseline gap-1.5 whitespace-nowrap">
+          <div className="min-w-0 flex flex-col sm:flex-row sm:items-baseline sm:gap-1.5">
+            {hasDiscount && compareAtPrice && (
+              <span
+                className="
+                  text-neutral-400
+                  dark:text-neutral-500
+                  text-[10px]
+                  sm:text-sm
+                  leading-none
+                  line-through
+                  font-medium
+                  truncate
+                "
+              >
+                {formatPrice(compareAtPrice)}
+              </span>
+            )}
+
             <span
               className="
                 text-neutral-900
                 dark:text-white
                 text-sm
                 sm:text-lg
+                leading-tight
                 font-bold
+                whitespace-nowrap
               "
             >
               {formatPrice(product.price)}
             </span>
-
-            {hasDiscount && compareAtPrice && (
-              <span
-                className="
-                  text-neutral-400
-                  dark:text-neutral-500
-                  text-xs
-                  sm:text-sm
-                  line-through
-                  font-medium
-                "
-              >
-                {formatPrice(compareAtPrice)}
-              </span>
-            )}
           </div>
 
           <div
