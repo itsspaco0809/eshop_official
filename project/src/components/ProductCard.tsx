@@ -84,13 +84,11 @@ function resolveColorThumbnail(item: ProductColorOption): string | undefined {
   if (item.thumbnail) return item.thumbnail;
 
   if (Array.isArray(item.gallery) && item.gallery.length > 0) {
-    // 1. 直接喺 gallery 搵包含 /0.webp 嘅網址
-    const zeroWebp = item.gallery.find((url) =>
-      typeof url === 'string' && /\/0\.webp(\?.*)?$/i.test(url)
+    const zeroWebp = item.gallery.find(
+      (url) => typeof url === 'string' && /\/0\.webp(\?.*)?$/i.test(url)
     );
     if (zeroWebp) return zeroWebp;
 
-    // 2. 如果 gallery 冇放 0.webp（例如只放咗 1.webp, 2.webp），由第一張圖路徑推算同資料夾嘅 0.webp
     const firstUrl = item.gallery[0];
     if (typeof firstUrl === 'string') {
       return firstUrl.replace(/\/[^/]+\.webp(\?.*)?$/i, '/0.webp$1');
@@ -183,7 +181,6 @@ export default function ProductCard({
   const visibleSwatches = colorSwatches.slice(0, MAX_VISIBLE_SWATCHES);
   const remainingColorCount = Math.max(0, colorSwatches.length - MAX_VISIBLE_SWATCHES);
 
-  // 預設顯示 product.image_url（或者選中顏色嘅 0.webp）
   const activeSwatch = colorSwatches[selectedColorIndex];
   const displayImage =
     hasMultipleColors && activeSwatch?.previewUrl
@@ -194,6 +191,28 @@ export default function ProductCard({
     hasMultipleColors && activeSwatch && selectedColorIndex > 0
       ? `/product/${product.slug}?color=${encodeURIComponent(activeSwatch.name)}`
       : `/product/${product.slug}`;
+
+  // 快速加入購物車（連同目前選中嘅顏色與該色縮圖一齊傳入）
+  const handleQuickAdd = () => {
+    const chosenColorName = activeSwatch?.name;
+    const chosenImage = displayImage;
+
+    const itemPayload = chosenColorName
+      ? {
+          ...product,
+          image_url: chosenImage,
+          selectedColor: chosenColorName,
+          selected_color: chosenColorName,
+          color: chosenColorName,
+        }
+      : product;
+
+    // 兼容 addItem(product, { color }) 或 addItem(product) 兩種簽名
+    (addItem as (item: unknown, options?: { color?: string }) => void)(
+      itemPayload,
+      chosenColorName ? { color: chosenColorName } : undefined
+    );
+  };
 
   return (
     <div
@@ -245,7 +264,6 @@ export default function ProductCard({
           src={displayImage}
           alt={product.name}
           onError={(e) => {
-            // 萬一某隻色未上傳 0.webp，自動 fallback 返預設圖，唔會破圖
             if (e.currentTarget.src !== product.image_url) {
               e.currentTarget.src = product.image_url;
             }
@@ -354,8 +372,8 @@ export default function ProductCard({
           >
             <div
               className="
-                min-h-[2.75rem]
-                sm:min-h-[3.25rem]
+                h-12
+                sm:h-16
                 flex
                 items-start
               "
@@ -393,98 +411,104 @@ export default function ProductCard({
               : `${product.piece_count} Pieces · ${product.theme}`}
           </p>
 
-          {/* MINI COLOR SWATCHES（點擊切換該顏色嘅 0.webp） */}
-          {hasMultipleColors && (
-            <div
-              className="flex items-center gap-2 mt-2 sm:mt-2.5"
-              aria-label={`${colorSwatches.length} color options available`}
-            >
-              {visibleSwatches.map((swatch, idx) => {
-                const isSelected = selectedColorIndex === idx;
-                return (
-                  <button
-                    key={`${swatch.name}-${idx}`}
-                    type="button"
-                    title={swatch.name}
-                    aria-label={`Preview ${swatch.name}`}
-                    aria-pressed={isSelected}
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      setSelectedColorIndex(idx);
-                    }}
-                    className={`
+          {/* 固定高度嘅色點區：確保無論有冇色點，成排卡片高度完全對齊 */}
+          <div
+            className="h-5 sm:h-6 flex items-center gap-2 mt-1.5 sm:mt-2"
+            aria-label={
+              hasMultipleColors
+                ? `${colorSwatches.length} color options available`
+                : undefined
+            }
+          >
+            {hasMultipleColors && (
+              <>
+                {visibleSwatches.map((swatch, idx) => {
+                  const isSelected = selectedColorIndex === idx;
+                  return (
+                    <button
+                      key={`${swatch.name}-${idx}`}
+                      type="button"
+                      title={swatch.name}
+                      aria-label={`Select ${swatch.name}`}
+                      aria-pressed={isSelected}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setSelectedColorIndex(idx);
+                      }}
+                      className={`
+                        inline-flex
+                        items-center
+                        justify-center
+                        rounded-full
+                        transition-all
+                        duration-200
+                        cursor-pointer
+                        [@media(hover:hover)]:hover:scale-110
+                        active:scale-95
+                        focus:outline-none
+                        flex-shrink-0
+                        [-webkit-tap-highlight-color:transparent]
+                        ${
+                          isSelected
+                            ? 'ring-2 ring-neutral-900 dark:ring-white ring-offset-1 ring-offset-neutral-100 dark:ring-offset-[#111112]'
+                            : 'opacity-80 hover:opacity-100'
+                        }
+                      `}
+                    >
+                      <span
+                        className="
+                          block
+                          w-3.5
+                          h-3.5
+                          sm:w-4
+                          sm:h-4
+                          rounded-full
+                          border
+                          border-black/25
+                          dark:border-white/35
+                          shadow-sm
+                        "
+                        style={{ backgroundColor: swatch.hex }}
+                      />
+                    </button>
+                  );
+                })}
+
+                {remainingColorCount > 0 && (
+                  <Link
+                    to={`/product/${product.slug}`}
+                    title={`+${remainingColorCount} more colors`}
+                    className="
                       inline-flex
                       items-center
                       justify-center
+                      h-3.5
+                      sm:h-4
+                      px-1.5
                       rounded-full
-                      transition-all
+                      bg-neutral-200
+                      dark:bg-neutral-800
+                      border
+                      border-neutral-300
+                      dark:border-neutral-700
+                      text-[9px]
+                      sm:text-[10px]
+                      font-bold
+                      text-neutral-700
+                      dark:text-neutral-300
+                      leading-none
+                      transition-transform
                       duration-200
-                      cursor-pointer
                       [@media(hover:hover)]:hover:scale-110
-                      active:scale-95
-                      focus:outline-none
-                      flex-shrink-0
-                      [-webkit-tap-highlight-color:transparent]
-                      ${
-                        isSelected
-                          ? 'ring-2 ring-neutral-900 dark:ring-white ring-offset-1 ring-offset-neutral-100 dark:ring-offset-[#111112]'
-                          : 'opacity-80 hover:opacity-100'
-                      }
-                    `}
+                    "
                   >
-                    <span
-                      className="
-                        block
-                        w-3.5
-                        h-3.5
-                        sm:w-4
-                        sm:h-4
-                        rounded-full
-                        border
-                        border-black/25
-                        dark:border-white/35
-                        shadow-sm
-                      "
-                      style={{ backgroundColor: swatch.hex }}
-                    />
-                  </button>
-                );
-              })}
-
-              {remainingColorCount > 0 && (
-                <Link
-                  to={`/product/${product.slug}`}
-                  title={`+${remainingColorCount} more colors`}
-                  className="
-                    inline-flex
-                    items-center
-                    justify-center
-                    h-3.5
-                    sm:h-4
-                    px-1.5
-                    rounded-full
-                    bg-neutral-200
-                    dark:bg-neutral-800
-                    border
-                    border-neutral-300
-                    dark:border-neutral-700
-                    text-[9px]
-                    sm:text-[10px]
-                    font-bold
-                    text-neutral-700
-                    dark:text-neutral-300
-                    leading-none
-                    transition-transform
-                    duration-200
-                    [@media(hover:hover)]:hover:scale-110
-                  "
-                >
-                  +{remainingColorCount}
-                </Link>
-              )}
-            </div>
-          )}
+                    +{remainingColorCount}
+                  </Link>
+                )}
+              </>
+            )}
+          </div>
         </div>
 
         {/* PRICE + BUTTON */}
@@ -494,7 +518,7 @@ export default function ProductCard({
             items-center
             justify-between
             pt-2
-            sm:pt-4
+            sm:pt-3
             gap-1.5
             sm:gap-2
             mt-auto
@@ -541,104 +565,55 @@ export default function ProductCard({
 
           <div
             className="
-              min-w-[68px]
+              w-[68px]
               h-[40px]
               flex
               items-center
-              justify-end
+              justify-center
               flex-shrink-0
             "
           >
-            {product.in_stock &&
-              (hasMultipleColors ? (
-                <Link
-                  to={productUrl}
-                  onClick={() =>
-                    void recordItemClick({
-                      itemId: product.id,
-                      itemName: product.name,
-                      itemSlug: product.slug,
-                      section: product.section,
-                    })
-                  }
+            {product.in_stock && (
+              <button
+                onClick={handleQuickAdd}
+                className="
+                  flex
+                  items-center
+                  justify-center
+                  gap-1.5
+                  px-3
+                  py-2
+                  sm:px-4
+                  sm:py-2.5
+                  bg-neutral-900
+                  text-white
+                  dark:bg-white
+                  dark:text-neutral-950
+                  text-xs
+                  sm:text-sm
+                  font-bold
+                  rounded-lg
+                  [@media(hover:hover)]:hover:bg-neutral-800
+                  dark:[@media(hover:hover)]:hover:bg-neutral-200
+                  transition-all
+                  [@media(hover:hover)]:hover:scale-105
+                  active:scale-95
+                  whitespace-nowrap
+                  [-webkit-tap-highlight-color:transparent]
+                "
+              >
+                <Plus
                   className="
-                    flex
-                    items-center
-                    justify-center
-                    gap-1
-                    px-3
-                    py-2
-                    sm:px-3.5
-                    sm:py-2.5
-                    bg-neutral-900
-                    text-white
-                    dark:bg-white
-                    dark:text-neutral-950
-                    text-xs
-                    sm:text-sm
-                    font-bold
-                    rounded-lg
-                    [@media(hover:hover)]:hover:bg-neutral-800
-                    dark:[@media(hover:hover)]:hover:bg-neutral-200
-                    transition-all
-                    [@media(hover:hover)]:hover:scale-105
-                    active:scale-95
-                    whitespace-nowrap
-                    [-webkit-tap-highlight-color:transparent]
+                    w-3.5
+                    h-3.5
+                    sm:w-4
+                    sm:h-4
+                    flex-shrink-0
                   "
-                >
-                  <Plus
-                    className="
-                      w-3.5
-                      h-3.5
-                      sm:w-4
-                      sm:h-4
-                      flex-shrink-0
-                    "
-                  />
-                  Select
-                </Link>
-              ) : (
-                <button
-                  onClick={() => addItem(product)}
-                  className="
-                    flex
-                    items-center
-                    justify-center
-                    gap-1.5
-                    px-3
-                    py-2
-                    sm:px-4
-                    sm:py-2.5
-                    bg-neutral-900
-                    text-white
-                    dark:bg-white
-                    dark:text-neutral-950
-                    text-xs
-                    sm:text-sm
-                    font-bold
-                    rounded-lg
-                    [@media(hover:hover)]:hover:bg-neutral-800
-                    dark:[@media(hover:hover)]:hover:bg-neutral-200
-                    transition-all
-                    [@media(hover:hover)]:hover:scale-105
-                    active:scale-95
-                    whitespace-nowrap
-                    [-webkit-tap-highlight-color:transparent]
-                  "
-                >
-                  <Plus
-                    className="
-                      w-3.5
-                      h-3.5
-                      sm:w-4
-                      sm:h-4
-                      flex-shrink-0
-                    "
-                  />
-                  Add
-                </button>
-              ))}
+                />
+                Add
+              </button>
+            )}
           </div>
         </div>
       </div>
