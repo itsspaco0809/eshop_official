@@ -118,7 +118,8 @@ export default function ProductCard({
 }: ProductCardProps) {
   const { addItem } = useCart();
   const { formatPrice } = useCurrency();
-  const [previewImage, setPreviewImage] = useState<string | null>(null);
+  // 記錄目前選中邊一粒色點（預設第 0 粒）
+  const [selectedColorIndex, setSelectedColorIndex] = useState<number>(0);
 
   const isKit =
     product.section?.toLowerCase() === 'kits' ||
@@ -160,11 +161,18 @@ export default function ProductCard({
   const visibleSwatches = colorSwatches.slice(0, MAX_VISIBLE_SWATCHES);
   const remainingColorCount = Math.max(0, colorSwatches.length - MAX_VISIBLE_SWATCHES);
 
-  const displayImage = previewImage || product.image_url;
+  // 根據選中嘅色點決定顯示邊張 Thumbnail
+  const activeSwatch = colorSwatches[selectedColorIndex];
+  const displayImage = activeSwatch?.previewUrl || product.image_url;
+
+  // 如果用戶喺卡片揀咗第 2 隻色以上，跳轉時順便帶埋 ?color= 參數
+  const productUrl =
+    hasMultipleColors && activeSwatch && selectedColorIndex > 0
+      ? `/product/${product.slug}?color=${encodeURIComponent(activeSwatch.name)}`
+      : `/product/${product.slug}`;
 
   return (
     <div
-      onMouseLeave={() => setPreviewImage(null)}
       className="
         group
         relative
@@ -189,7 +197,7 @@ export default function ProductCard({
     >
       {/* IMAGE */}
       <Link
-        to={`/product/${product.slug}`}
+        to={productUrl}
         onClick={() =>
           void recordItemClick({
             itemId: product.id,
@@ -300,7 +308,7 @@ export default function ProductCard({
       >
         <div>
           <Link
-            to={`/product/${product.slug}`}
+            to={productUrl}
             onClick={() =>
               void recordItemClick({
                 itemId: product.id,
@@ -355,63 +363,69 @@ export default function ProductCard({
               : `${product.piece_count} Pieces · ${product.theme}`}
           </p>
 
-          {/* MINI COLOR SWATCHES（用內層 span 承載 backgroundColor，避免自定義 Link 吞走 style prop） */}
+          {/* MINI COLOR SWATCHES（點擊只切換 Thumbnail，唔直接跳頁） */}
           {hasMultipleColors && (
             <div
-              className="flex items-center gap-1.5 mt-2 sm:mt-2.5"
+              className="flex items-center gap-2 mt-2 sm:mt-2.5"
               aria-label={`${colorSwatches.length} color options available`}
             >
-              {visibleSwatches.map((swatch, idx) => (
-                <Link
-                  key={`${swatch.name}-${idx}`}
-                  to={`/product/${product.slug}?color=${encodeURIComponent(swatch.name)}`}
-                  onMouseEnter={() => {
-                    if (swatch.previewUrl) {
-                      setPreviewImage(swatch.previewUrl);
-                    }
-                  }}
-                  onClick={() =>
-                    void recordItemClick({
-                      itemId: product.id,
-                      itemName: product.name,
-                      itemSlug: product.slug,
-                      section: product.section,
-                    })
-                  }
-                  className="
-                    inline-flex
-                    items-center
-                    justify-center
-                    rounded-full
-                    transition-transform
-                    duration-200
-                    [@media(hover:hover)]:hover:scale-125
-                    focus:outline-none
-                    flex-shrink-0
-                  "
-                >
-                  <span
+              {visibleSwatches.map((swatch, idx) => {
+                const isSelected = selectedColorIndex === idx;
+                return (
+                  <button
+                    key={`${swatch.name}-${idx}`}
+                    type="button"
                     title={swatch.name}
-                    className="
-                      block
-                      w-3.5
-                      h-3.5
-                      sm:w-4
-                      sm:h-4
+                    aria-label={`Preview ${swatch.name}`}
+                    aria-pressed={isSelected}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setSelectedColorIndex(idx);
+                    }}
+                    className={`
+                      inline-flex
+                      items-center
+                      justify-center
                       rounded-full
-                      border
-                      border-black/25
-                      dark:border-white/35
-                      shadow-sm
-                    "
-                    style={{ backgroundColor: swatch.hex }}
-                  />
-                </Link>
-              ))}
+                      transition-all
+                      duration-200
+                      cursor-pointer
+                      [@media(hover:hover)]:hover:scale-110
+                      active:scale-95
+                      focus:outline-none
+                      flex-shrink-0
+                      [-webkit-tap-highlight-color:transparent]
+                      ${
+                        isSelected
+                          ? 'ring-2 ring-neutral-900 dark:ring-white ring-offset-1 ring-offset-neutral-100 dark:ring-offset-[#111112]'
+                          : 'opacity-80 hover:opacity-100'
+                      }
+                    `}
+                  >
+                    <span
+                      className="
+                        block
+                        w-3.5
+                        h-3.5
+                        sm:w-4
+                        sm:h-4
+                        rounded-full
+                        border
+                        border-black/25
+                        dark:border-white/35
+                        shadow-sm
+                      "
+                      style={{ backgroundColor: swatch.hex }}
+                    />
+                  </button>
+                );
+              })}
 
               {remainingColorCount > 0 && (
                 <Link
                   to={`/product/${product.slug}`}
+                  title={`+${remainingColorCount} more colors`}
                   className="
                     inline-flex
                     items-center
@@ -508,7 +522,7 @@ export default function ProductCard({
             {product.in_stock &&
               (hasMultipleColors ? (
                 <Link
-                  to={`/product/${product.slug}`}
+                  to={productUrl}
                   onClick={() =>
                     void recordItemClick({
                       itemId: product.id,
