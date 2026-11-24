@@ -7,8 +7,12 @@ import { Link } from '@/lib/router';
 import { recordItemClick } from '@/lib/analytics';
 
 export interface ProductColorOption {
-  name: string;
+  name?: string;
+  label?: string;
   hex?: string;
+  color?: string;
+  color_hex?: string;
+  code?: string;
   gallery?: string[];
   image_url?: string;
 }
@@ -24,6 +28,54 @@ interface ProductCardProps {
   product: ExtendedProduct;
   isNew?: boolean;
   isReady?: boolean;
+}
+
+const FALLBACK_COLOR_NAMES: Record<string, string> = {
+  red: '#DC2626',
+  blue: '#38BDF8',
+  'light blue': '#38BDF8',
+  'dark blue': '#1D4ED8',
+  green: '#16A34A',
+  'lime green': '#65A30D',
+  lime: '#84CC16',
+  yellow: '#EAB308',
+  orange: '#F97316',
+  white: '#FFFFFF',
+  black: '#18181B',
+  grey: '#71717A',
+  gray: '#71717A',
+  'light grey': '#A1A1AA',
+  'dark grey': '#3F3F46',
+  silver: '#CBD5E1',
+  gold: '#D97706',
+  purple: '#9333EA',
+  pink: '#EC4899',
+  tan: '#D6C7A9',
+  brown: '#78350F',
+};
+
+function normalizeHexColor(raw?: string, nameFallback?: string): string {
+  if (raw && typeof raw === 'string') {
+    const trimmed = raw.trim();
+    if (trimmed.startsWith('#') || trimmed.startsWith('rgb') || trimmed.startsWith('hsl')) {
+      return trimmed;
+    }
+    if (/^[0-9A-Fa-f]{3,8}$/.test(trimmed)) {
+      return `#${trimmed}`;
+    }
+    const mappedFromRaw = FALLBACK_COLOR_NAMES[trimmed.toLowerCase()];
+    if (mappedFromRaw) return mappedFromRaw;
+  }
+
+  if (nameFallback) {
+    const lower = nameFallback.toLowerCase();
+    if (FALLBACK_COLOR_NAMES[lower]) return FALLBACK_COLOR_NAMES[lower];
+    for (const [key, val] of Object.entries(FALLBACK_COLOR_NAMES)) {
+      if (lower.includes(key)) return val;
+    }
+  }
+
+  return '#71717A';
 }
 
 function parseColorOptions(rawColors: ExtendedProduct['colors']): Array<{
@@ -46,15 +98,18 @@ function parseColorOptions(rawColors: ExtendedProduct['colors']): Array<{
 
   return parsed
     .filter((item): item is ProductColorOption => Boolean(item && typeof item === 'object'))
-    .map((item) => ({
-      name: (item.name || 'Color').trim(),
-      hex: item.hex && (item.hex.startsWith('#') || item.hex.startsWith('rgb'))
-        ? item.hex
-        : '#737373',
-      previewUrl: Array.isArray(item.gallery) && item.gallery.length > 0
-        ? item.gallery[0]
-        : item.image_url,
-    }));
+    .map((item) => {
+      const displayName = (item.name || item.label || 'Color').trim();
+      const rawColorVal = item.hex || item.color || item.color_hex || item.code;
+      return {
+        name: displayName,
+        hex: normalizeHexColor(rawColorVal, displayName),
+        previewUrl:
+          Array.isArray(item.gallery) && item.gallery.length > 0
+            ? item.gallery[0]
+            : item.image_url,
+      };
+    });
 }
 
 export default function ProductCard({
@@ -261,8 +316,8 @@ export default function ProductCard({
           >
             <div
               className="
-                h-12
-                sm:h-16
+                min-h-[2.75rem]
+                sm:min-h-[3.25rem]
                 flex
                 items-start
               "
@@ -300,7 +355,7 @@ export default function ProductCard({
               : `${product.piece_count} Pieces · ${product.theme}`}
           </p>
 
-          {/* MINI COLOR SWATCHES (多過 1 隻色先顯示) */}
+          {/* MINI COLOR SWATCHES（用內層 span 承載 backgroundColor，避免自定義 Link 吞走 style prop） */}
           {hasMultipleColors && (
             <div
               className="flex items-center gap-1.5 mt-2 sm:mt-2.5"
@@ -310,7 +365,6 @@ export default function ProductCard({
                 <Link
                   key={`${swatch.name}-${idx}`}
                   to={`/product/${product.slug}?color=${encodeURIComponent(swatch.name)}`}
-                  title={swatch.name}
                   onMouseEnter={() => {
                     if (swatch.previewUrl) {
                       setPreviewImage(swatch.previewUrl);
@@ -325,36 +379,46 @@ export default function ProductCard({
                     })
                   }
                   className="
-                    w-3.5
-                    h-3.5
-                    sm:w-4
-                    sm:h-4
+                    inline-flex
+                    items-center
+                    justify-center
                     rounded-full
-                    border
-                    border-black/20
-                    dark:border-white/30
-                    shadow-sm
                     transition-transform
                     duration-200
                     [@media(hover:hover)]:hover:scale-125
                     focus:outline-none
                     flex-shrink-0
                   "
-                  style={{ backgroundColor: swatch.hex }}
-                />
+                >
+                  <span
+                    title={swatch.name}
+                    className="
+                      block
+                      w-3.5
+                      h-3.5
+                      sm:w-4
+                      sm:h-4
+                      rounded-full
+                      border
+                      border-black/25
+                      dark:border-white/35
+                      shadow-sm
+                    "
+                    style={{ backgroundColor: swatch.hex }}
+                  />
+                </Link>
               ))}
 
               {remainingColorCount > 0 && (
                 <Link
                   to={`/product/${product.slug}`}
-                  title={`+${remainingColorCount} more colors`}
                   className="
                     inline-flex
                     items-center
                     justify-center
                     h-3.5
                     sm:h-4
-                    px-1
+                    px-1.5
                     rounded-full
                     bg-neutral-200
                     dark:bg-neutral-800
