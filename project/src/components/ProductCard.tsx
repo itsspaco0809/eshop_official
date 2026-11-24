@@ -9,7 +9,7 @@ import { recordItemClick } from '@/lib/analytics';
 export interface ProductColorOption {
   name: string;
   hex?: string;
-  color?: string;
+  gallery?: string[];
   image_url?: string;
 }
 
@@ -17,9 +17,7 @@ type ExtendedProduct = Product & {
   exclusive?: boolean;
   compare_at_price?: number | null;
   badge_text?: string | null;
-  colors?: Array<string | ProductColorOption> | null;
-  color_options?: Array<string | ProductColorOption> | null;
-  variants?: Array<string | ProductColorOption> | null;
+  colors?: ProductColorOption[] | string | null;
 };
 
 interface ProductCardProps {
@@ -28,57 +26,35 @@ interface ProductCardProps {
   isReady?: boolean;
 }
 
-// 常見 LEGO / 汽車配色預設對照表（如果 Database 只存顏色文字名都會自動出到靚色）
-const COLOR_NAME_MAP: Record<string, string> = {
-  red: '#DC2626',
-  blue: '#2563EB',
-  'light blue': '#38BDF8',
-  'dark blue': '#1E3A8A',
-  green: '#16A34A',
-  'lime green': '#65A30D',
-  lime: '#84CC16',
-  yellow: '#EAB308',
-  orange: '#F97316',
-  white: '#F8FAFC',
-  black: '#171717',
-  grey: '#6B7280',
-  gray: '#6B7280',
-  'light grey': '#9CA3AF',
-  'dark grey': '#374151',
-  silver: '#CBD5E1',
-  gold: '#D97706',
-  purple: '#9333EA',
-  pink: '#EC4899',
-  tan: '#D6C7A9',
-  brown: '#78350F',
-};
-
-function resolveSwatchHex(item: string | ProductColorOption): {
+function parseColorOptions(rawColors: ExtendedProduct['colors']): Array<{
   name: string;
   hex: string;
-  imageUrl?: string;
-} {
-  if (typeof item === 'string') {
-    const cleanName = item.trim();
-    const mapped =
-      cleanName.startsWith('#') || cleanName.startsWith('rgb')
-        ? cleanName
-        : COLOR_NAME_MAP[cleanName.toLowerCase()] || '#737373';
-    return { name: cleanName, hex: mapped };
+  previewUrl?: string;
+}> {
+  if (!rawColors) return [];
+
+  let parsed = rawColors;
+  if (typeof rawColors === 'string') {
+    try {
+      parsed = JSON.parse(rawColors);
+    } catch {
+      return [];
+    }
   }
 
-  const cleanName = (item.name || '').trim();
-  const rawHex = item.hex || item.color || '';
-  const mapped =
-    rawHex.startsWith('#') || rawHex.startsWith('rgb')
-      ? rawHex
-      : COLOR_NAME_MAP[cleanName.toLowerCase()] || '#737373';
+  if (!Array.isArray(parsed)) return [];
 
-  return {
-    name: cleanName || 'Color',
-    hex: mapped,
-    imageUrl: item.image_url,
-  };
+  return parsed
+    .filter((item): item is ProductColorOption => Boolean(item && typeof item === 'object'))
+    .map((item) => ({
+      name: (item.name || 'Color').trim(),
+      hex: item.hex && (item.hex.startsWith('#') || item.hex.startsWith('rgb'))
+        ? item.hex
+        : '#737373',
+      previewUrl: Array.isArray(item.gallery) && item.gallery.length > 0
+        ? item.gallery[0]
+        : item.image_url,
+    }));
 }
 
 export default function ProductCard({
@@ -122,12 +98,8 @@ export default function ProductCard({
     product.section?.toLowerCase() === 'instructions' ||
     product.section?.toLowerCase() === 'instruction';
 
-  // 整理顏色列表
-  const rawColors =
-    product.colors || product.color_options || product.variants || [];
-  const colorSwatches = Array.isArray(rawColors)
-    ? rawColors.map(resolveSwatchHex)
-    : [];
+  // 解析 Supabase colors jsonb 欄位
+  const colorSwatches = parseColorOptions(product.colors);
   const hasMultipleColors = colorSwatches.length > 1;
   const MAX_VISIBLE_SWATCHES = 4;
   const visibleSwatches = colorSwatches.slice(0, MAX_VISIBLE_SWATCHES);
@@ -328,7 +300,7 @@ export default function ProductCard({
               : `${product.piece_count} Pieces · ${product.theme}`}
           </p>
 
-          {/* MINI COLOR SWATCHES (只有多過1隻色先顯示) */}
+          {/* MINI COLOR SWATCHES (多過 1 隻色先顯示) */}
           {hasMultipleColors && (
             <div
               className="flex items-center gap-1.5 mt-2 sm:mt-2.5"
@@ -340,8 +312,8 @@ export default function ProductCard({
                   to={`/product/${product.slug}?color=${encodeURIComponent(swatch.name)}`}
                   title={swatch.name}
                   onMouseEnter={() => {
-                    if (swatch.imageUrl) {
-                      setPreviewImage(swatch.imageUrl);
+                    if (swatch.previewUrl) {
+                      setPreviewImage(swatch.previewUrl);
                     }
                   }}
                   onClick={() =>
