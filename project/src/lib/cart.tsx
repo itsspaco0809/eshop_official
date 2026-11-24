@@ -26,6 +26,18 @@ type CartContextValue = {
 const CartContext = createContext<CartContextValue | null>(null);
 const STORAGE_KEY = 'monochrome-cart';
 
+// 安全提取純文字顏色名，防止任何 Object 導致 React Error #31
+function sanitizeColorString(raw: unknown): string {
+  if (!raw) return 'standard';
+  if (typeof raw === 'string') return raw.trim() || 'standard';
+  if (typeof raw === 'object') {
+    const obj = raw as Record<string, unknown>;
+    if (typeof obj.color === 'string') return obj.color.trim() || 'standard';
+    if (typeof obj.name === 'string') return obj.name.trim() || 'standard';
+  }
+  return 'standard';
+}
+
 export function CartProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<ExtendedCartItem[]>([]);
   const [isOpen, setIsOpen] = useState(false);
@@ -38,11 +50,23 @@ export function CartProvider({ children }: { children: ReactNode }) {
       if (stored) {
         const parsed = JSON.parse(stored) as ExtendedCartItem[];
         if (Array.isArray(parsed)) {
-          setItems(parsed.filter((item) => item && item.product));
+          // 清洗舊有 localStorage 壞資料（確保 quantity 係數字、selectedColor 係純字串）
+          const cleaned = parsed
+            .filter((item) => item && item.product && typeof item.quantity === 'number' && item.quantity > 0)
+            .map((item) => {
+              const safeColor = sanitizeColorString(item.selectedColor);
+              const colorSlug = safeColor.toLowerCase().replace(/\s+/g, '-');
+              return {
+                ...item,
+                selectedColor: safeColor,
+                cartItemId: item.cartItemId || `${item.product.id}-${colorSlug}`,
+              };
+            });
+          setItems(cleaned);
         }
       }
     } catch {
-      // ignore corrupt storage
+      localStorage.removeItem(STORAGE_KEY);
     }
   }, []);
 
@@ -53,12 +77,14 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const addItem = useCallback((product: Product, quantity = 1, customColor?: string) => {
     if (!product || !product.id) return;
 
-    const color =
-      customColor ||
-      (product as Product & { selectedColor?: string; color?: string }).selectedColor ||
-      (product as Product & { selectedColor?: string; color?: string }).color ||
-      'standard';
-    const colorSlug = String(color).toLowerCase().trim().replace(/\s+/g, '-');
+    const safeQty = typeof quantity === 'number' && quantity > 0 ? quantity : 1;
+    const rawColor =
+      customColor ??
+      (product as Product & { selectedColor?: unknown; color?: unknown }).selectedColor ??
+      (product as Product & { selectedColor?: unknown; color?: unknown }).color;
+
+    const color = sanitizeColorString(rawColor);
+    const colorSlug = color.toLowerCase().replace(/\s+/g, '-');
     const cartItemId = `${product.id}-${colorSlug}`;
 
     setItems((prev) => {
@@ -73,7 +99,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
           idx === existingIndex
             ? {
                 ...item,
-                quantity: item.quantity + quantity,
+                quantity: item.quantity + safeQty,
                 selectedImage: product.image_url || item.selectedImage,
               }
             : item
@@ -84,7 +110,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
         ...prev,
         {
           product: { ...product },
-          quantity,
+          quantity: safeQty,
           selectedColor: color,
           selectedImage: product.image_url,
           cartItemId,
@@ -121,11 +147,11 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const openCart = useCallback(() => setIsOpen(true), []);
   const closeCart = useCallback(() => setIsOpen(false), []);
 
-  const totalItems = items.reduce((sum, i) => sum + (i.quantity || 0), 0);
+  const totalItems = items.reduce((sum, i) => sum + (Number(i.quantity) || 0), 0);
 
   const subtotalUSD = items.reduce((sum, i) => {
     if (!i || !i.product) return sum;
-    return sum + i.product.price * i.quantity;
+    return sum + Number(i.product.price) * (Number(i.quantity) || 0);
   }, 0);
 
   const formattedSubtotal = formatPrice(subtotalUSD);
