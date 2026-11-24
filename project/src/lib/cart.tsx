@@ -79,7 +79,6 @@ function normalizeHexColor(raw?: string, nameFallback?: string): string {
   return '#71717A';
 }
 
-// 確保任何顏色都優先取用 0.webp 作為 Card Thumbnail
 function resolveColorThumbnail(item: ProductColorOption): string | undefined {
   if (item.thumbnail) return item.thumbnail;
 
@@ -174,7 +173,6 @@ export default function ProductCard({
     product.section?.toLowerCase() === 'instructions' ||
     product.section?.toLowerCase() === 'instruction';
 
-  // 解析 Supabase colors jsonb 欄位
   const colorSwatches = parseColorOptions(product.colors);
   const hasMultipleColors = colorSwatches.length > 1;
   const MAX_VISIBLE_SWATCHES = 4;
@@ -192,7 +190,6 @@ export default function ProductCard({
       ? `/product/${product.slug}?color=${encodeURIComponent(activeSwatch.name)}`
       : `/product/${product.slug}`;
 
-  // 精準對齊 cart.tsx 嘅 addItem(product, quantity, selectedColor) 簽名
   const handleQuickAdd = () => {
     const chosenColorName = activeSwatch?.name;
     const itemPayload: Product = chosenColorName
