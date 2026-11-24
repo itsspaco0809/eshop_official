@@ -15,6 +15,7 @@ export interface ProductColorOption {
   code?: string;
   gallery?: string[];
   image_url?: string;
+  thumbnail?: string;
 }
 
 type ExtendedProduct = Product & {
@@ -78,6 +79,31 @@ function normalizeHexColor(raw?: string, nameFallback?: string): string {
   return '#71717A';
 }
 
+// 確保任何顏色都優先取用 0.webp 作為 Card Thumbnail
+function resolveColorThumbnail(item: ProductColorOption): string | undefined {
+  if (item.thumbnail) return item.thumbnail;
+
+  if (Array.isArray(item.gallery) && item.gallery.length > 0) {
+    // 1. 直接喺 gallery 搵包含 /0.webp 嘅網址
+    const zeroWebp = item.gallery.find((url) =>
+      typeof url === 'string' && /\/0\.webp(\?.*)?$/i.test(url)
+    );
+    if (zeroWebp) return zeroWebp;
+
+    // 2. 如果 gallery 冇放 0.webp（例如只放咗 1.webp, 2.webp），由第一張圖路徑推算同資料夾嘅 0.webp
+    const firstUrl = item.gallery[0];
+    if (typeof firstUrl === 'string') {
+      return firstUrl.replace(/\/[^/]+\.webp(\?.*)?$/i, '/0.webp$1');
+    }
+  }
+
+  if (item.image_url) {
+    return item.image_url.replace(/\/[^/]+\.webp(\?.*)?$/i, '/0.webp$1');
+  }
+
+  return undefined;
+}
+
 function parseColorOptions(rawColors: ExtendedProduct['colors']): Array<{
   name: string;
   hex: string;
@@ -104,10 +130,7 @@ function parseColorOptions(rawColors: ExtendedProduct['colors']): Array<{
       return {
         name: displayName,
         hex: normalizeHexColor(rawColorVal, displayName),
-        previewUrl:
-          Array.isArray(item.gallery) && item.gallery.length > 0
-            ? item.gallery[0]
-            : item.image_url,
+        previewUrl: resolveColorThumbnail(item),
       };
     });
 }
@@ -118,7 +141,6 @@ export default function ProductCard({
 }: ProductCardProps) {
   const { addItem } = useCart();
   const { formatPrice } = useCurrency();
-  // 記錄目前選中邊一粒色點（預設第 0 粒）
   const [selectedColorIndex, setSelectedColorIndex] = useState<number>(0);
 
   const isKit =
@@ -161,11 +183,13 @@ export default function ProductCard({
   const visibleSwatches = colorSwatches.slice(0, MAX_VISIBLE_SWATCHES);
   const remainingColorCount = Math.max(0, colorSwatches.length - MAX_VISIBLE_SWATCHES);
 
-  // 根據選中嘅色點決定顯示邊張 Thumbnail
+  // 預設顯示 product.image_url（或者選中顏色嘅 0.webp）
   const activeSwatch = colorSwatches[selectedColorIndex];
-  const displayImage = activeSwatch?.previewUrl || product.image_url;
+  const displayImage =
+    hasMultipleColors && activeSwatch?.previewUrl
+      ? activeSwatch.previewUrl
+      : product.image_url;
 
-  // 如果用戶喺卡片揀咗第 2 隻色以上，跳轉時順便帶埋 ?color= 參數
   const productUrl =
     hasMultipleColors && activeSwatch && selectedColorIndex > 0
       ? `/product/${product.slug}?color=${encodeURIComponent(activeSwatch.name)}`
@@ -220,6 +244,12 @@ export default function ProductCard({
         <img
           src={displayImage}
           alt={product.name}
+          onError={(e) => {
+            // 萬一某隻色未上傳 0.webp，自動 fallback 返預設圖，唔會破圖
+            if (e.currentTarget.src !== product.image_url) {
+              e.currentTarget.src = product.image_url;
+            }
+          }}
           draggable={false}
           className="
             w-full
@@ -363,7 +393,7 @@ export default function ProductCard({
               : `${product.piece_count} Pieces · ${product.theme}`}
           </p>
 
-          {/* MINI COLOR SWATCHES（點擊只切換 Thumbnail，唔直接跳頁） */}
+          {/* MINI COLOR SWATCHES（點擊切換該顏色嘅 0.webp） */}
           {hasMultipleColors && (
             <div
               className="flex items-center gap-2 mt-2 sm:mt-2.5"
