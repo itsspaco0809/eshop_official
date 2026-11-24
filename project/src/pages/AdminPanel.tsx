@@ -336,7 +336,7 @@ export default function AdminPanel({ initialTab = 'analytics' }: { initialTab?: 
     direction: 'asc',
   });
   const [fileSort, setFileSort] = useState<{ field: FileSortField; direction: 'asc' | 'desc' }>({
-    field: 'file_name',
+    field: 'color',
     direction: 'asc',
   });
   const [orderSort, setOrderSort] = useState<{ field: OrderSortField; direction: 'asc' | 'desc' }>({
