@@ -377,6 +377,9 @@ export default function AdminPanel({ initialTab = 'analytics' }: { initialTab?: 
   const [isAddingFile, setIsAddingFile] = useState(false);
   const [openFileMenuId, setOpenFileMenuId] = useState<string | null>(null);
   const [fileMenuPosition, setFileMenuPosition] = useState<{ top: number; left: number } | null>(null);
+  const [fileProductFilter, setFileProductFilter] = useState('');
+  const [isFileProductPickerOpen, setIsFileProductPickerOpen] = useState(false);
+  const [syncToCounterpartProduct, setSyncToCounterpartProduct] = useState(true);
 
   // Integrated Orders & Order Items State
   const [orders, setOrders] = useState<Order[]>([]);
@@ -466,7 +469,12 @@ export default function AdminPanel({ initialTab = 'analytics' }: { initialTab?: 
 
   const getDigitalFileThumbnail = (product: Product | undefined, colorName: string | null) => {
     const color = getDigitalFileColor(product, colorName);
-    return color?.thumbnail || color?.gallery?.[0] || product?.image_url || null;
+    if (color?.thumbnail) return color.thumbnail;
+    if (Array.isArray(color?.gallery) && color.gallery.length > 0) {
+      const zeroWebp = color.gallery.find((url) => /\/0\.webp(\?.*)?$/i.test(url));
+      return zeroWebp || color.gallery[0].replace(/\/[^/]+\.webp(\?.*)?$/i, '/0.webp$1');
+    }
+    return product?.image_url || null;
   };
 
   const digitalFileGroupCounts = useMemo(() => {
@@ -561,6 +569,33 @@ export default function AdminPanel({ initialTab = 'analytics' }: { initialTab?: 
     });
     return map;
   }, [products]);
+
+  // 尋找對應嘅同款 Kit 或 [Instruction] 產品，方便一鍵同步寫入兩邊
+  const counterpartProduct = useMemo(() => {
+    if (!fileForm.product_id) return null;
+    const current = productById[fileForm.product_id];
+    if (!current) return null;
+
+    const baseName = current.name.replace(/\s*\[Instruction\]\s*$/i, '').trim().toLowerCase();
+    return (
+      products.find((p) => {
+        if (p.id === current.id) return false;
+        const candidateBase = p.name.replace(/\s*\[Instruction\]\s*$/i, '').trim().toLowerCase();
+        return candidateBase === baseName;
+      }) || null
+    );
+  }, [fileForm.product_id, productById, products]);
+
+  const filteredProductsForFilePicker = useMemo(() => {
+    const q = fileProductFilter.trim().toLowerCase();
+    if (!q) return products;
+    return products.filter(
+      (p) =>
+        p.name.toLowerCase().includes(q) ||
+        p.slug.toLowerCase().includes(q) ||
+        (p.section || '').toLowerCase().includes(q)
+    );
+  }, [products, fileProductFilter]);
 
   const filteredProducts = useMemo(() => {
     const query = productSearch.trim().toLowerCase();
@@ -1066,6 +1101,8 @@ export default function AdminPanel({ initialTab = 'analytics' }: { initialTab?: 
     setSavedScrollPos(window.scrollY);
     setEditingFileId(file.id);
     setIsAddingFile(false);
+    setIsFileProductPickerOpen(false);
+    setFileProductFilter('');
     setFileForm({
       product_id: file.product_id || '',
       source_type: file.source_type || 'external_link',
@@ -1125,7 +1162,13 @@ export default function AdminPanel({ initialTab = 'analytics' }: { initialTab?: 
       return;
     }
 
-    const actionText = isAddingFile ? 'create this digital file record' : 'save changes to this file record';
+    const shouldAlsoSync = isAddingFile && syncToCounterpartProduct && Boolean(counterpartProduct);
+    const actionText = isAddingFile
+      ? shouldAlsoSync
+        ? `create this digital file for both "${productById[fileForm.product_id]?.name}" and "${counterpartProduct?.name}"`
+        : 'create this digital file record'
+      : 'save changes to this file record';
+
     setConfirmModal({
       isOpen: true,
       title: isAddingFile ? 'Create Digital File' : 'Save File Changes',
@@ -1138,14 +1181,35 @@ export default function AdminPanel({ initialTab = 'analytics' }: { initialTab?: 
         setIsSubmitting(true);
 
         if (isAddingFile) {
-          const { error } = await supabase.from('digital_files').insert([fileForm]);
+          const rowsToInsert = [
+            {
+              ...fileForm,
+              color: fileForm.color?.trim() || null,
+            },
+          ];
+
+          if (shouldAlsoSync && counterpartProduct) {
+            rowsToInsert.push({
+              ...fileForm,
+              product_id: counterpartProduct.id,
+              color: fileForm.color?.trim() || null,
+            });
+          }
+
+          const { error } = await supabase.from('digital_files').insert(rowsToInsert);
           if (error) setActionError(`Create File Error: ${error.message}`);
           else {
             await fetchFiles();
             cancelFileForm();
           }
         } else if (editingFileId) {
-          const { error } = await supabase.from('digital_files').update(fileForm).eq('id', editingFileId);
+          const { error } = await supabase
+            .from('digital_files')
+            .update({
+              ...fileForm,
+              color: fileForm.color?.trim() || null,
+            })
+            .eq('id', editingFileId);
           if (error) setActionError(`Update File Error: ${error.message}`);
           else {
             await fetchFiles();
@@ -1182,6 +1246,8 @@ export default function AdminPanel({ initialTab = 'analytics' }: { initialTab?: 
   const cancelFileForm = () => {
     setEditingFileId(null);
     setIsAddingFile(false);
+    setIsFileProductPickerOpen(false);
+    setFileProductFilter('');
     setFileForm(emptyFileForm);
   };
 
@@ -2200,125 +2266,379 @@ export default function AdminPanel({ initialTab = 'analytics' }: { initialTab?: 
               )}
             </div>
 
-            {(isAddingFile || editingFileId) ? (
-              <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-2xl p-6 mb-8 space-y-4 shadow-sm">
-                <h3 className="text-lg font-bold border-b border-neutral-200 dark:border-neutral-800 pb-2">
-                  {isAddingFile ? 'Create Digital File' : 'Edit Digital File'}
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="md:col-span-2">
-                    <label className="block text-xs uppercase text-neutral-500 dark:text-neutral-400 mb-1">Product</label>
-                    <select
-                      value={fileForm.product_id}
-                      onChange={(e) => setFileForm({ ...fileForm, product_id: e.target.value, color: '' })}
-                      className="w-full bg-neutral-50 dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 rounded-lg px-3 py-2 text-base sm:text-sm text-neutral-900 dark:text-white focus:outline-none focus:border-neutral-400 dark:focus:border-neutral-700"
+            {(isAddingFile || editingFileId) ? (() => {
+              const selectedProduct = fileForm.product_id ? productById[fileForm.product_id] : undefined;
+              const selectedProductColors = selectedProduct ? normalizeProductColors(selectedProduct.colors) : [];
+              const livePreviewThumb = getDigitalFileThumbnail(selectedProduct, fileForm.color || null);
+              const liveMatchedColor = getDigitalFileColor(selectedProduct, fileForm.color || null);
+
+              return (
+                <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-2xl p-6 mb-8 space-y-5 shadow-sm">
+                  <div className="flex items-center justify-between border-b border-neutral-200 dark:border-neutral-800 pb-3">
+                    <h3 className="text-lg font-bold">
+                      {isAddingFile ? 'Create Digital File' : 'Edit Digital File'}
+                    </h3>
+                    <button
+                      type="button"
+                      onClick={cancelFileForm}
+                      className="text-xs font-medium text-neutral-500 hover:text-neutral-900 dark:hover:text-white"
                     >
-                      <option value="">Select a product...</option>
-                      {products.map((p) => (
-                        <option key={p.id} value={p.id}>{p.name} ({p.id})</option>
-                      ))}
-                    </select>
+                      Back to List
+                    </button>
                   </div>
 
-                  <div className="md:col-span-2">
-                    <label className="block text-xs uppercase text-neutral-500 dark:text-neutral-400 mb-1">Instruction Color</label>
-                    <select
-                      value={fileForm.color || ''}
-                      onChange={(e) => setFileForm({ ...fileForm, color: e.target.value })}
-                      disabled={!fileForm.product_id}
-                      className="w-full bg-neutral-50 dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 rounded-lg px-3 py-2 text-base sm:text-sm text-neutral-900 dark:text-white focus:outline-none focus:border-neutral-400 dark:focus:border-neutral-700 disabled:opacity-50"
-                    >
-                      <option value="">{fileForm.product_id ? 'General / All Colors' : 'Select a product first...'}</option>
-                      {fileForm.product_id && (productById[fileForm.product_id]?.colors || []).map((color, index) => {
-                        const colorName = typeof color === 'string' ? color : color?.name;
-                        const normalizedName = colorName?.trim();
-                        if (!normalizedName) return null;
-                        return (
-                          <option key={`${normalizedName}-${index}`} value={normalizedName}>
-                            {normalizedName}
-                          </option>
-                        );
-                      })}
-                    </select>
-                    <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
-                      Select the exact product color this instruction file belongs to. For example: TRX → Light Gray → Light Gray instruction link.
-                    </p>
-                  </div>
+                  {/* LIVE VISUAL PREVIEW CARD (縮圖 + 顏色 + Section 一目了然，唔使再靠睇純文字) */}
+                  {selectedProduct && (
+                    <div className="flex items-center gap-4 p-4 rounded-2xl bg-neutral-50 dark:bg-neutral-950/80 border border-neutral-200 dark:border-neutral-800">
+                      <div
+                        className="w-20 h-20 sm:w-24 sm:h-24 rounded-xl overflow-hidden border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 shrink-0 shadow-sm"
+                        style={liveMatchedColor?.hex ? { backgroundColor: liveMatchedColor.hex } : undefined}
+                      >
+                        {livePreviewThumb ? (
+                          <img
+                            src={livePreviewThumb}
+                            alt={selectedProduct.name}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-neutral-400">
+                            <ImageIcon className="w-7 h-7" />
+                          </div>
+                        )}
+                      </div>
 
-                  <div>
-                    <label className="block text-xs uppercase text-neutral-500 dark:text-neutral-400 mb-1">file_name</label>
-                    <input
-                      type="text"
-                      value={fileForm.file_name}
-                      onChange={(e) => setFileForm({ ...fileForm, file_name: e.target.value })}
-                      className="w-full bg-neutral-50 dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 rounded-lg px-3 py-2 text-base sm:text-sm text-neutral-900 dark:text-white focus:outline-none focus:border-neutral-400 dark:focus:border-neutral-700"
-                    />
-                  </div>
+                      <div className="min-w-0 flex-1 space-y-1.5">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="text-base sm:text-lg font-bold text-neutral-900 dark:text-white truncate">
+                            {selectedProduct.name}
+                          </span>
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-neutral-200 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300">
+                            {selectedProduct.section || 'product'}
+                          </span>
+                        </div>
 
-                  <div>
-                    <label className="block text-xs uppercase text-neutral-500 dark:text-neutral-400 mb-1">source_type</label>
-                    <select
-                      value={fileForm.source_type}
-                      onChange={(e) => setFileForm({ ...fileForm, source_type: e.target.value })}
-                      className="w-full bg-neutral-50 dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 rounded-lg px-3 py-2 text-base sm:text-sm text-neutral-900 dark:text-white focus:outline-none focus:border-neutral-400 dark:focus:border-neutral-700"
-                    >
-                      <option value="external_link">external_link</option>
-                      <option value="storage_path">storage_path</option>
-                    </select>
-                  </div>
+                        <div className="flex flex-wrap items-center gap-2 text-xs">
+                          <span className="text-neutral-500 dark:text-neutral-400">Selected Color:</span>
+                          {fileForm.color ? (
+                            <span
+                              className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full font-semibold border border-black/10 dark:border-white/15"
+                              style={
+                                liveMatchedColor?.hex
+                                  ? {
+                                      backgroundColor: liveMatchedColor.hex,
+                                      color: getColorContrastText(liveMatchedColor.hex),
+                                    }
+                                  : undefined
+                              }
+                            >
+                              {fileForm.color}
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full font-semibold bg-neutral-200 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300">
+                              General / All Colors
+                            </span>
+                          )}
+                        </div>
 
-                  {fileForm.source_type === 'external_link' ? (
-                    <div className="md:col-span-2">
-                      <label className="block text-xs uppercase text-neutral-500 dark:text-neutral-400 mb-1">external_url</label>
-                      <input
-                        type="text"
-                        value={fileForm.external_url || ''}
-                        onChange={(e) => setFileForm({ ...fileForm, external_url: e.target.value })}
-                        placeholder="https://..."
-                        className="w-full bg-neutral-50 dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 rounded-lg px-3 py-2 text-base sm:text-sm text-neutral-900 dark:text-white focus:outline-none focus:border-neutral-400 dark:focus:border-neutral-700"
-                      />
-                    </div>
-                  ) : (
-                    <div className="md:col-span-2 space-y-2">
-                      <label className="block text-xs uppercase text-neutral-500 dark:text-neutral-400 mb-1">file_path / Storage Upload</label>
-                      <div className="flex gap-2">
-                        <input
-                          type="text"
-                          value={fileForm.file_path || ''}
-                          onChange={(e) => setFileForm({ ...fileForm, file_path: e.target.value })}
-                          placeholder="digital-assets/filename.zip"
-                          className="flex-1 bg-neutral-50 dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 rounded-lg px-3 py-2 text-base sm:text-sm text-neutral-900 dark:text-white focus:outline-none focus:border-neutral-400 dark:focus:border-neutral-700"
-                        />
-                        <label className="flex items-center gap-2 px-4 py-2 bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 rounded-lg cursor-pointer text-xs font-semibold transition-colors">
-                          {uploadingFile ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
-                          <span>Upload File</span>
-                          <input type="file" onChange={handleFileUpload} className="hidden" disabled={uploadingFile} />
-                        </label>
+                        {fileForm.file_name && (
+                          <div className="text-xs font-mono text-neutral-500 dark:text-neutral-400 truncate">
+                            File: {fileForm.file_name}
+                          </div>
+                        )}
                       </div>
                     </div>
                   )}
-                </div>
 
-                <div className="flex justify-end gap-3 pt-4 border-t border-neutral-200 dark:border-neutral-800">
-                  <button
-                    type="button"
-                    onClick={cancelFileForm}
-                    className="px-4 py-2 border border-neutral-200 dark:border-neutral-800 rounded-lg text-sm font-medium hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="button"
-                    disabled={isSubmitting}
-                    onClick={handleSaveFile}
-                    className="flex items-center gap-2 bg-neutral-900 dark:bg-white text-white dark:text-neutral-950 font-semibold px-4 py-2 rounded-lg text-sm hover:bg-neutral-800 dark:hover:bg-neutral-200 transition-colors disabled:opacity-50"
-                  >
-                    {isSubmitting && <Loader2 className="w-4 h-4 animate-spin" />}
-                    Save Digital File
-                  </button>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                    {/* VISUAL PRODUCT PICKER WITH THUMBNAILS */}
+                    <div className="md:col-span-2 relative">
+                      <label className="block text-xs uppercase text-neutral-500 dark:text-neutral-400 mb-1.5">
+                        Product (Click to search with thumbnails)
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => setIsFileProductPickerOpen((prev) => !prev)}
+                        className="w-full flex items-center justify-between gap-3 bg-neutral-50 dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 hover:border-neutral-400 dark:hover:border-neutral-600 rounded-xl px-3.5 py-2.5 text-left transition-colors"
+                      >
+                        {selectedProduct ? (
+                          <div className="flex items-center gap-3 min-w-0">
+                            {selectedProduct.image_url ? (
+                              <img
+                                src={selectedProduct.image_url}
+                                alt={selectedProduct.name}
+                                className="w-9 h-9 rounded-lg object-cover border border-neutral-200 dark:border-neutral-800 shrink-0"
+                              />
+                            ) : (
+                              <div className="w-9 h-9 rounded-lg bg-neutral-200 dark:bg-neutral-800 flex items-center justify-center shrink-0">
+                                <ImageIcon className="w-4 h-4 text-neutral-400" />
+                              </div>
+                            )}
+                            <div className="min-w-0">
+                              <div className="text-sm font-semibold text-neutral-900 dark:text-white truncate">
+                                {selectedProduct.name}
+                              </div>
+                              <div className="text-[11px] font-mono text-neutral-500 dark:text-neutral-400 truncate">
+                                {selectedProduct.section} · {selectedProduct.slug}
+                              </div>
+                            </div>
+                          </div>
+                        ) : (
+                          <span className="text-sm text-neutral-400">Select a product...</span>
+                        )}
+                        <ChevronDown className={`w-4 h-4 text-neutral-400 shrink-0 transition-transform ${isFileProductPickerOpen ? 'rotate-180' : ''}`} />
+                      </button>
+
+                      {isFileProductPickerOpen && (
+                        <div className="mt-2 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-950 shadow-xl overflow-hidden z-30">
+                          <div className="p-2.5 border-b border-neutral-200 dark:border-neutral-800">
+                            <div className="relative">
+                              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
+                              <input
+                                type="text"
+                                autoFocus
+                                value={fileProductFilter}
+                                onChange={(e) => setFileProductFilter(e.target.value)}
+                                placeholder="Type model name (e.g. Miata, Rexy, GT3)..."
+                                className="w-full bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-lg pl-9 pr-3 py-2 text-sm text-neutral-900 dark:text-white focus:outline-none"
+                              />
+                            </div>
+                          </div>
+                          <div className="max-h-72 overflow-y-auto divide-y divide-neutral-100 dark:divide-neutral-800/70">
+                            {filteredProductsForFilePicker.length === 0 ? (
+                              <div className="p-4 text-center text-xs text-neutral-500">No matching products</div>
+                            ) : (
+                              filteredProductsForFilePicker.map((p) => {
+                                const isCurrent = p.id === fileForm.product_id;
+                                return (
+                                  <button
+                                    key={p.id}
+                                    type="button"
+                                    onClick={() => {
+                                      setFileForm((prev) => ({
+                                        ...prev,
+                                        product_id: p.id,
+                                        color: '',
+                                      }));
+                                      setIsFileProductPickerOpen(false);
+                                      setFileProductFilter('');
+                                    }}
+                                    className={`w-full flex items-center justify-between gap-3 px-3.5 py-2.5 text-left transition-colors ${
+                                      isCurrent
+                                        ? 'bg-neutral-100 dark:bg-neutral-800'
+                                        : 'hover:bg-neutral-50 dark:hover:bg-neutral-900'
+                                    }`}
+                                  >
+                                    <div className="flex items-center gap-3 min-w-0">
+                                      {p.image_url ? (
+                                        <img
+                                          src={p.image_url}
+                                          alt={p.name}
+                                          className="w-10 h-10 rounded-lg object-cover border border-neutral-200 dark:border-neutral-800 shrink-0"
+                                        />
+                                      ) : (
+                                        <div className="w-10 h-10 rounded-lg bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center shrink-0">
+                                          <ImageIcon className="w-4 h-4 text-neutral-400" />
+                                        </div>
+                                      )}
+                                      <div className="min-w-0">
+                                        <div className="text-sm font-semibold text-neutral-900 dark:text-white truncate">
+                                          {p.name}
+                                        </div>
+                                        <div className="text-xs text-neutral-500 dark:text-neutral-400 truncate">
+                                          {p.section} · {(Array.isArray(p.colors) ? p.colors.length : 0)} colors
+                                        </div>
+                                      </div>
+                                    </div>
+                                    {isCurrent && <Check className="w-4 h-4 text-emerald-500 shrink-0" />}
+                                  </button>
+                                );
+                              })
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* VISUAL COLOR SWATCH BUTTONS (一撳色點+縮圖揀色，唔再用純文字下拉選單) */}
+                    <div className="md:col-span-2">
+                      <label className="block text-xs uppercase text-neutral-500 dark:text-neutral-400 mb-2">
+                        Instruction Color
+                      </label>
+
+                      {!selectedProduct ? (
+                        <div className="text-xs text-neutral-400 py-2">Select a product first...</div>
+                      ) : (
+                        <div className="flex flex-wrap gap-2.5">
+                          {/* General / All Colors 按鈕 */}
+                          <button
+                            type="button"
+                            onClick={() => setFileForm({ ...fileForm, color: '' })}
+                            className={`flex items-center gap-2.5 px-3 py-2 rounded-xl border text-xs font-semibold transition-all ${
+                              !fileForm.color
+                                ? 'border-neutral-900 dark:border-white bg-neutral-900 dark:bg-white text-white dark:text-neutral-950 shadow-sm'
+                                : 'border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-950 text-neutral-700 dark:text-neutral-300 hover:border-neutral-400'
+                            }`}
+                          >
+                            {selectedProduct.image_url && (
+                              <img
+                                src={selectedProduct.image_url}
+                                alt="General"
+                                className="w-6 h-6 rounded-md object-cover border border-black/10"
+                              />
+                            )}
+                            <span>General / All Colors</span>
+                          </button>
+
+                          {/* 各隻實際配色按鈕（連同迷你 0.webp 縮圖同色點） */}
+                          {selectedProductColors.map((colorObj, index) => {
+                            const normalizedName = colorObj.name.trim();
+                            if (!normalizedName) return null;
+                            const isSelected = fileForm.color?.trim().toLowerCase() === normalizedName.toLowerCase();
+                            const colorThumb = getDigitalFileThumbnail(selectedProduct, normalizedName);
+
+                            return (
+                              <button
+                                key={`${normalizedName}-${index}`}
+                                type="button"
+                                onClick={() => setFileForm({ ...fileForm, color: normalizedName })}
+                                className={`flex items-center gap-2.5 px-3 py-2 rounded-xl border text-xs font-semibold transition-all ${
+                                  isSelected
+                                    ? 'border-neutral-900 dark:border-white bg-neutral-900 dark:bg-white text-white dark:text-neutral-950 shadow-sm'
+                                    : 'border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-950 text-neutral-700 dark:text-neutral-300 hover:border-neutral-400'
+                                }`}
+                              >
+                                {colorThumb && (
+                                  <img
+                                    src={colorThumb}
+                                    alt={normalizedName}
+                                    className="w-6 h-6 rounded-md object-cover border border-black/15 shrink-0"
+                                  />
+                                )}
+                                <span
+                                  className="w-3.5 h-3.5 rounded-full border border-black/20 dark:border-white/30 shrink-0"
+                                  style={{ backgroundColor: colorObj.hex || '#737373' }}
+                                />
+                                <span>{normalizedName}</span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+                      <p className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">
+                        Multi-color models only need specific color records (no need to duplicate General unless single-color).
+                      </p>
+                    </div>
+
+                    {/* 一鍵同時同步到對應嘅 Kit / [Instruction] 產品 */}
+                    {isAddingFile && counterpartProduct && (
+                      <div className="md:col-span-2">
+                        <label className="flex items-center gap-3 p-3.5 rounded-xl bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/70 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={syncToCounterpartProduct}
+                            onChange={(e) => setSyncToCounterpartProduct(e.target.checked)}
+                            className="w-4 h-4 rounded border-emerald-400 text-emerald-600 focus:ring-0"
+                          />
+                          <div className="text-xs">
+                            <div className="font-bold text-neutral-900 dark:text-white">
+                              Also create identical record for "{counterpartProduct.name}" ({counterpartProduct.section})
+                            </div>
+                            <div className="text-neutral-500 dark:text-neutral-400 mt-0.5">
+                              Save once to update both Kit and Instruction digital downloads automatically.
+                            </div>
+                          </div>
+                        </label>
+                      </div>
+                    )}
+
+                    <div>
+                      <label className="block text-xs uppercase text-neutral-500 dark:text-neutral-400 mb-1">file_name</label>
+                      <input
+                        type="text"
+                        value={fileForm.file_name}
+                        onChange={(e) => setFileForm({ ...fileForm, file_name: e.target.value })}
+                        placeholder="Auto-filled from URL or enter manually"
+                        className="w-full bg-neutral-50 dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 rounded-lg px-3 py-2 text-base sm:text-sm text-neutral-900 dark:text-white focus:outline-none focus:border-neutral-400 dark:focus:border-neutral-700"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs uppercase text-neutral-500 dark:text-neutral-400 mb-1">source_type</label>
+                      <select
+                        value={fileForm.source_type}
+                        onChange={(e) => setFileForm({ ...fileForm, source_type: e.target.value })}
+                        className="w-full bg-neutral-50 dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 rounded-lg px-3 py-2 text-base sm:text-sm text-neutral-900 dark:text-white focus:outline-none focus:border-neutral-400 dark:focus:border-neutral-700"
+                      >
+                        <option value="external_link">external_link</option>
+                        <option value="storage_path">storage_path</option>
+                      </select>
+                    </div>
+
+                    {fileForm.source_type === 'external_link' ? (
+                      <div className="md:col-span-2">
+                        <label className="block text-xs uppercase text-neutral-500 dark:text-neutral-400 mb-1">
+                          external_url (Auto-fills file_name when pasted)
+                        </label>
+                        <input
+                          type="text"
+                          value={fileForm.external_url || ''}
+                          onChange={(e) => {
+                            const urlVal = e.target.value;
+                            const extractedName = decodeURIComponent(
+                              urlVal.split('?')[0].split('/').pop() || ''
+                            ).trim();
+                            setFileForm((prev) => ({
+                              ...prev,
+                              external_url: urlVal,
+                              file_name: !prev.file_name && extractedName ? extractedName : prev.file_name,
+                            }));
+                          }}
+                          placeholder="https://raw.githubusercontent.com/..."
+                          className="w-full bg-neutral-50 dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 rounded-lg px-3 py-2 text-base sm:text-sm text-neutral-900 dark:text-white focus:outline-none focus:border-neutral-400 dark:focus:border-neutral-700"
+                        />
+                      </div>
+                    ) : (
+                      <div className="md:col-span-2 space-y-2">
+                        <label className="block text-xs uppercase text-neutral-500 dark:text-neutral-400 mb-1">file_path / Storage Upload</label>
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            value={fileForm.file_path || ''}
+                            onChange={(e) => setFileForm({ ...fileForm, file_path: e.target.value })}
+                            placeholder="digital-assets/filename.zip"
+                            className="flex-1 bg-neutral-50 dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 rounded-lg px-3 py-2 text-base sm:text-sm text-neutral-900 dark:text-white focus:outline-none focus:border-neutral-400 dark:focus:border-neutral-700"
+                          />
+                          <label className="flex items-center gap-2 px-4 py-2 bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 rounded-lg cursor-pointer text-xs font-semibold transition-colors">
+                            {uploadingFile ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+                            <span>Upload File</span>
+                            <input type="file" onChange={handleFileUpload} className="hidden" disabled={uploadingFile} />
+                          </label>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex justify-end gap-3 pt-4 border-t border-neutral-200 dark:border-neutral-800">
+                    <button
+                      type="button"
+                      onClick={cancelFileForm}
+                      className="px-4 py-2 border border-neutral-200 dark:border-neutral-800 rounded-lg text-sm font-medium hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      disabled={isSubmitting}
+                      onClick={handleSaveFile}
+                      className="flex items-center gap-2 bg-neutral-900 dark:bg-white text-white dark:text-neutral-950 font-semibold px-4 py-2 rounded-lg text-sm hover:bg-neutral-800 dark:hover:bg-neutral-200 transition-colors disabled:opacity-50"
+                    >
+                      {isSubmitting && <Loader2 className="w-4 h-4 animate-spin" />}
+                      Save Digital File
+                    </button>
+                  </div>
                 </div>
-              </div>
-            ) : loadingFiles ? (
+              );
+            })() : loadingFiles ? (
               <div className="p-12 flex justify-center text-neutral-500 dark:text-neutral-400">
                 <Loader2 className="w-6 h-6 animate-spin mr-2" /> Loading Digital Files...
               </div>
