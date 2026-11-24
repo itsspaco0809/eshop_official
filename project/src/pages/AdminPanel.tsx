@@ -2403,7 +2403,11 @@ export default function AdminPanel({ initialTab = 'analytics' }: { initialTab?: 
                               />
                             </div>
                           </div>
-                          <div className="max-h-72 overflow-y-auto divide-y divide-neutral-100 dark:divide-neutral-800/70">
+                          <div
+                            data-lenis-prevent
+                            onWheel={(e) => e.stopPropagation()}
+                            className="max-h-72 overflow-y-auto overscroll-contain divide-y divide-neutral-100 dark:divide-neutral-800/70"
+                          >
                             {filteredProductsForFilePicker.length === 0 ? (
                               <div className="p-4 text-center text-xs text-neutral-500">No matching products</div>
                             ) : (
