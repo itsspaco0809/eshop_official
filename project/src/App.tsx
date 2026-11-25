@@ -1575,6 +1575,7 @@ function AppContent() {
             dark:bg-[#121212]
             min-h-[100dvh]
             min-h-screen
+            pt-[var(--lcp-marquee-height,0px)]
             mb-0
             lg:mb-[var(--lcp-footer-height)]
           "
