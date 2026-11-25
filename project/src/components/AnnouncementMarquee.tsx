@@ -10,15 +10,19 @@ const ALLOWED_PATHS = new Set([
 ]);
 
 const MARQUEE_ITEMS = [
-  '✈️ Free Worldwide Shipping on orders $99+ (or eqvilent)',
-  '🧱 Buy any 2 kits & get a FREE random polybag!',
+  '✈️ FREE WORLDWIDE SHIPPING ON ORDERS $99+ (OR EQUIVALENT)',
+  '🧱 BUY ANY 2 KITS & GET A FREE RANDOM POLYBAG!',
 ];
 
 export function shouldShowMarquee(routePath: string): boolean {
   const clean = routePath.split('?')[0].split('#')[0];
   const normalized =
     clean.length > 1 ? clean.replace(/\/+$/, '').toLowerCase() : '/';
-  return ALLOWED_PATHS.has(normalized);
+
+  return (
+    ALLOWED_PATHS.has(normalized) ||
+    normalized.startsWith('/product/')
+  );
 }
 
 export default function AnnouncementMarquee() {
