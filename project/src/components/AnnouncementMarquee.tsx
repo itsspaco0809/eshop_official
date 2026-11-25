@@ -10,7 +10,7 @@ const ALLOWED_PATHS = new Set([
 ]);
 
 const MARQUEE_ITEMS = [
-  '✈️ Free Worldwide Shipping on orders $99+',
+  '✈️ Free Worldwide Shipping on orders $99+ (or eqvilent)',
   '🧱 Buy any 2 kits & get a FREE random polybag!',
 ];
 
