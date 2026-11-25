@@ -16,6 +16,7 @@ import {
   Tag,
   Banknote,
   Download,
+  Truck,
 } from 'lucide-react';
 
 import { useCart } from '@/lib/cart';
@@ -1151,7 +1152,7 @@ export default function Checkout() {
 
   /*
    * =========================================================
-   * SHIPPING / TAX
+   * SHIPPING / TAX & FREE SHIPPING PROGRESS
    * =========================================================
    */
 
@@ -1161,6 +1162,33 @@ export default function Checkout() {
   const isHongKong =
     form.country ===
     'Hong Kong';
+
+  const remainingForFreeShippingUSD =
+    Math.max(
+      0,
+      freeShippingThresholdUSD -
+        basePhysicalSubtotalUSD
+    );
+
+  const freeShippingProgressPct =
+    isHongKong ||
+    basePhysicalSubtotalUSD >=
+      freeShippingThresholdUSD
+      ? 100
+      : Math.min(
+          100,
+          Math.max(
+            0,
+            (basePhysicalSubtotalUSD /
+              freeShippingThresholdUSD) *
+              100
+          )
+        );
+
+  const isFreeShippingUnlocked =
+    isHongKong ||
+    basePhysicalSubtotalUSD >=
+      freeShippingThresholdUSD;
 
   const baseShippingUSD =
     isHongKong ||
@@ -2185,6 +2213,68 @@ export default function Checkout() {
                   </span>
                 </div>
               </div>
+
+              {/* FREE SHIPPING PROGRESS BAR */}
+
+              {hasPhysicalItems &&
+                !isInstructionOnly && (
+                  <div className="p-3.5 rounded-xl bg-neutral-100/80 dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 space-y-2">
+                    <div className="flex items-center justify-between gap-2 text-xs">
+                      <div className="flex items-center gap-2 font-medium text-neutral-700 dark:text-neutral-300">
+                        <Truck
+                          className={`w-4 h-4 flex-shrink-0 ${
+                            isFreeShippingUnlocked
+                              ? 'text-emerald-600 dark:text-emerald-400'
+                              : 'text-neutral-500 dark:text-neutral-400'
+                          }`}
+                        />
+
+                        {isHongKong ? (
+                          <span className="text-emerald-600 dark:text-emerald-400 font-semibold">
+                            Free shipping unlocked for Hong Kong!
+                          </span>
+                        ) : isFreeShippingUnlocked ? (
+                          <span className="text-emerald-600 dark:text-emerald-400 font-semibold">
+                            You've unlocked FREE worldwide shipping!
+                          </span>
+                        ) : (
+                          <span>
+                            Add{' '}
+                            <span className="font-bold text-neutral-900 dark:text-white">
+                              {renderFormattedPrice(
+                                remainingForFreeShippingUSD
+                              )}
+                            </span>{' '}
+                            more for{' '}
+                            <span className="font-semibold text-neutral-900 dark:text-white">
+                              FREE shipping
+                            </span>
+                          </span>
+                        )}
+                      </div>
+
+                      <span className="font-mono text-[11px] text-neutral-500 dark:text-neutral-400 flex-shrink-0">
+                        {Math.round(
+                          freeShippingProgressPct
+                        )}
+                        %
+                      </span>
+                    </div>
+
+                    <div className="w-full h-1.5 bg-neutral-200 dark:bg-neutral-800 rounded-full overflow-hidden">
+                      <div
+                        className={`h-full rounded-full transition-all duration-500 ease-out ${
+                          isFreeShippingUnlocked
+                            ? 'bg-emerald-500'
+                            : 'bg-neutral-900 dark:bg-white'
+                        }`}
+                        style={{
+                          width: `${freeShippingProgressPct}%`,
+                        }}
+                      />
+                    </div>
+                  </div>
+                )}
 
               {/* ITEMS */}
 
