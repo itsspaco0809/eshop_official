@@ -43,6 +43,9 @@ import {
 } from '@/lib/lenis';
 
 import AuthModal from '@/components/AuthModal';
+import AnnouncementMarquee, {
+  shouldShowMarquee,
+} from '@/components/AnnouncementMarquee';
 
 import {
   useCurrency,
@@ -86,6 +89,9 @@ export default function Navbar({
     theme,
     setTheme,
   } = useTheme();
+
+  const hasMarquee =
+    shouldShowMarquee(path);
 
   const [scrolled, setScrolled] =
     useState(false);
@@ -1557,44 +1563,9 @@ export default function Navbar({
     }
   }, [path]);
 
-  const scrollToTopAnimated =
-    () => {
-      if (
-        mobileOpenRef.current ||
-        mobileMenuScrollLockedRef.current
-      ) {
-        return;
-      }
-
-      if (globalLenis) {
-        globalLenis.start();
-
-        globalLenis.scrollTo(
-          0,
-          {
-            duration: 0.9,
-          }
-        );
-
-        return;
-      }
-
-      const scrollingElement =
-        document.scrollingElement ||
-        document.documentElement;
-
-      scrollingElement.scrollTo({
-        top: 0,
-        left: 0,
-        behavior: 'smooth',
-      });
-    };
-
   const resetScrollForNavigation =
     () => {
       if (globalLenis) {
-        // Stop the current Lenis animation first so the navigation
-        // reset cannot be overridden by an in-progress smooth scroll.
         globalLenis.stop();
 
         globalLenis.scrollTo(
@@ -1635,11 +1606,6 @@ export default function Navbar({
         behavior: 'auto',
       });
 
-      // IMPORTANT:
-      // If the user clicks the navbar item for the page they are
-      // already on, the router path does not change. Therefore the
-      // normal route-change effect will NOT run to start Lenis again.
-      // Explicitly restart it here after resetting the scroll.
       if (globalLenis) {
         globalLenis.resize();
         globalLenis.scrollTo(
@@ -1658,12 +1624,6 @@ export default function Navbar({
     setMobileCurrencyOpen(
       false
     );
-
-    const currentPath =
-      path.split('?')[0];
-
-    const targetPath =
-      to.split('?')[0];
 
     const menuIsOpen =
       mobileOpenRef.current;
@@ -1688,11 +1648,6 @@ export default function Navbar({
     } else {
       resetScrollForNavigation();
     }
-
-    // resetScrollForNavigation() already handles the same-page case
-    // and restarts Lenis. Do not call it a second time here.
-    // This prevents unnecessary stop/start cycles.
-
   };
 
   const navLinks = [
@@ -1871,8 +1826,10 @@ export default function Navbar({
           }
         `}
       >
+        <AnnouncementMarquee />
+
         <nav
-          className="
+          className={`
             max-w-[1700px]
             mx-auto
             px-6
@@ -1880,8 +1837,12 @@ export default function Navbar({
             lg:px-10
             relative
             z-50
-            pt-[env(safe-area-inset-top)]
-          "
+            ${
+              hasMarquee
+                ? 'pt-0'
+                : 'pt-[env(safe-area-inset-top)]'
+            }
+          `}
         >
           <div
             className="
@@ -2724,13 +2685,6 @@ export default function Navbar({
                 )}
               </div>
 
-              {/* MOBILE THEME TOGGLE
-                  Keep this as a GSAP target so it still
-                  participates in the original intro fall animation.
-                  The opacity gate prevents the initial browser paint
-                  from flashing the icon before GSAP starts.
-              */}
-
               <button
                 type="button"
                 onClick={
@@ -2905,7 +2859,7 @@ export default function Navbar({
               flex-col
               justify-start
               px-0
-              pt-[calc(5rem+env(safe-area-inset-top))]
+              pt-[calc(5rem+env(safe-area-inset-top)+var(--lcp-marquee-height,0px))]
             "
           >
             <div
