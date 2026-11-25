@@ -51,10 +51,6 @@ gsap.registerPlugin(ScrollTrigger);
 const RECENTLY_VIEWED_KEY =
   'recently_viewed_products';
 
-// 替換成你放入 public/ 嘅透明底圖片路徑
-const PACKAGING_BOX_IMAGE = '/box-preview.png';
-const RANDOM_STICKERS_IMAGE = '/random-stickers.png';
-
 const TRUST_FEATURES = [
   {
     icon: MessageSquare,
@@ -176,9 +172,6 @@ export default function ProductDetail({
   const [activeFeatureIndex, setActiveFeatureIndex] =
     useState(0);
 
-  const [stickersImageFailed, setStickersImageFailed] =
-    useState(false);
-
   /*
    * =========================================================
    * PRODUCT READY
@@ -192,6 +185,14 @@ export default function ProductDetail({
    * =========================================================
    * ANIMATION STATE
    * =========================================================
+   *
+   * IMPORTANT:
+   *
+   * main animation and background animations
+   * are completely separated.
+   *
+   * Background products will NEVER restart
+   * the main ProductDetail animation.
    */
 
   const mainAnimationDoneRef =
@@ -342,8 +343,16 @@ export default function ProductDetail({
   useEffect(() => {
     let isMounted = true;
 
+    /*
+     * Reset page state
+     */
+
     setLoading(true);
     setIsReady(false);
+
+    /*
+     * Reset animation flags
+     */
 
     mainAnimationDoneRef.current =
       false;
@@ -373,6 +382,12 @@ export default function ProductDetail({
     );
 
     setFeaturedLoading(true);
+
+    /*
+     * =====================================================
+     * MAIN PRODUCT
+     * =====================================================
+     */
 
     const loadProduct =
       async () => {
@@ -415,10 +430,17 @@ export default function ProductDetail({
         const fetchedProduct =
           mainProduct as CustomProduct;
 
+        /*
+         * CRITICAL:
+         *
+         * Commit main product immediately.
+         */
+
         setProduct(
           fetchedProduct
         );
 
+        // KITS EXCLUSIVE has priority over NEW IN.
         const isExclusive = Boolean(
           (fetchedProduct as CustomProduct & { exclusive?: boolean })
             .exclusive
@@ -452,12 +474,27 @@ export default function ProductDetail({
           );
         }
 
+        /*
+         * Main product data ready.
+         */
+
         setLoading(false);
+
+        /*
+         * Background data NEVER blocks
+         * ProductDetail.
+         */
 
         void loadBackgroundData(
           mainProduct
         );
       };
+
+    /*
+     * =====================================================
+     * BACKGROUND DATA
+     * =====================================================
+     */
 
     const loadBackgroundData =
       async (
@@ -515,6 +552,10 @@ export default function ProductDetail({
           return;
         }
 
+        /*
+         * LATEST
+         */
+
         const latestProducts =
           latestResult.data;
 
@@ -556,6 +597,7 @@ export default function ProductDetail({
             .exclusive
         );
 
+        // KITS EXCLUSIVE always takes priority over NEW IN.
         if (mainProductIsExclusive) {
           setBadgeLabel(
             'KITS EXCLUSIVE'
@@ -571,6 +613,10 @@ export default function ProductDetail({
           setBadgeLabel(null);
         }
 
+        /*
+         * FEATURED
+         */
+
         setFeaturedTopRated(
           featuredResult.data ||
             []
@@ -579,6 +625,10 @@ export default function ProductDetail({
         setFeaturedLoading(
           false
         );
+
+        /*
+         * RECENTLY VIEWED
+         */
 
         const targetRecentIds =
           updateAndGetRecentIds(
@@ -747,6 +797,10 @@ export default function ProductDetail({
           )
       );
 
+    /*
+     * Keep loader for at least 350ms.
+     */
+
     const minimumDelay =
       new Promise<void>(
         (resolve) => {
@@ -756,6 +810,10 @@ export default function ProductDetail({
           );
         }
       );
+
+    /*
+     * Never block forever.
+     */
 
     const maximumWait =
       new Promise<void>(
@@ -2595,83 +2653,6 @@ export default function ProductDetail({
             </div>
           </div>
         </div>
-
-        {/* PACKAGING & RANDOM STICKERS (2 ROWS x 2 COLUMNS, BORDERLESS, NO DESCRIPTION) */}
-
-        {!isDigital && (
-          <section className="animate-section-item opacity-0 translate-y-6 will-change-transform mt-10 mb-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-10 gap-y-6 items-center">
-              {/* COLUMN 1 */}
-              <div className="flex flex-col items-center text-center">
-                <h2 className="text-lg sm:text-xl font-bold text-neutral-900 dark:text-white tracking-tight mb-5">
-                  Content are well packaged inside the box
-                </h2>
-
-                <div className="w-full max-w-[320px] sm:max-w-[360px] aspect-square flex items-center justify-center">
-                  <img
-                    src={PACKAGING_BOX_IMAGE}
-                    alt="Content are well packaged inside the box"
-                    className="w-full h-full object-contain pointer-events-none select-none"
-                    draggable={false}
-                  />
-                </div>
-              </div>
-
-              {/* COLUMN 2 */}
-              <div className="flex flex-col items-center text-center">
-                <h2 className="text-lg sm:text-xl font-bold text-neutral-900 dark:text-white tracking-tight mb-5">
-                  Random stickers
-                </h2>
-
-                <div className="w-full max-w-[320px] sm:max-w-[360px] aspect-square flex items-center justify-center relative">
-                  {!stickersImageFailed ? (
-                    <img
-                      src={RANDOM_STICKERS_IMAGE}
-                      alt="Random stickers"
-                      onError={() => setStickersImageFailed(true)}
-                      className="w-full h-full object-contain pointer-events-none select-none"
-                      draggable={false}
-                    />
-                  ) : (
-                    /* Die-cut sticker fan composition using your existing site product renders */
-                    <div className="relative w-full h-full flex items-center justify-center">
-                      {featuredTopRated.slice(0, 4).map((item, index) => {
-                        const positions = [
-                          '-rotate-12 -translate-x-14 -translate-y-10 z-10',
-                          'rotate-12 translate-x-14 -translate-y-8 z-20',
-                          '-rotate-6 -translate-x-10 translate-y-12 z-30',
-                          'rotate-6 translate-x-12 translate-y-10 z-20',
-                        ];
-
-                        return (
-                          <div
-                            key={item.id}
-                            className={`absolute w-32 h-32 sm:w-36 sm:h-36 p-2 bg-white rounded-2xl shadow-lg transform transition-transform duration-300 hover:scale-105 ${positions[index]}`}
-                          >
-                            <img
-                              src={item.image_url}
-                              alt=""
-                              className="w-full h-full object-contain pointer-events-none"
-                            />
-                          </div>
-                        );
-                      })}
-
-                      {/* Center LCP Die-Cut Logo Badge */}
-                      <div className="relative z-40 px-5 py-2.5 bg-neutral-950 dark:bg-white rounded-2xl ring-4 ring-white dark:ring-neutral-950 shadow-2xl -rotate-3">
-                        <img
-                          src="/LCP_logo_trans.png"
-                          alt="LCP"
-                          className="h-7 sm:h-8 w-auto object-contain brightness-0 invert dark:invert-0"
-                        />
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          </section>
-        )}
 
         {/* FEATURED */}
 
