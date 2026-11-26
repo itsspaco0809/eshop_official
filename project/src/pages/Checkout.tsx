@@ -933,11 +933,14 @@ export default function Checkout() {
         return;
       }
 
-      const couponCurrency =
-        coupon.currency ||
-        'USD';
+      const couponCurrency = String(
+        coupon.currency ?? ''
+      )
+        .trim()
+        .toUpperCase();
 
       if (
+        couponCurrency &&
         couponCurrency !== 'ALL' &&
         couponCurrency !== selectedCurrency
       ) {
@@ -1093,8 +1096,9 @@ export default function Checkout() {
         100;
     } else {
       discountAmountUSD =
+        appliedCoupon.currency &&
         appliedCoupon.currency !==
-        'USD'
+          'USD'
           ? appliedCoupon.discountValue /
             rate
           : appliedCoupon.discountValue;
@@ -2594,3 +2598,11 @@ export default function Checkout() {
 
 const inputClass =
   'w-full px-4 py-3 bg-white dark:bg-neutral-900 border border-neutral-300 dark:border-neutral-800 rounded-xl text-neutral-900 dark:text-white placeholder:text-neutral-400 dark:placeholder:text-neutral-500 text-[16px] focus:outline-none focus:border-neutral-500 dark:focus:border-neutral-600 transition-colors';
+```[cite: 5]
+
+### 改動重點
+* `couponCurrency` 改為先 `String(coupon.currency ?? '').trim().toUpperCase()`，唔再用 `|| 'USD'` 做預設值[cite: 5]。
+* 只有當 `couponCurrency` 有值且唔係 `'ALL'`、亦唔等於 `selectedCurrency` 時，先會設定 `couponError`[cite: 5]。
+* 非百分比折扣計算亦加上 `appliedCoupon.currency &&` 判斷，避免留空幣種時出錯[cite: 5]。
+
+記得改完後重新 build 同部署先會生效[cite: 4, 5]。
