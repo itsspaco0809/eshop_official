@@ -1,141 +1,112 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import {
-  ArrowRight,
-  ChevronLeft,
-  ChevronRight,
-  Star,
-  ChevronDown,
-  Layers,
-  Ruler,
-  Box,
-  ShieldCheck,
-  Truck,
-  Sparkles,
-  Wrench,
-} from 'lucide-react';
+import { ArrowRight, ChevronLeft, ChevronRight, Star, House } from 'lucide-react';
 import { Link } from '@/lib/router';
 import { supabase, type Product } from '@/lib/supabase';
-import { useCurrency } from '@/lib/currency';
 import ProductCard from '@/components/ProductCard';
+import FallingStickersBg from '@/components/FallingStickersBg';
+import gsap from 'gsap';
+import { ScrollTrigger } from 'gsap/ScrollTrigger';
+import Typed from 'typed.js';
 
-const HERO_SLIDES = [
-  {
-    eyebrow: 'NEW DROP · 8-STUD SERIES',
-    title: 'From Nothing to',
-    highlight: 'Collector Grade.',
-    subtitle:
-      'Original brick-built vehicle kits and 300ppi custom decal sheets designed for builders who care about every line.',
-    ctaText: 'Shop New Arrivals',
-    ctaLink: '/store?sort=date-desc',
-    image:
-      'https://raw.githubusercontent.com/itsspaco0809/scitem-images/main/Chevrolet/Corvette_CX/MC00002500/0.webp?auto=compress&cs=tinysrgb&h=900&w=1400',
-  },
-  {
-    eyebrow: 'FEATURED CONCEPT',
-    title: 'Precision Aero,',
-    highlight: 'Brick by Brick.',
-    subtitle:
-      'Clean proportions, tight clutch, and custom-matched wheel setups engineered from scratch.',
-    ctaText: 'Explore Supercars',
-    ctaLink: '/store?category=Super%20Car',
-    image:
-      'https://raw.githubusercontent.com/itsspaco0809/scitem-images/main/Alpine/Alpenglow/0.webp?auto=compress&cs=tinysrgb&h=900&w=1400',
-  },
-  {
-    eyebrow: 'BESPOKE COMMISSION',
-    title: 'Drive It.',
-    highlight: 'Build It.',
-    subtitle:
-      'Turn your own car into a custom brick model with personalized plates, wheels, and aero details.',
-    ctaText: 'Request a Custom Build',
-    ctaLink: '/contact',
-    image:
-      'https://raw.githubusercontent.com/itsspaco0809/scitem-images/main/Ford/Mustang_GTD/MC00001900/0.webp?auto=compress&cs=tinysrgb&h=900&w=1400',
-  },
-];
+gsap.registerPlugin(ScrollTrigger);
 
-const THEMES = [
-  {
-    title: 'Concept Car',
-    img: 'https://raw.githubusercontent.com/itsspaco0809/scitem-images/main/Alpine/Alpenglow/0.webp?auto=compress&cs=tinysrgb&h=650&w=940',
-    to: '/store?category=Concept%20Car',
-  },
-  {
-    title: 'Super Car',
-    img: 'https://raw.githubusercontent.com/itsspaco0809/scitem-images/main/Chevrolet/Corvette_CX/MC00002500/0.webp?auto=compress&cs=tinysrgb&h=650&w=940',
-    to: '/store?category=Super%20Car',
-  },
-  {
-    title: 'Sports Car',
-    img: 'https://raw.githubusercontent.com/itsspaco0809/scitem-images/main/Hyundai/Ioniq%206%20N/0.webp?auto=compress&cs=tinysrgb&h=650&w=940',
-    to: '/store?category=Sports%20Car',
-  },
-  {
-    title: 'SUV',
-    img: 'https://raw.githubusercontent.com/itsspaco0809/scitem-images/main/Mercedes-Maybach/GLS/MC00003600/0.webp?auto=compress&cs=tinysrgb&h=650&w=940',
-    to: '/store?category=SUV',
-  },
-  {
-    title: 'Display Scenes',
-    img: 'https://raw.githubusercontent.com/itsspaco0809/scitem-images/main/Ford/Mustang_GTD/MC00001900/0.webp?auto=compress&cs=tinysrgb&h=650&w=940',
-    to: '/store?category=Scene',
-  },
-];
+function CustomFlameIcon({ className = 'w-4 h-4' }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path
+        d="M12 2C10.5 4.5 10 7 10.5 9.5C9.2 8.3 8.5 6.7 8.5 5C5.5 8 4 12 4 15.5C4 19.1 6.9 22 10.5 22C14.1 22 17 19.1 17 15.5C17 13.5 16.1 11.7 14.8 10.5C14.5 12.5 13.5 14 12 15C12.5 12.5 12 10 10.5 8C11.5 6 12 4 12 2Z"
+        fill="#F97316"
+      />
+      <path
+        d="M11 13.5C10 14.8 9.5 16.2 9.5 17.5C9.5 19.4 10.8 21 12.5 21C14.2 21 15.5 19.4 15.5 17.5C15.5 16 14.8 14.7 13.8 13.8C13.5 15.2 12.8 16.2 11.8 16.8C12.2 15.2 11.8 14.2 11 13.5Z"
+        fill="#FACC15"
+      />
+    </svg>
+  );
+}
 
-const FAQS = [
-  {
-    q: 'Are these pre-built models or DIY brick kits?',
-    a: 'Every physical kit comes unassembled with all required bricks sorted and ready to build, plus step-by-step digital PDF instructions. You can also purchase standalone PDF instructions in the Instructions section.',
-  },
-  {
-    q: 'How long does order dispatch & shipping take?',
-    a: 'Orders are packed and dispatched within 2–3 working days with tracked international shipping. Exact shipping rates are calculated transparently at checkout.',
-  },
-  {
-    q: 'What if my kit is missing a part?',
-    a: 'Every kit is checked before packing, but if a piece is ever missing, just message me through the Contact page with the part number and I will arrange a replacement swiftly.',
-  },
-  {
-    q: 'Can I request a custom build of my own car?',
-    a: 'Yes. Share reference photos of your vehicle—including custom license plates, wheels, or aero parts—and I will design a one-off model tailored to your exact spec.',
-  },
-];
+type HomeSection = 'new-in' | 'top-rated' | 'display' | 'categories';
 
 export default function Home() {
-  const { formatPrice } = useCurrency();
   const [featured, setFeatured] = useState<Product[]>([]);
   const [newIn, setNewIn] = useState<Product[]>([]);
+  const [scenes, setScenes] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
-  const [slideIndex, setSlideIndex] = useState(0);
-  const [openFaq, setOpenFaq] = useState<number | null>(0);
+  const [isReady, setIsReady] = useState(false);
+  const [activeSection, setActiveSection] = useState<HomeSection>('new-in');
+  const [mobileScrollIndicator, setMobileScrollIndicator] = useState(0);
 
-  const newCarouselRef = useRef<HTMLDivElement>(null);
-  const favCarouselRef = useRef<HTMLDivElement>(null);
+  const typedEl = useRef<HTMLSpanElement>(null);
+  const pageRef = useRef<HTMLDivElement>(null);
+  const heroRef = useRef<HTMLElement>(null);
+  const newInRef = useRef<HTMLElement>(null);
+  const featuredRef = useRef<HTMLElement>(null);
+  const scenesRef = useRef<HTMLElement>(null);
+  const categoriesRef = useRef<HTMLElement>(null);
+  const carouselRef = useRef<HTMLDivElement>(null);
+  const ctaRef = useRef<HTMLElement>(null);
+  const ctaButtonRef = useRef<HTMLAnchorElement>(null);
 
+  /*
+   * Home is a true TOP route.
+   *
+   * When Home is reached through browser Back/Forward, the previous
+   * document may still have a native scroll offset for one render cycle.
+   * Reset it in a layout effect so Home is painted at scrollY = 0.
+   *
+   * ProductDetail -> Store / Instructions / Custom Parts restoration is
+   * intentionally left to App.tsx and is not affected by this.
+   */
   useLayoutEffect(() => {
-    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+    window.scrollTo({
+      top: 0,
+      left: 0,
+      behavior: 'instant',
+    });
+
+    document.documentElement.scrollTop = 0;
+    document.documentElement.scrollLeft = 0;
+    document.body.scrollTop = 0;
+    document.body.scrollLeft = 0;
   }, []);
 
-  // Auto-advance Hero Slider
+  // 打字機效果初始化
   useEffect(() => {
-    const timer = setInterval(() => {
-      setSlideIndex((prev) => (prev + 1) % HERO_SLIDES.length);
-    }, 6500);
-    return () => clearInterval(timer);
+    if (!typedEl.current) return;
+
+    const typed = new Typed(typedEl.current, {
+      strings: ['Something', '?gnihtemoS'],
+      typeSpeed: 150,
+      backSpeed: 150,
+      loop: true,
+      backDelay: 1500,
+    });
+
+    return () => {
+      typed.destroy();
+    };
   }, []);
 
-  // Fetch Supabase Products
+  // Fetch Supabase Data
   useEffect(() => {
     (async () => {
-      const [{ data: featuredData }, { data: kitsData }] = await Promise.all([
-        supabase
-          .from('products')
-          .select('*')
-          .eq('featured', true)
-          .eq('section', 'kits')
-          .order('rating', { ascending: false }),
-        supabase.from('products').select('*').eq('section', 'kits'),
-      ]);
+      const { data: featuredData } = await supabase
+        .from('products')
+        .select('*')
+        .eq('featured', true)
+        .eq('section', 'kits')
+        .order('rating', { ascending: false });
+
+      const { data: kitsData } = await supabase
+        .from('products')
+        .select('*')
+        .eq('section', 'kits');
+
+      const { data: scenesData } = await supabase
+        .from('products')
+        .select('*')
+        .eq('section', 'kits')
+        .contains('category', ['Scene']);
 
       if (kitsData) {
         const sortedKits = [...kitsData].sort(
@@ -143,485 +114,662 @@ export default function Home() {
             new Date(b.created_at || b.createdAt || 0).getTime() -
             new Date(a.created_at || a.createdAt || 0).getTime()
         );
-        setNewIn(sortedKits.slice(0, 8));
+        setNewIn(sortedKits.slice(0, 6));
       }
 
       setFeatured(featuredData || []);
+      setScenes(scenesData || []);
       setLoading(false);
     })();
   }, []);
 
-  const scrollRow = (
-    ref: React.RefObject<HTMLDivElement>,
-    direction: 'left' | 'right'
-  ) => {
-    const container = ref.current;
+  // Intro 完成後重新整理 ScrollTrigger
+  // IntroOverlay 本身負責控制 Intro 動畫，
+  // Home 不再控制 Intro 顯示/隱藏，避免首次載入時互相競爭。
+  useEffect(() => {
+    const handleIntroComplete = () => {
+      window.scrollTo(0, 0);
+
+      requestAnimationFrame(() => {
+        ScrollTrigger.refresh();
+      });
+    };
+
+    window.addEventListener('introComplete', handleIntroComplete);
+
+    return () => {
+      window.removeEventListener('introComplete', handleIntroComplete);
+    };
+  }, []);
+
+  // 預載圖片以防止網頁跳動 (Layout Shift)
+  useEffect(() => {
+    const allProducts = [...featured, ...newIn, ...scenes];
+    if (allProducts.length === 0) {
+      setIsReady(true);
+      return;
+    }
+
+    setIsReady(false);
+    let isActive = true;
+
+    const minTimer = new Promise((resolve) => setTimeout(resolve, 300));
+    const imagePromises = allProducts.map((product) => {
+      if (!product.image_url) return Promise.resolve();
+      const img = new Image();
+      img.src = product.image_url;
+      return img.decode().catch(() => {});
+    });
+
+    const maxFallbackTimer = new Promise((resolve) => setTimeout(resolve, 2000));
+
+    Promise.race([
+      Promise.all([minTimer, ...imagePromises]),
+      maxFallbackTimer,
+    ]).then(() => {
+      if (isActive) setIsReady(true);
+    });
+
+    return () => {
+      isActive = false;
+    };
+  }, [featured, newIn, scenes]);
+
+  // GSAP 區塊動畫
+  useEffect(() => {
+    const ctx = gsap.context(() => {
+      gsap.to(
+        ['.hero-title', '.hero-description', '.hero-button', '.hero-scroll-indicator'],
+        {
+          scrollTrigger: {
+            trigger: heroRef.current,
+            start: 'top 85%',
+            toggleActions: 'play none none none',
+          },
+          y: 0,
+          opacity: 1,
+          duration: 0.6,
+          stagger: 0.08,
+          ease: 'power1.out',
+          force3D: true,
+        }
+      );
+
+      gsap.to('.category-card', {
+        scrollTrigger: {
+          trigger: categoriesRef.current,
+          start: 'top 85%',
+          toggleActions: 'play none none none',
+        },
+        y: 0,
+        opacity: 1,
+        duration: 0.6,
+        stagger: 0.08,
+        ease: 'power1.out',
+        force3D: true,
+      });
+
+      gsap.to(
+        ['.cta-item-images', '.cta-item-title', '.cta-item-desc', '.cta-item-button'],
+        {
+          scrollTrigger: {
+            trigger: ctaRef.current,
+            start: 'top 80%',
+            toggleActions: 'play none none none',
+          },
+          y: 0,
+          opacity: 1,
+          duration: 0.6,
+          stagger: 0.08,
+          ease: 'power1.out',
+          force3D: true,
+        }
+      );
+
+      gsap.to('.cta-card-bg', {
+        x: 3,
+        y: -2.5,
+        rotate: '-3deg',
+        duration: 5.5,
+        repeat: -1,
+        yoyo: true,
+        ease: 'sine.inOut',
+      });
+
+      gsap.to('.cta-card-fg', {
+        x: -3.5,
+        y: -3,
+        rotate: '4deg',
+        duration: 4.8,
+        repeat: -1,
+        yoyo: true,
+        ease: 'sine.inOut',
+        delay: 0.3,
+      });
+
+      if (ctaButtonRef.current) {
+        gsap.fromTo(
+          ctaButtonRef.current,
+          { scale: 0.95, opacity: 0 },
+          {
+            scrollTrigger: {
+              trigger: ctaRef.current,
+              start: 'top 75%',
+              toggleActions: 'play none none none',
+            },
+            scale: 1,
+            opacity: 1,
+            duration: 0.5,
+            delay: 0.3,
+            ease: 'power1.out',
+            force3D: true,
+          }
+        );
+      }
+
+      gsap.fromTo(
+        '.cta-underline-path',
+        { strokeDashoffset: 200, strokeDasharray: 200 },
+        {
+          scrollTrigger: {
+            trigger: ctaRef.current,
+            start: 'top 75%',
+            toggleActions: 'play none none none',
+          },
+          strokeDashoffset: 0,
+          duration: 1.0,
+          delay: 0.2,
+          ease: 'power1.inOut',
+        }
+      );
+    }, pageRef);
+
+    return () => ctx.revert();
+  }, []);
+
+  // Product / category cards animation
+  useEffect(() => {
+    if (!isReady || loading) return;
+
+    const ctx = gsap.context(() => {
+      const selector =
+        activeSection === 'categories'
+          ? '.category-card'
+          : '.home-product-card';
+
+      gsap.to(selector, {
+        opacity: 1,
+        y: 0,
+        duration: 0.45,
+        stagger: 0.04,
+        ease: 'power2.out',
+        onComplete: function () {
+          const elements = pageRef.current?.querySelectorAll(selector);
+          elements?.forEach((el) =>
+            el.classList.remove('opacity-0', 'translate-y-6')
+          );
+        },
+      });
+    }, pageRef);
+
+    return () => ctx.revert();
+  }, [activeSection, isReady, loading]);
+
+  const scrollCarousel = (direction: 'left' | 'right') => {
+    const container = carouselRef.current;
     if (!container) return;
+
+    // On desktop, move exactly one product at a time.
+    // The card width is measured from the first visible card, and the
+    // current gap is added so the next card lines up cleanly.
     const firstCard = container.firstElementChild as HTMLElement | null;
     if (!firstCard) return;
-    const gap = parseFloat(window.getComputedStyle(container).columnGap || '16');
-    const amount = firstCard.getBoundingClientRect().width + gap;
+
+    const cardWidth = firstCard.getBoundingClientRect().width;
+    const styles = window.getComputedStyle(container);
+    const gap = parseFloat(styles.columnGap || styles.gap || '0');
+    const amount = cardWidth + gap;
+
     container.scrollBy({
       left: direction === 'left' ? -amount : amount,
       behavior: 'smooth',
     });
   };
 
-  const spotlightProduct = featured[0] || newIn[0];
-  const activeSlide = HERO_SLIDES[slideIndex];
+  const handleCarouselScroll = () => {
+    const container = carouselRef.current;
+    if (!container) return;
+
+    const maxScroll = container.scrollWidth - container.clientWidth;
+    if (maxScroll <= 0) {
+      setMobileScrollIndicator(0);
+      return;
+    }
+
+    const progress = Math.min(1, Math.max(0, container.scrollLeft / maxScroll));
+
+    // On mobile, 2 products are visible at once, so the dots represent
+    // the number of possible scroll positions rather than every product.
+    // For example: 6 products = 5 dots, 5 products = 4 dots.
+    const itemCount = container.children.length;
+    const visibleItems = 2;
+    const dotCount = Math.max(1, itemCount - visibleItems + 1);
+    const activeIndex = Math.min(
+      dotCount - 1,
+      Math.max(0, Math.round(progress * (dotCount - 1)))
+    );
+
+    setMobileScrollIndicator(activeIndex);
+  };
+
+  useEffect(() => {
+    carouselRef.current?.scrollTo({ left: 0, behavior: 'auto' });
+    setMobileScrollIndicator(0);
+  }, [activeSection]);
 
   return (
-    <div className="pt-20 min-[1536px]:pt-28 bg-white dark:bg-[#121212] min-h-screen text-neutral-900 dark:text-white">
+    <div
+      id="home-page"
+      ref={pageRef}
+      className="pt-16 sm:pt-20 md:pt-24 bg-white dark:bg-neutral-950 min-h-screen text-neutral-900 dark:text-white relative"
+    >
       <style>
-        {`@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;0,700;1,600&display=swap');`}
+        {`@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;800&display=swap');`}
       </style>
 
-      {/* 1. HERO SLIDER (24builds Dark Studio Aesthetic + LCP Typography) */}
-      <section className="max-w-[1700px] mx-auto px-4 sm:px-6 lg:px-8 pt-4 sm:pt-6">
-        <div className="relative rounded-3xl overflow-hidden bg-neutral-950 min-h-[520px] sm:min-h-[600px] lg:min-h-[680px] flex items-end border border-neutral-200/20 dark:border-neutral-800">
-          {HERO_SLIDES.map((slide, idx) => (
-            <img
-              key={slide.title}
-              src={slide.image}
-              alt={slide.title}
-              className={`absolute inset-0 w-full h-full object-cover transition-all duration-1000 ${
-                idx === slideIndex
-                  ? 'opacity-100 scale-100'
-                  : 'opacity-0 scale-105 pointer-events-none'
-              }`}
-            />
-          ))}
+      {/* Hero Section */}
+      <section
+        ref={heroRef}
+        className="relative min-h-[90vh] flex items-center justify-center overflow-hidden pt-8 sm:pt-12 pb-16"
+      >
+        <div className="absolute inset-0 z-0 pointer-events-none">
+          <FallingStickersBg isIntroFinished={true} />
+        </div>
 
-          {/* Dark Gradient Overlay */}
-          <div className="absolute inset-0 bg-gradient-to-t from-neutral-950 via-neutral-950/55 to-neutral-950/15" />
-
-          {/* Content */}
-          <div className="relative z-10 w-full p-6 sm:p-10 lg:p-16 flex flex-col lg:flex-row lg:items-end justify-between gap-8">
-            <div className="max-w-2xl">
-              <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 backdrop-blur-md border border-white/15 text-[#D2FF00] text-[11px] font-bold uppercase tracking-widest mb-4">
-                <Sparkles className="w-3.5 h-3.5" />
-                {activeSlide.eyebrow}
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 z-10 flex flex-col items-center text-center">
+          <div className="max-w-4xl flex flex-col items-center text-center">
+            <h1 className="hero-title opacity-0 translate-y-[11px] transform-gpu text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-bold text-neutral-900 dark:text-white leading-[0.95] tracking-tight text-center">
+              <span className="block">
+                <span style={{ fontFamily: "'Playfair Display', Georgia, serif" }}>
+                  From
+                </span>{' '}
+                <span className="font-bold">Nothing...</span>
               </span>
 
-              <h1 className="text-4xl sm:text-6xl lg:text-7xl font-bold text-white leading-[0.98] tracking-tight">
+              <span className="block whitespace-nowrap mt-2">
                 <span style={{ fontFamily: "'Playfair Display', Georgia, serif" }}>
-                  {activeSlide.title}
+                  to
                 </span>{' '}
-                <span className="block text-[#D2FF00] mt-1">
-                  {activeSlide.highlight}
+                <span className="bg-gradient-to-r from-emerald-600 via-lime-500 to-yellow-500 dark:from-emerald-400 dark:via-lime-300 dark:to-yellow-400 bg-clip-text text-transparent font-bold bg-[length:200%_auto] animate-gradient pr-2">
+                  <span ref={typedEl}></span>
                 </span>
-              </h1>
+              </span>
+            </h1>
 
-              <p className="mt-4 text-neutral-300 text-sm sm:text-base max-w-xl leading-relaxed">
-                {activeSlide.subtitle}
-              </p>
+            <div className="hero-button opacity-0 translate-y-[11px] transform-gpu mt-10 flex justify-center items-center w-full">
+              <Link
+                to="/store"
+                className="group inline-flex items-center justify-center gap-2 px-8 py-4 bg-neutral-900 dark:bg-white text-white dark:text-neutral-950 font-bold text-sm uppercase tracking-wider rounded-full hover:bg-neutral-800 dark:hover:bg-neutral-200 transition-all hover:scale-105 active:scale-95"
+              >
+                Explore the Store
+                <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
+              </Link>
+            </div>
+          </div>
+        </div>
+      </section>
 
-              <div className="mt-7 flex flex-wrap items-center gap-4">
-                <Link
-                  to={activeSlide.ctaLink}
-                  className="group inline-flex items-center gap-2 px-7 py-3.5 bg-white text-neutral-950 font-bold text-xs sm:text-sm uppercase tracking-wider rounded-full hover:bg-[#D2FF00] transition-all hover:scale-105 active:scale-95"
+      {/* HOME COLLECTIONS */}
+      <section
+        ref={newInRef}
+        className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-16 sm:pt-20 pb-8"
+      >
+        {/* Collection Buttons */}
+        <div className="mb-8 sm:mb-10">
+          <div className="flex items-center gap-2 sm:gap-3 overflow-x-auto pb-2 scrollbar-hide">
+            {[
+              { id: 'new-in', label: 'NEW IN' },
+              { id: 'top-rated', label: 'TOP RATED KITS' },
+              { id: 'display', label: 'DISPLAY' },
+              { id: 'categories', label: 'CATEGORIES' },
+            ].map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setActiveSection(tab.id as HomeSection)}
+                className={`shrink-0 px-4 sm:px-5 py-2.5 sm:py-3 rounded-full border text-xs sm:text-sm font-bold uppercase tracking-wider transition-all duration-200 ${
+                  activeSection === tab.id
+                    ? 'bg-neutral-900 text-white border-neutral-900 dark:bg-white dark:text-neutral-950 dark:border-white'
+                    : 'bg-white text-neutral-600 border-neutral-200 hover:border-neutral-400 hover:text-neutral-900 dark:bg-neutral-900 dark:text-neutral-400 dark:border-neutral-800 dark:hover:border-neutral-600 dark:hover:text-white'
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Active Collection Header */}
+        <div className="flex items-end justify-between mb-6 sm:mb-8">
+          <div>
+            {activeSection === 'new-in' && (
+              <>
+                <p className="text-neutral-500 dark:text-neutral-500 text-sm font-medium uppercase tracking-widest mb-2 flex items-center gap-2">
+                  <CustomFlameIcon className="w-4 h-4 animate-star-pulse" /> Fresh Releases
+                </p>
+                <h2 className="text-3xl md:text-4xl font-bold text-neutral-900 dark:text-white tracking-tight">
+                  New In
+                </h2>
+              </>
+            )}
+
+            {activeSection === 'top-rated' && (
+              <>
+                <p className="text-neutral-500 dark:text-neutral-500 text-sm font-medium uppercase tracking-widest mb-2 flex items-center gap-2">
+                  <Star className="w-4 h-4 text-amber-500 dark:text-amber-400 fill-amber-500 dark:fill-amber-400 animate-star-pulse" /> Featured Builds
+                </p>
+                <h2 className="text-3xl md:text-4xl font-bold text-neutral-900 dark:text-white tracking-tight">
+                  Top Rated Kits
+                </h2>
+              </>
+            )}
+
+            {activeSection === 'display' && (
+              <>
+                <p className="text-neutral-500 dark:text-neutral-500 text-sm font-medium uppercase tracking-widest mb-2 flex items-center gap-2">
+                  <House className="w-4 h-4 text-emerald-500 dark:text-emerald-400 animate-star-pulse" /> Place your builds there!
+                </p>
+                <h2 className="text-3xl md:text-4xl font-bold text-neutral-900 dark:text-white tracking-tight">
+                  Display
+                </h2>
+              </>
+            )}
+
+            {activeSection === 'categories' && (
+              <>
+                <p className="text-neutral-500 dark:text-neutral-500 text-sm font-medium uppercase tracking-widest mb-2">
+                  Browse by Theme
+                </p>
+                <h2 className="text-3xl md:text-4xl font-bold text-neutral-900 dark:text-white tracking-tight">
+                  Find Your Style
+                </h2>
+              </>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2 sm:gap-3">
+            {activeSection !== 'categories' && (
+              <div className="hidden md:flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => scrollCarousel('left')}
+                  aria-label="Scroll left"
+                  className="w-10 h-10 rounded-full border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 text-neutral-700 dark:text-neutral-300 hover:border-neutral-400 dark:hover:border-neutral-600 hover:text-neutral-950 dark:hover:text-white transition-all active:scale-95"
                 >
-                  {activeSlide.ctaText}
-                  <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
-                </Link>
+                  <ChevronLeft className="w-5 h-5 mx-auto" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => scrollCarousel('right')}
+                  aria-label="Scroll right"
+                  className="w-10 h-10 rounded-full border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 text-neutral-700 dark:text-neutral-300 hover:border-neutral-400 dark:hover:border-neutral-600 hover:text-neutral-950 dark:hover:text-white transition-all active:scale-95"
+                >
+                  <ChevronRight className="w-5 h-5 mx-auto" />
+                </button>
+              </div>
+            )}
 
-                <div className="flex items-center gap-2 text-xs text-neutral-300">
-                  <div className="flex items-center text-amber-400">
-                    {[...Array(5)].map((_, i) => (
-                      <Star key={i} className="w-3.5 h-3.5 fill-amber-400" />
-                    ))}
-                  </div>
-                  <span className="font-medium">4.9/5 · Original MOC Designs</span>
+            <Link
+              to={
+                activeSection === 'new-in'
+                  ? '/store?sort=date-desc'
+                  : activeSection === 'display'
+                    ? '/store?category=Scene'
+                    : '/store'
+              }
+              className="group hidden sm:flex items-center gap-2 text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white text-sm font-medium uppercase tracking-wider transition-colors"
+            >
+              View All
+              <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
+            </Link>
+          </div>
+        </div>
+
+        {/* Active Collection Content */}
+        {activeSection === 'categories' ? (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-6">
+          {[
+            {
+              title: 'Concept Car',
+              img: 'https://raw.githubusercontent.com/itsspaco0809/scitem-images/main/Alpine/Alpenglow/0.webp?auto=compress&cs=tinysrgb&h=650&w=940',
+              cat: 'Concept Car',
+            },
+            {
+              title: 'Super Car',
+              img: 'https://raw.githubusercontent.com/itsspaco0809/scitem-images/main/Chevrolet/Corvette_CX/MC00002500/0.webp?auto=compress&cs=tinysrgb&h=650&w=940',
+              cat: 'Super Car',
+            },
+            {
+              title: 'Sports Car',
+              img: 'https://raw.githubusercontent.com/itsspaco0809/scitem-images/main/Hyundai/Ioniq%206%20N/0.webp?auto=compress&cs=tinysrgb&h=650&w=940',
+              cat: 'Sports Car',
+            },
+            {
+              title: 'SUV',
+              img: 'https://raw.githubusercontent.com/itsspaco0809/scitem-images/main/Mercedes-Maybach/GLS/MC00003600/0.webp?auto=compress&cs=tinysrgb&h=650&w=940',
+              cat: 'SUV',
+            },
+          ].map((cat) => (
+            <Link
+              key={cat.title}
+              to={`/store?category=${cat.cat}`}
+              className="category-card group relative rounded-2xl overflow-hidden aspect-square block opacity-0 translate-y-[12px] transform-gpu"
+            >
+              <img
+                src={cat.img}
+                alt={cat.title}
+                className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110 group-active:scale-110"
+              />
+
+              <div className="absolute inset-0 bg-gradient-to-t from-neutral-950/80 via-neutral-950/20 to-transparent" />
+
+              <div className="absolute bottom-0 left-0 right-0 p-3 sm:p-6">
+                <h3 className="text-white text-lg sm:text-2xl font-bold mb-0.5 sm:mb-1">
+                  {cat.title}
+                </h3>
+
+                <div className="mt-2 sm:mt-3 inline-flex items-center gap-1.5 sm:gap-2 text-white text-xs sm:text-sm font-medium opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity duration-300">
+                  Explore
+                  <ArrowRight className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                 </div>
               </div>
+            </Link>
+          ))}
+        </div>
+                ) : loading || !isReady ? (
+          <div ref={carouselRef} onScroll={handleCarouselScroll} className="flex gap-3 sm:gap-6 overflow-x-auto pb-4 snap-x snap-mandatory scrollbar-hide scroll-smooth">
+            {[1, 2, 3, 4, 5, 6].map((i) => (
+              <div
+                key={i}
+                className="shrink-0 w-[calc(50%-0.375rem)] sm:w-[calc(50%-0.75rem)] lg:w-[calc(33.333333%-1rem)] snap-start bg-neutral-100 dark:bg-neutral-900 rounded-2xl border border-neutral-200 dark:border-neutral-800 overflow-hidden animate-pulse"
+              >
+                <div className="aspect-square bg-neutral-200 dark:bg-neutral-800" />
+                <div className="p-3 sm:p-5 space-y-3">
+                  <div className="h-5 bg-neutral-200 dark:bg-neutral-800 rounded w-3/4" />
+                  <div className="h-4 bg-neutral-200 dark:bg-neutral-800 rounded w-1/2" />
+                  <div className="h-10 bg-neutral-200 dark:bg-neutral-800 rounded w-1/3 mt-4" />
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : activeSection !== 'display' ? (
+          <>
+            <div ref={carouselRef} onScroll={handleCarouselScroll} className="flex gap-3 sm:gap-6 overflow-x-auto pb-4 snap-x snap-mandatory scrollbar-hide scroll-smooth">
+              {(activeSection === 'new-in' ? newIn : featured).map((p) => (
+                <div
+                  key={p.id}
+                  className="home-product-card shrink-0 w-[calc(50%-0.375rem)] sm:w-[calc(50%-0.75rem)] lg:w-[calc(33.333333%-1rem)] snap-start opacity-0 translate-y-6 will-change-transform"
+                >
+                  <ProductCard
+                    product={p}
+                    isNew={activeSection === 'new-in'}
+                    isReady={isReady}
+                  />
+                </div>
+              ))}
             </div>
 
-            {/* Slide Controls */}
-            <div className="flex items-center gap-3 self-start lg:self-end">
-              <div className="flex items-center gap-1.5 mr-2">
-                {HERO_SLIDES.map((_, i) => (
-                  <button
-                    key={i}
-                    type="button"
-                    onClick={() => setSlideIndex(i)}
-                    aria-label={`Go to slide ${i + 1}`}
-                    className={`h-1.5 rounded-full transition-all ${
-                      slideIndex === i
-                        ? 'w-8 bg-[#D2FF00]'
-                        : 'w-2 bg-white/35 hover:bg-white/60'
+            {((activeSection === 'new-in' && newIn.length > 2) ||
+              (activeSection === 'top-rated' && featured.length > 2)) && (
+              <div
+                className="md:hidden flex items-center justify-center gap-1.5 mt-3"
+                aria-hidden="true"
+              >
+                {Array.from({
+                  length: Math.max(1, (activeSection === 'new-in' ? newIn : featured).length - 2 + 1),
+                }).map((_, index) => (
+                  <span
+                    key={index}
+                    className={`h-1.5 rounded-full transition-all duration-300 ${
+                      mobileScrollIndicator === index
+                        ? 'w-6 bg-neutral-900 dark:bg-white'
+                        : 'w-1.5 bg-neutral-300 dark:bg-neutral-700'
                     }`}
                   />
                 ))}
               </div>
-              <button
-                type="button"
-                onClick={() =>
-                  setSlideIndex(
-                    (prev) => (prev - 1 + HERO_SLIDES.length) % HERO_SLIDES.length
-                  )
-                }
-                aria-label="Previous slide"
-                className="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-md border border-white/15 text-white flex items-center justify-center transition-colors"
-              >
-                <ChevronLeft className="w-5 h-5" />
-              </button>
-              <button
-                type="button"
-                onClick={() =>
-                  setSlideIndex((prev) => (prev + 1) % HERO_SLIDES.length)
-                }
-                aria-label="Next slide"
-                className="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-md border border-white/15 text-white flex items-center justify-center transition-colors"
-              >
-                <ChevronRight className="w-5 h-5" />
-              </button>
+            )}
+          </>
+        ) : null}
+
+        {activeSection !== 'categories' &&
+          activeSection !== 'display' &&
+          ((activeSection === 'new-in' && newIn.length === 0) ||
+            (activeSection === 'top-rated' && featured.length === 0)) && (
+            <div className="text-neutral-500 dark:text-neutral-400 text-sm py-6">
+              No products available yet.
             </div>
+          )}
+
+        {activeSection === 'display' && !loading && isReady && scenes.length === 0 && (
+          <div className="text-neutral-500 dark:text-neutral-400 text-sm py-6">
+            No display products available yet.
           </div>
-        </div>
-      </section>
+        )}
 
-      {/* 2. BUNDLE PROMO BAR (24builds Tiered Discount Concept) */}
-      <section className="max-w-[1700px] mx-auto px-4 sm:px-6 lg:px-8 mt-5">
-        <div className="rounded-2xl bg-neutral-950 dark:bg-neutral-900 border border-neutral-800 px-5 py-4 sm:px-8 sm:py-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
-            <span className="px-2.5 py-0.5 rounded-full bg-[#D2FF00] text-neutral-950 text-[11px] font-black uppercase tracking-wider">
-              Bundle & Save
-            </span>
-            <p className="text-white text-sm sm:text-base font-semibold">
-              Add 2 kits for <span className="text-[#D2FF00]">5% off</span> · 3 kits for{' '}
-              <span className="text-[#D2FF00]">8% off</span> · 4+ kits for{' '}
-              <span className="text-[#D2FF00]">12% off</span>
-            </p>
-          </div>
-          <Link
-            to="/store"
-            className="shrink-0 inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-white hover:text-[#D2FF00] transition-colors"
-          >
-            Build Your Bundle
-            <ArrowRight className="w-3.5 h-3.5" />
-          </Link>
-        </div>
-      </section>
-
-      {/* 3. CHOOSE YOUR THEME (Horizontal Visual Strip) */}
-      <section className="max-w-[1700px] mx-auto px-4 sm:px-6 lg:px-8 pt-14 sm:pt-18">
-        <div className="flex items-end justify-between mb-6">
-          <div>
-            <p className="text-neutral-500 text-xs font-bold uppercase tracking-widest mb-1.5">
-              Choose Your Theme
-            </p>
-            <h2 className="text-2xl sm:text-3xl font-bold tracking-tight">
-              Start Building Your Lineup
-            </h2>
-          </div>
-          <Link
-            to="/store"
-            className="hidden sm:inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-neutral-500 hover:text-neutral-900 dark:hover:text-white transition-colors"
-          >
-            Shop All <ArrowRight className="w-4 h-4" />
-          </Link>
-        </div>
-
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-5">
-          {THEMES.map((theme) => (
-            <Link
-              key={theme.title}
-              to={theme.to}
-              className="group relative aspect-[4/3] sm:aspect-square rounded-2xl overflow-hidden bg-neutral-900 border border-neutral-200 dark:border-neutral-800"
-            >
-              <img
-                src={theme.img}
-                alt={theme.title}
-                className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-neutral-950/85 via-neutral-950/20 to-transparent" />
-              <div className="absolute bottom-0 left-0 right-0 p-4 flex items-center justify-between">
-                <h3 className="text-white font-bold text-base sm:text-lg">
-                  {theme.title}
-                </h3>
-                <ArrowRight className="w-4 h-4 text-[#D2FF00] opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all" />
-              </div>
-            </Link>
-          ))}
-        </div>
-      </section>
-
-      {/* 4. THIS WEEK'S NEW BUILDS */}
-      <section className="max-w-[1700px] mx-auto px-4 sm:px-6 lg:px-8 pt-16 sm:pt-20">
-        <div className="flex items-end justify-between mb-6">
-          <div>
-            <p className="text-neutral-500 text-xs font-bold uppercase tracking-widest mb-1.5">
-              Fresh Releases
-            </p>
-            <h2 className="text-2xl sm:text-4xl font-bold tracking-tight">
-              Latest Builds
-            </h2>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <div className="hidden md:flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => scrollRow(newCarouselRef, 'left')}
-                aria-label="Scroll left"
-                className="w-10 h-10 rounded-full border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 flex items-center justify-center hover:border-neutral-400 dark:hover:border-neutral-600 transition-colors"
-              >
-                <ChevronLeft className="w-5 h-5" />
-              </button>
-              <button
-                type="button"
-                onClick={() => scrollRow(newCarouselRef, 'right')}
-                aria-label="Scroll right"
-                className="w-10 h-10 rounded-full border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 flex items-center justify-center hover:border-neutral-400 dark:hover:border-neutral-600 transition-colors"
-              >
-                <ChevronRight className="w-5 h-5" />
-              </button>
-            </div>
-            <Link
-              to="/store?sort=date-desc"
-              className="text-xs sm:text-sm font-bold uppercase tracking-wider text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white inline-flex items-center gap-1"
-            >
-              View All <ArrowRight className="w-4 h-4" />
-            </Link>
-          </div>
-        </div>
-
-        <div
-          ref={newCarouselRef}
-          className="flex gap-3 sm:gap-5 overflow-x-auto pb-4 snap-x snap-mandatory scrollbar-hide scroll-smooth"
-        >
-          {loading
-            ? [1, 2, 3, 4].map((i) => (
-                <div
-                  key={i}
-                  className="shrink-0 w-[calc(50%-0.375rem)] md:w-[calc(33.333%-0.85rem)] xl:w-[calc(25%-0.95rem)] aspect-[3/4] rounded-2xl bg-neutral-100 dark:bg-neutral-900 animate-pulse"
-                />
-              ))
-            : newIn.map((p) => (
+        {activeSection === 'display' && !loading && isReady && scenes.length > 0 && (
+          <>
+            <div ref={carouselRef} onScroll={handleCarouselScroll} className="flex gap-3 sm:gap-6 overflow-x-auto pb-4 snap-x snap-mandatory scrollbar-hide scroll-smooth">
+              {scenes.map((p) => (
                 <div
                   key={p.id}
-                  className="shrink-0 w-[calc(50%-0.375rem)] md:w-[calc(33.333%-0.85rem)] xl:w-[calc(25%-0.95rem)] snap-start"
+                  className="home-product-card shrink-0 w-[calc(50%-0.375rem)] sm:w-[calc(50%-0.75rem)] lg:w-[calc(33.333333%-1rem)] snap-start opacity-0 translate-y-6 will-change-transform"
                 >
-                  <ProductCard product={p} isNew />
+                  <ProductCard product={p} isReady={isReady} />
                 </div>
               ))}
-        </div>
-      </section>
-
-      {/* 5. CAR OF THE MONTH (24builds Signature Spotlight Section) */}
-      {spotlightProduct && (
-        <section className="max-w-[1700px] mx-auto px-4 sm:px-6 lg:px-8 pt-16 sm:pt-20">
-          <div className="rounded-3xl bg-neutral-950 text-white border border-neutral-800 overflow-hidden">
-            <div className="grid grid-cols-1 lg:grid-cols-12 items-center">
-              <div className="lg:col-span-7 relative aspect-[4/3] lg:aspect-auto lg:h-full min-h-[320px] bg-neutral-900">
-                <img
-                  src={spotlightProduct.image_url}
-                  alt={spotlightProduct.name}
-                  className="w-full h-full object-cover"
-                />
-                <span className="absolute top-5 left-5 px-3 py-1 rounded-full bg-[#D2FF00] text-neutral-950 text-xs font-black uppercase tracking-wider">
-                  Build of the Month
-                </span>
-              </div>
-
-              <div className="lg:col-span-5 p-6 sm:p-10 lg:p-12">
-                <p className="text-neutral-400 text-xs font-bold uppercase tracking-widest mb-2">
-                  Spotlight Edition
-                </p>
-                <h2 className="text-3xl sm:text-4xl font-bold tracking-tight">
-                  {spotlightProduct.name}
-                </h2>
-                <p className="text-neutral-400 text-sm sm:text-base mt-3 leading-relaxed">
-                  {spotlightProduct.description ||
-                    'Designed for display-grade proportions with clean bodywork, custom wheel fitment, and crisp 300ppi decal detailing.'}
-                </p>
-
-                {/* Engineering Specs Grid */}
-                <div className="grid grid-cols-3 gap-3 my-7">
-                  <div className="rounded-xl bg-neutral-900 border border-neutral-800 p-3.5">
-                    <Layers className="w-4 h-4 text-[#D2FF00] mb-1.5" />
-                    <p className="text-[11px] text-neutral-400 uppercase">Pieces</p>
-                    <p className="text-base font-bold">
-                      {spotlightProduct.piece_count || '300+'}
-                    </p>
-                  </div>
-                  <div className="rounded-xl bg-neutral-900 border border-neutral-800 p-3.5">
-                    <Ruler className="w-4 h-4 text-[#D2FF00] mb-1.5" />
-                    <p className="text-[11px] text-neutral-400 uppercase">Scale</p>
-                    <p className="text-base font-bold">8-Stud</p>
-                  </div>
-                  <div className="rounded-xl bg-neutral-900 border border-neutral-800 p-3.5">
-                    <Box className="w-4 h-4 text-[#D2FF00] mb-1.5" />
-                    <p className="text-[11px] text-neutral-400 uppercase">Format</p>
-                    <p className="text-base font-bold">Kit + PDF</p>
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between gap-4 pt-2 border-t border-neutral-800">
-                  <div>
-                    <p className="text-xs text-neutral-400">Starting at</p>
-                    <p className="text-2xl font-bold">
-                      {formatPrice(spotlightProduct.price)}
-                    </p>
-                  </div>
-                  <Link
-                    to={`/product/${spotlightProduct.slug}`}
-                    className="group inline-flex items-center gap-2 px-6 py-3.5 bg-white text-neutral-950 font-bold text-xs sm:text-sm uppercase tracking-wider rounded-full hover:bg-[#D2FF00] transition-all"
-                  >
-                    View Product
-                    <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
-                  </Link>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-      )}
-
-      {/* 6. CUSTOMER FAVOURITES */}
-      {featured.length > 0 && (
-        <section className="max-w-[1700px] mx-auto px-4 sm:px-6 lg:px-8 pt-16 sm:pt-20">
-          <div className="flex items-end justify-between mb-6">
-            <div>
-              <p className="text-neutral-500 text-xs font-bold uppercase tracking-widest mb-1.5">
-                Top Rated
-              </p>
-              <h2 className="text-2xl sm:text-4xl font-bold tracking-tight">
-                Customer Favourites
-              </h2>
             </div>
 
-            <div className="flex items-center gap-3">
-              <div className="hidden md:flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => scrollRow(favCarouselRef, 'left')}
-                  aria-label="Scroll left"
-                  className="w-10 h-10 rounded-full border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 flex items-center justify-center hover:border-neutral-400 dark:hover:border-neutral-600 transition-colors"
-                >
-                  <ChevronLeft className="w-5 h-5" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => scrollRow(favCarouselRef, 'right')}
-                  aria-label="Scroll right"
-                  className="w-10 h-10 rounded-full border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 flex items-center justify-center hover:border-neutral-400 dark:hover:border-neutral-600 transition-colors"
-                >
-                  <ChevronRight className="w-5 h-5" />
-                </button>
-              </div>
-              <Link
-                to="/store"
-                className="text-xs sm:text-sm font-bold uppercase tracking-wider text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white inline-flex items-center gap-1"
-              >
-                View All <ArrowRight className="w-4 h-4" />
-              </Link>
-            </div>
-          </div>
-
-          <div
-            ref={favCarouselRef}
-            className="flex gap-3 sm:gap-5 overflow-x-auto pb-4 snap-x snap-mandatory scrollbar-hide scroll-smooth"
-          >
-            {featured.map((p) => (
+            {scenes.length > 2 && (
               <div
-                key={p.id}
-                className="shrink-0 w-[calc(50%-0.375rem)] md:w-[calc(33.333%-0.85rem)] xl:w-[calc(25%-0.95rem)] snap-start"
+                className="md:hidden flex items-center justify-center gap-1.5 mt-3"
+                aria-hidden="true"
               >
-                <ProductCard product={p} />
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {/* 7. WHY BUILDERS CHOOSE ME (Independent Designer Trust Pillars) */}
-      <section className="max-w-[1700px] mx-auto px-4 sm:px-6 lg:px-8 pt-16 sm:pt-24">
-        <div className="mb-8">
-          <p className="text-neutral-500 text-xs font-bold uppercase tracking-widest mb-1.5">
-            The Standard
-          </p>
-          <h2 className="text-2xl sm:text-4xl font-bold tracking-tight">
-            Three Things I Refuse to Compromise On
-          </h2>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-          {[
-            {
-              icon: Wrench,
-              title: 'Original 100% Independent Design',
-              desc: 'Every model is engineered, test-built, and refined by me—no mass-copied templates, just accurate proportions and solid structure.',
-            },
-            {
-              icon: ShieldCheck,
-              title: 'Quality Parts & Crisp Decals',
-              desc: 'Tight clutch bricks paired with high-resolution 300ppi sticker sheets and clear step-by-step PDF instructions.',
-            },
-            {
-              icon: Truck,
-              title: 'Tracked Global Fulfillment',
-              desc: 'Carefully packed and shipped worldwide with tracking, plus fast missing-part support if anything ever goes astray.',
-            },
-          ].map((item) => {
-            const Icon = item.icon;
-            return (
-              <div
-                key={item.title}
-                className="rounded-2xl p-6 sm:p-8 bg-neutral-100 dark:bg-[#111112] border border-neutral-200 dark:border-neutral-800"
-              >
-                <div className="w-11 h-11 rounded-xl bg-neutral-900 dark:bg-white text-white dark:text-neutral-950 flex items-center justify-center mb-5">
-                  <Icon className="w-5 h-5" />
-                </div>
-                <h3 className="text-lg sm:text-xl font-bold mb-2">{item.title}</h3>
-                <p className="text-neutral-600 dark:text-neutral-400 text-sm leading-relaxed">
-                  {item.desc}
-                </p>
-              </div>
-            );
-          })}
-        </div>
-      </section>
-
-      {/* 8. FAQ ACCORDION (24builds Bottom Conversion Booster) */}
-      <section className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-24">
-        <div className="text-center mb-10">
-          <p className="text-neutral-500 text-xs font-bold uppercase tracking-widest mb-1.5">
-            Questions?
-          </p>
-          <h2 className="text-2xl sm:text-4xl font-bold tracking-tight">
-            Frequently Asked Questions
-          </h2>
-        </div>
-
-        <div className="space-y-3">
-          {FAQS.map((item, idx) => {
-            const isOpen = openFaq === idx;
-            return (
-              <div
-                key={item.q}
-                className="rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-[#111112] overflow-hidden"
-              >
-                <button
-                  type="button"
-                  onClick={() => setOpenFaq(isOpen ? null : idx)}
-                  className="w-full px-5 sm:px-6 py-4 sm:py-5 flex items-center justify-between text-left gap-4"
-                >
-                  <span className="font-bold text-sm sm:text-base">{item.q}</span>
-                  <ChevronDown
-                    className={`w-5 h-5 shrink-0 text-neutral-500 transition-transform duration-200 ${
-                      isOpen ? 'rotate-180' : ''
+                {Array.from({ length: Math.max(1, scenes.length - 2 + 1) }).map((_, index) => (
+                  <span
+                    key={index}
+                    className={`h-1.5 rounded-full transition-all duration-300 ${
+                      mobileScrollIndicator === index
+                        ? 'w-6 bg-neutral-900 dark:bg-white'
+                        : 'w-1.5 bg-neutral-300 dark:bg-neutral-700'
                     }`}
                   />
-                </button>
-                {isOpen && (
-                  <div className="px-5 sm:px-6 pb-5 text-sm text-neutral-600 dark:text-neutral-400 leading-relaxed">
-                    {item.a}
-                  </div>
-                )}
+                ))}
               </div>
-            );
-          })}
+            )}
+          </>
+        )}
+      </section>
+
+      {/* CTA Banner Section */}
+      <section
+        ref={ctaRef}
+        className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-20"
+      >
+        <div className="relative rounded-3xl bg-white dark:bg-neutral-950 p-6 sm:p-10 md:p-16 border-0 shadow-none">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center">
+
+            {/* Left: Overlapping Tilted Cards */}
+            <div className="cta-item-images opacity-0 translate-y-[2.5px] transform-gpu lg:col-span-6 relative h-[260px] sm:h-[320px] lg:h-[360px] flex items-center justify-center w-full py-4">
+
+              {/* Background Card */}
+              <div className="cta-card-bg absolute w-40 sm:w-52 lg:w-64 aspect-[4/5] rounded-2xl overflow-hidden shadow-2xl transform -rotate-6 lg:-rotate-12 -translate-x-6 sm:-translate-x-10 lg:-translate-x-12 -translate-y-2 sm:-translate-y-4 bg-neutral-900 will-change-transform">
+                <img
+                  src="https://raw.githubusercontent.com/itsspaco0809/scitem-images/main/Ford/Mustang_GTD/MC00001900/0.webp?auto=compress&cs=tinysrgb&h=650&w=940"
+                  alt="Custom Build 1"
+                  className="w-full h-full object-cover"
+                />
+              </div>
+
+              {/* Foreground Card */}
+              <div className="cta-card-fg absolute w-40 sm:w-52 lg:w-64 aspect-[4/5] rounded-2xl overflow-hidden shadow-2xl transform rotate-3 lg:rotate-6 translate-x-6 sm:translate-x-10 lg:translate-x-12 translate-y-2 sm:translate-y-4 bg-neutral-900 z-10 will-change-transform">
+                <img
+                  src="https://raw.githubusercontent.com/itsspaco0809/scitem-images/main/Chevrolet/Corvette_CX/MC00002500/0.webp?auto=compress&cs=tinysrgb&h=650&w=940"
+                  alt="Custom Build 2"
+                  className="w-full h-full object-cover"
+                />
+              </div>
+            </div>
+
+            {/* Right: Text & Action */}
+            <div className="lg:col-span-6 flex flex-col items-center lg:items-start text-center lg:text-left">
+              <h2 className="cta-item-title opacity-0 translate-y-[2.5px] transform-gpu text-3xl sm:text-4xl lg:text-5xl font-bold text-neutral-900 dark:text-white tracking-tight mb-4 leading-tight">
+                Want a{' '}
+                <span className="relative inline-block">
+                  Custom Model?
+                  <svg
+                    className="absolute -bottom-2 left-0 w-full h-3 overflow-visible"
+                    viewBox="0 0 100 20"
+                    preserveAspectRatio="none"
+                    fill="none"
+                  >
+                    <path
+                      className="cta-underline-path"
+                      d="M 5 15 Q 50 2 95 15"
+                      stroke="#D2FF00"
+                      strokeWidth="6"
+                      strokeLinecap="round"
+                    />
+                  </svg>
+                </span>
+              </h2>
+
+              <p className="cta-item-desc opacity-0 translate-y-[2.5px] transform-gpu text-neutral-600 dark:text-neutral-400 text-sm sm:text-base leading-relaxed max-w-xl mb-8">
+                Share reference photos of your own vehicle, and we'll bring it to life.{' '}
+                From personalized{' '}
+                <strong className="text-neutral-900 dark:text-white font-semibold">
+                  license plates
+                </strong>{' '}
+                to a{' '}
+                <strong className="text-neutral-900 dark:text-white font-semibold">
+                  custom wheel setup
+                </strong>{' '}
+                and specific aero details — we design every detail to match your exact vision.
+              </p>
+
+              <div className="cta-item-button opacity-0 translate-y-[2.5px] transform-gpu">
+                <Link
+                  ref={ctaButtonRef}
+                  to="/contact"
+                  className="group inline-flex items-center justify-center gap-2 px-8 py-4 bg-neutral-900 dark:bg-white text-white dark:text-neutral-950 font-bold text-sm uppercase tracking-wider rounded-full hover:bg-neutral-800 dark:hover:bg-neutral-200 transition-all hover:scale-105 active:scale-95"
+                >
+                  Request a Build
+                  <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
+                </Link>
+              </div>
+            </div>
+
+          </div>
         </div>
       </section>
     </div>
