@@ -1268,10 +1268,17 @@ export default function ProductDetail({
     const colorName =
       selectedColor?.name;
 
+    const colorImage =
+      selectedColor?.thumbnail ||
+      selectedColor?.gallery?.[0] ||
+      product.image_url;
+
     const productToAdd =
       colorName
         ? {
             ...product,
+            image_url:
+              colorImage,
             selectedColor:
               colorName,
           }
